@@ -31,7 +31,7 @@ const HeroSection = () => {
         </p>
         
         <p className="description">
-          Crafting robust test automation frameworks with 3.6+ years of expertise in Selenium, Playwright, and modern testing practices. Leading teams to deliver flawless software experiences.
+          Crafting robust test automation frameworks with 4 years of expertise in Selenium, Playwright, and modern testing practices. Leading teams to deliver flawless software experiences.
         </p>
         
         <div className="hero-buttons">
