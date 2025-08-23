@@ -38,10 +38,10 @@ const ExperienceSection = () => {
       ]
     },
     {
-      title: "QA Automation Engineer",
-      company: "TechCorp Solutions",
-      duration: "January 2022 – November 2024",
-      location: "New Delhi",
+      title: "Quality Assurance Automation Engineer",
+      company: "JIVI (Jiviews)",
+      duration: "Septmber 2023 – November 2024",
+      location: "Bangalore",
       responsibilities: [
         "Developed comprehensive test automation suites using Selenium WebDriver and Java",
         "Implemented API testing frameworks using RestAssured and Postman",
@@ -51,10 +51,10 @@ const ExperienceSection = () => {
       ]
     },
     {
-      title: "Junior QA Engineer",
-      company: "StartUp Tech",
-      duration: "June 2021 – December 2021",
-      location: "New Delhi",
+      title: "Test Automation Engineer",
+      company: "Test Well Technologies",
+      duration: "Dec 2020 – Septmber 2023",
+      location: "Bangalore",
       responsibilities: [
         "Performed manual and exploratory testing for web and mobile applications",
         "Created detailed test cases and executed comprehensive test plans",
