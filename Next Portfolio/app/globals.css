@@ -644,7 +644,8 @@ section {
 }
 
 .experience-timeline::before {
-  content: '';
+    display: none !important;
+  /* content: '';
   position: absolute;
   left: 50%;
   top: 0;
@@ -652,7 +653,7 @@ section {
   width: 2px;
   background: var(--gradient-neon);
   transform: translateX(-50%);
-  animation: pulse 2s ease-in-out infinite;
+  animation: pulse 2s ease-in-out infinite; */
 }
 
 .timeline-item {

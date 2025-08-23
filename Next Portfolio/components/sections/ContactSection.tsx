@@ -57,7 +57,7 @@ const ContactSection = () => {
       icon: "📧",
       title: "Email",
       description: "Drop me a line anytime",
-      contact: "rajat.pradhan@email.com",
+      contact: "kumarrajatpradhan5364@gmail.com",
       gradient: "var(--gradient-primary)"
     },
     {
@@ -78,7 +78,7 @@ const ContactSection = () => {
       icon: "💼",
       title: "LinkedIn",
       description: "Let's connect professionally",
-      contact: "linkedin.com/in/rajat-pradhan",
+      contact: "https://www.linkedin.com/in/rajat-kumar-pradhan-204974257/",
       gradient: "var(--gradient-success)"
     }
   ];
