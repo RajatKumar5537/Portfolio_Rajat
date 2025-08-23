@@ -38,16 +38,16 @@ const ContactSection = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     // Simulate form submission
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     console.log('Form submitted:', formData);
-    
+
     // Reset form
     setFormData({ name: '', email: '', subject: '', message: '' });
     setIsSubmitting(false);
-    
+
     // Show success message (you can implement a toast notification here)
     alert('Message sent successfully!');
   };
@@ -57,28 +57,24 @@ const ContactSection = () => {
       icon: "📧",
       title: "Email",
       description: "Drop me a line anytime",
-      contact: "kumarrajatpradhan5364@gmail.com",
+      contact: "mailto:kumarrajatpradhan5364@gmail.com",
+      display: "kumarrajatpradhan5364@gmail.com",
       gradient: "var(--gradient-primary)"
     },
     {
       icon: "📱",
       title: "Phone",
       description: "Call for immediate response",
-      contact: "+91 8810455929",
+      contact: "tel:+918810455929",
+      display: "+91 8810455929",
       gradient: "var(--gradient-secondary)"
-    },
-    {
-      icon: "📍",
-      title: "Location",
-      description: "Based in New Delhi",
-      contact: "New Delhi, India",
-      gradient: "var(--gradient-accent)"
     },
     {
       icon: "💼",
       title: "LinkedIn",
       description: "Let's connect professionally",
       contact: "https://www.linkedin.com/in/rajat-kumar-pradhan-204974257/",
+      display: "LinkedIn Profile",
       gradient: "var(--gradient-success)"
     }
   ];
@@ -98,28 +94,46 @@ const ContactSection = () => {
       <div className="contact-grid">
         <div className="contact-info">
           {contactMethods.map((method, index) => (
-            <div 
-              key={method.title} 
+            <div
+              key={method.title}
               className="contact-method"
-              style={{ 
+              style={{
                 animationDelay: isVisible ? `${index * 0.1}s` : '0s',
                 animation: isVisible ? 'fadeInUp 0.6s ease-out forwards' : 'none'
               }}
             >
-              <div className="contact-method-icon" style={{ background: method.gradient }}>
+              <div
+                className="contact-method-icon"
+                style={{ background: method.gradient }}
+              >
                 {method.icon}
               </div>
               <h3>{method.title}</h3>
               <p>{method.description}</p>
-              <p style={{ color: 'var(--primary)', fontWeight: 600 }}>{method.contact}</p>
+
+              {method.contact ? (
+                <a
+                  href={method.contact}
+                  target={method.contact.startsWith("http") ? "_blank" : "_self"}
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}
+                >
+                  {method.display}
+                </a>
+              ) : (
+                <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                  {method.display}
+                </span>
+              )}
             </div>
           ))}
+
         </div>
 
-        <form 
+        <form
           className="contact-form"
           onSubmit={handleSubmit}
-          style={{ 
+          style={{
             animationDelay: isVisible ? '0.4s' : '0s',
             animation: isVisible ? 'fadeInUp 0.6s ease-out forwards' : 'none'
           }}
@@ -176,8 +190,8 @@ const ContactSection = () => {
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className={`btn btn-primary ${isSubmitting ? 'loading' : ''}`}
             disabled={isSubmitting}
             style={{ width: '100%' }}
