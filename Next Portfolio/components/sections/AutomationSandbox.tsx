@@ -79,12 +79,12 @@ const AutomationSandbox = () => {
 
   const activeScenario = scenarios.find(s => s.id === activeScenarioId) || scenarios[0];
 
-  // Auto-scroll logs to bottom
+  // Auto-scroll logs to bottom only when pipeline is running
   useEffect(() => {
-    if (consoleEndRef.current) {
+    if (consoleEndRef.current && isRunning) {
       consoleEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [consoleLogs]);
+  }, [consoleLogs, isRunning]);
 
   const triggerPipeline = async () => {
     if (isRunning) return;
