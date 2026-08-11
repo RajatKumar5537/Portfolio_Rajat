@@ -2,9 +2,11 @@
 const nextConfig = {
   images: {
     domains: ['images.unsplash.com'],
+    unoptimized: true,
   },
-  trailingSlash: false,
+  trailingSlash: true,
   output: 'export',
+  basePath: '/Portfolio_Rajat',
 }
 
 module.exports = nextConfig;
