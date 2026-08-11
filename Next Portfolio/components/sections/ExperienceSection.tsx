@@ -1,104 +1,130 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { Briefcase, Calendar, MapPin, CheckCircle, Award } from 'lucide-react';
+
+interface Experience {
+  title: string;
+  company: string;
+  duration: string;
+  location: string;
+  responsibilities: string[];
+  techStack: string[];
+}
 
 const ExperienceSection = () => {
-  const [isVisible, setIsVisible] = useState(false);
-  const sectionRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
-
-  const experiences = [
+  const experiences: Experience[] = [
     {
-      title: "Software QA Team Lead",
-      company: "SOMO MEDIA PVT LTD",
-      duration: "December 2024 – Present",
-      location: "New Delhi",
+      title: "QE Manager",
+      company: "Somo Media Pvt. Ltd.",
+      duration: "Dec 2024 – Present",
+      location: "New Delhi, India",
       responsibilities: [
-        "Built and manage Playwright (JavaScript) automation framework from scratch",
-        "Lead and mentor QA engineering team, establishing quality benchmarks",
-        "Drive end-to-end QA processes from requirement analysis to production",
-        "Integrate automation scripts into CI/CD pipelines for continuous feedback",
-        "Collaborate with cross-functional teams to ensure seamless product delivery"
-      ]
+        "Led Quality Engineering (QE) activities across multiple web and mobile applications.",
+        "Designed scalable Playwright automation framework from scratch.",
+        "Built reusable API Automation Framework using Jest and Axios.",
+        "Integrated automation into Jenkins CI/CD pipelines and developed automated reporting using Allure.",
+        "Performed backend validation using MongoDB, Redis, and Kafka.",
+        "Designed automation architecture for Gaming Platform APIs.",
+        "Reviewed pull requests, mentored junior QE engineers, and established best practices."
+      ],
+      techStack: ["Playwright", "Jest", "Axios", "Jenkins", "Allure", "MongoDB", "Redis", "Kafka"]
     },
     {
-      title: "Quality Assurance Automation Engineer",
-      company: "JIVI (Jiviews)",
-      duration: "Septmber 2023 – November 2024",
-      location: "Bangalore",
+      title: "Automation Test Engineer",
+      company: "JIVIEWS Private Limited",
+      duration: "Oct 2023 – Dec 2024",
+      location: "Bangalore, India",
       responsibilities: [
-        "Developed comprehensive test automation suites using Selenium WebDriver and Java",
-        "Implemented API testing frameworks using RestAssured and Postman",
-        "Created robust test data management and database validation processes",
-        "Collaborated with development teams in Agile environment for quality delivery",
-        "Mentored junior QA engineers and established testing best practices"
-      ]
+        "Developed Jest & Axios API automation frameworks covering Authentication, Wallet, Tournament, Match, League, and Leaderboards for the Meteor Blast Gaming Platform.",
+        "Conducted UI Automation, regression/smoke suites, and admin dashboard testing for Nexus Dashboard using Playwright, JavaScript, and Jenkins.",
+        "Validated backend streams, event tracking, MongoDB records, Redis cache, and Kafka events for AFS Pixel Monitoring Dashboard."
+      ],
+      techStack: ["Playwright", "Jest", "Axios", "Postman", "MongoDB", "Redis", "Kafka", "Jenkins"]
     },
     {
-      title: "Test Automation Engineer",
-      company: "Test Well Technologies",
-      duration: "Dec 2020 – Septmber 2023",
-      location: "Bangalore",
+      title: "Automation Test Engineer",
+      company: "Test Well Technologies Pvt Ltd",
+      duration: "Dec 2020 – Sep 2023",
+      location: "Bangalore, India",
       responsibilities: [
-        "Performed manual and exploratory testing for web and mobile applications",
-        "Created detailed test cases and executed comprehensive test plans",
-        "Identified, documented, and tracked defects through resolution",
-        "Participated in requirement analysis and test planning activities",
-        "Supported automation initiatives and learned testing frameworks"
-      ]
+        "Developed Selenium Automation Framework from scratch with Java and TestNG.",
+        "Executed UI Automation, API testing using Postman, and database validations.",
+        "Performed cross-browser testing, regression, smoke testing, and managed bug tracking/reporting in Jira."
+      ],
+      techStack: ["Selenium", "Java", "TestNG", "Maven", "Git", "Jenkins", "SQL", "Postman"]
     }
   ];
 
   return (
-    <section ref={sectionRef} className="experience" id="experience">
-      <div className="section-header">
-        <div className="section-badge">
-          🏆 My journey
-        </div>
-        <h2 className="section-title">Professional Experience</h2>
-        <p className="section-subtitle">
-          A progression of roles that shaped my expertise in quality assurance and test automation
-        </p>
-      </div>
-
-      <div className="experience-timeline">
-        {experiences.map((exp, index) => (
-          <div 
-            key={index} 
-            className="timeline-item"
-            style={{ 
-              animationDelay: isVisible ? `${index * 0.2}s` : '0s',
-              animation: isVisible ? 'fadeInUp 0.8s ease-out forwards' : 'none'
-            }}
-          >
-            <div className="timeline-content">
-              <h3>{exp.title}</h3>
-              <div className="company">{exp.company}</div>
-              <div className="duration">{exp.duration}</div>
-              <ul>
-                {exp.responsibilities.map((responsibility, idx) => (
-                  <li key={idx}>{responsibility}</li>
-                ))}
-              </ul>
-            </div>
+    <section id="experience">
+      <div className="container">
+        
+        {/* Section Header */}
+        <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
+          <div className="section-badge">
+            <Award size={12} style={{ marginRight: '0.25rem' }} />
+            <span>My Journey</span>
           </div>
-        ))}
+          <h2 className="section-title">Professional Experience</h2>
+          <p className="section-subtitle" style={{ margin: '0 auto' }}>
+            A progression of leadership and engineering roles specializing in software quality validation.
+          </p>
+        </div>
+
+        {/* Timeline Component */}
+        <div className="timeline">
+          {experiences.map((exp, idx) => {
+            const cardThemes = ['neon-indigo', 'neon-purple', 'neon-teal'];
+            const cardTheme = cardThemes[idx % 3];
+
+            return (
+              <div key={idx} className="timeline-item">
+                <div className="timeline-dot"></div>
+                <div className={`glass-card timeline-card ${cardTheme}`}>
+                  <div className="timeline-header">
+                    <div>
+                      <h3 className="timeline-role">{exp.title}</h3>
+                      <span className="timeline-company">{exp.company}</span>
+                    </div>
+                    <div className="timeline-meta">
+                      <div className="timeline-meta-item">
+                        <Calendar size={14} />
+                        <span>{exp.duration}</span>
+                      </div>
+                      <div className="timeline-meta-item">
+                        <MapPin size={14} />
+                        <span>{exp.location}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ul className="timeline-list">
+                    {exp.responsibilities.map((resp, rIdx) => (
+                      <li key={rIdx} className="timeline-list-item">
+                        <span className="timeline-list-icon">
+                          <CheckCircle size={14} />
+                        </span>
+                        <span>{resp}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="timeline-tech-wrap">
+                    <span className="timeline-tech-lbl">Stack:</span>
+                    <div className="timeline-tech-tags">
+                      {exp.techStack.map((tech, tIdx) => (
+                        <span key={tIdx} className="timeline-tech-tag">
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
       </div>
     </section>
   );

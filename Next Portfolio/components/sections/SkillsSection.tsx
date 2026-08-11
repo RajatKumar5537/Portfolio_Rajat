@@ -1,103 +1,81 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { Monitor, Link, Terminal, Database, GitBranch, BarChart, Wrench } from 'lucide-react';
 
 const SkillsSection = () => {
-  const [isVisible, setIsVisible] = useState(false);
-  const sectionRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
-
   const skillCategories = [
     {
-      title: "Test Automation",
-      icon: "🔧",
-      skills: ["Selenium WebDriver", "Playwright", "TestNG", "JUnit", "Jest", "Cucumber", "RestAssured", "Postman"]
+      title: "UI Automation",
+      icon: <Monitor size={20} />,
+      skills: ["Playwright", "Selenium WebDriver", "TestNG", "Page Object Model", "Appium", "Mobile Automation"]
     },
     {
-      title: "Programming Languages",
-      icon: "💻",
-      skills: ["Java", "JavaScript", "TypeScript", "Python", "C#", "SQL", "HTML/CSS", "Bash"]
+      title: "API Automation",
+      icon: <Link size={20} />,
+      skills: ["Jest", "Axios", "REST APIs", "Postman", "REST Assured"]
     },
     {
-      title: "Frameworks & Tools",
-      icon: "⚡",
-      skills: ["Maven", "Gradle", "Jenkins", "GitHub Actions", "Docker", "Kubernetes", "Allure", "ExtentReports"]
+      title: "Programming",
+      icon: <Terminal size={20} />,
+      skills: ["Java", "JavaScript", "TypeScript", "SQL", "HTML/CSS", "YAML"]
     },
     {
-      title: "Testing Types",
-      icon: "🎯",
-      skills: ["UI Testing", "API Testing", "Database Testing", "Cross-browser Testing", "Mobile Testing", "Performance Testing"]
+      title: "Backend Validation",
+      icon: <Database size={20} />,
+      skills: ["MongoDB", "Redis", "Kafka", "SQL Server", "MySQL"]
     },
     {
       title: "CI/CD & DevOps",
-      icon: "🚀",
-      skills: ["Jenkins", "GitLab CI", "GitHub Actions", "Docker", "AWS", "Azure DevOps", "Terraform"]
+      icon: <GitBranch size={20} />,
+      skills: ["Jenkins", "Azure DevOps", "Git", "GitHub", "Bitbucket", "Docker"]
     },
     {
-      title: "Methodologies",
-      icon: "📋",
-      skills: ["Agile", "Scrum", "BDD", "TDD", "Risk-based Testing", "Shift-left Testing", "Continuous Testing"]
+      title: "Reporting & PM",
+      icon: <BarChart size={20} />,
+      skills: ["Allure Report", "Jira", "Agile", "Scrum"]
     }
   ];
 
   return (
-    <section ref={sectionRef} className="skills" id="skills">
-      <div className="section-header">
-        <div className="section-badge">
-          🛠️ My expertise
-        </div>
-        <h2 className="section-title">Skills & Technologies</h2>
-        <p className="section-subtitle">
-          A comprehensive toolkit for modern quality assurance and test automation
-        </p>
-      </div>
-
-      <div className="skills-grid">
-        {skillCategories.map((category, index) => (
-          <div 
-            key={category.title} 
-            className="skill-category"
-            style={{ 
-              animationDelay: isVisible ? `${index * 0.1}s` : '0s',
-              animation: isVisible ? 'fadeInUp 0.6s ease-out forwards' : 'none'
-            }}
-          >
-            <div className="skill-icon">
-              {category.icon}
-            </div>
-            <h3>{category.title}</h3>
-            <div className="skill-tags">
-              {category.skills.map((skill, skillIndex) => (
-                <span 
-                  key={skill} 
-                  className="skill-tag"
-                  style={{ 
-                    animationDelay: isVisible ? `${(index * 0.1) + (skillIndex * 0.05)}s` : '0s',
-                    animation: isVisible ? 'fadeInUp 0.4s ease-out forwards' : 'none'
-                  }}
-                >
-                  {skill}
-                </span>
-              ))}
-            </div>
+    <section id="skills">
+      <div className="container">
+        
+        {/* Section Header */}
+        <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
+          <div className="section-badge">
+            <Wrench size={12} style={{ marginRight: '0.25rem' }} />
+            <span>Technical Toolkit</span>
           </div>
-        ))}
+          <h2 className="section-title">Skills & Expertise</h2>
+          <p className="section-subtitle" style={{ margin: '0 auto' }}>
+            A modular compilation of frameworks, databases, and DevOps tools built to deliver rock-solid quality.
+          </p>
+        </div>
+
+        {/* Skills Grid */}
+        <div className="skills-grid">
+          {skillCategories.map((category, idx) => {
+            const cardThemes = ['neon-indigo', 'neon-purple', 'neon-teal'];
+            const cardTheme = cardThemes[idx % 3];
+            
+            return (
+              <div key={idx} className={`glass-card skills-card ${cardTheme}`}>
+                <h3>
+                  <span className="skills-card-icon">{category.icon}</span>
+                  <span>{category.title}</span>
+                </h3>
+                <div className="skills-list">
+                  {category.skills.map((skill, sIdx) => (
+                    <span key={sIdx} className="skills-tag">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
       </div>
     </section>
   );
