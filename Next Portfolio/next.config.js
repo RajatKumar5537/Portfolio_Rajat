@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const isProd = process.env.NODE_ENV === 'production';
+
 const nextConfig = {
   images: {
     domains: ['images.unsplash.com'],
@@ -6,7 +8,7 @@ const nextConfig = {
   },
   trailingSlash: true,
   output: 'export',
-  basePath: '/Portfolio_Rajat',
+  basePath: isProd ? '/Portfolio_Rajat' : '',
 }
 
 module.exports = nextConfig;

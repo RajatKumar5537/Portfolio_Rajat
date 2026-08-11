@@ -106,6 +106,7 @@ body {
   position: relative;
   line-height: 1.6;
   transition: background-color 0.5s ease, color 0.5s ease;
+  overflow-x: hidden;
 }
 
 /* Background Animations and Mesh Grid */
@@ -113,7 +114,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   z-index: -10;
   pointer-events: none;
@@ -133,7 +134,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   z-index: -9;
   pointer-events: none;
@@ -1250,18 +1251,30 @@ footer {
 }
 
 @media (max-width: 768px) {
-  .section-title {
-    font-size: 2rem;
+  body {
+    overflow-x: hidden;
   }
-  .hero-info h1 {
-    font-size: 2.75rem;
+  
+  .container {
+    padding: 0 1rem;
   }
+  
+  nav {
+    padding: 0.5rem 0;
+  }
+  
+  .nav-container {
+    padding: 0 1rem;
+  }
+  
+  /* Mobile menu drawer */
   .nav-menu {
+    display: none !important;
     position: fixed;
     top: 0;
     right: -100%;
     width: 80%;
-    max-width: 320px;
+    max-width: 300px;
     height: 100vh;
     background: var(--bg-secondary);
     border-left: 1px solid var(--border-primary);
@@ -1269,12 +1282,121 @@ footer {
     padding: 6rem 2rem;
     align-items: flex-start;
     transition: right var(--transition-base);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    gap: 1.5rem;
   }
+  
   .nav-menu.active {
+    display: flex !important;
     right: 0;
   }
-  .nav-toggle {
+
+  .nav-menu li {
+    width: 100%;
+    margin: 0;
+  }
+
+  .nav-menu a {
     display: block;
+    width: 100%;
+    font-size: 1.1rem;
+    padding: 0.5rem 0;
+  }
+
+  .nav-toggle {
+    display: block !important;
     z-index: 1001;
+  }
+  
+  .status-badge {
+    display: none !important; /* Hide staging indicator on small screens to save header space */
+  }
+  
+  /* Hero Typography & Layout */
+  .hero-wrapper {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    padding-top: 5rem;
+    min-height: auto;
+    text-align: center;
+  }
+  
+  .hero-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .hero-info h1 {
+    font-size: 2.2rem !important;
+    line-height: 1.2;
+  }
+  
+  .hero-subtitle {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .hero-actions {
+    justify-content: center;
+    margin-bottom: 2rem;
+    width: 100%;
+  }
+
+  .hero-metrics {
+    gap: 1.5rem;
+    justify-content: center;
+  }
+
+  .hero-metric-num {
+    font-size: 1.75rem;
+  }
+  
+  /* Grid stacking overrides */
+  .about-metrics-grid,
+  .skills-grid,
+  .projects-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+  
+  /* Experience vertical timeline spacing */
+  .timeline::before {
+    left: 1rem !important;
+  }
+  
+  .timeline-item {
+    width: 100% !important;
+    padding-left: 2.5rem !important;
+  }
+  
+  .timeline-marker {
+    left: 1rem !important;
+  }
+  
+  .timeline-content {
+    width: 100% !important;
+  }
+  
+  /* Section title sizes */
+  .section-title {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-info h1 {
+    font-size: 1.85rem !important;
+  }
+  
+  .hero-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .hero-actions .btn {
+    width: 100%;
+    justify-content: center;
   }
 }

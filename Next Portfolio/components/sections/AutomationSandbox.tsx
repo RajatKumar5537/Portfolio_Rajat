@@ -16,7 +16,7 @@ const AutomationSandbox = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<string[]>(['Select a scenario and click "Trigger Pipeline" to execute diagnostics...']);
   const [status, setStatus] = useState<'idle' | 'running' | 'success'>('idle');
-  const consoleEndRef = useRef<HTMLDivElement>(null);
+  const consoleBodyRef = useRef<HTMLDivElement>(null);
 
   const scenarios: Scenario[] = [
     {
@@ -46,32 +46,32 @@ const AutomationSandbox = () => {
       desc: 'Axios and Jest framework validating gateway endpoint responses.',
       icon: <Cpu size={18} />,
       logs: [
-        '[INFO] Starting test execution hook: jest api-gateway.test.js',
-        '[INFO] Target endpoint resolved: https://api.staging.meteorblast.io/v1',
-        '[STEP] Dispatch POST /auth/register with dynamic test credentials',
-        '[PASS] HTTP Response: 201 Created. JWT payload schema validated.',
-        '[STEP] Trigger 100 concurrent wallet balance queries (concurrency test)',
-        '[PASS] Average Latency: 32ms | Packet loss: 0% | 200 OK verified.',
-        '[STEP] Test ledger transaction request cryptographic signature validations',
-        '[PASS] Signature validation matches ledger standards.',
-        '[SUCCESS] API Gateway test suites finished. Assertions: 12/12 passed.'
+        '[INFO] Starting test execution hook: jest api-load.test.ts',
+        '[INFO] Resolving endpoint gateway configurations...',
+        '[STEP] GET /api/v1/auth/session - validating token handshakes',
+        '[PASS] API response status 200 OK. Handshake complete (140ms)',
+        '[STEP] POST /api/v1/checkout/intent - mock payment gateway load',
+        '[PASS] API response status 201 Created. Intent generated (230ms)',
+        '[STEP] GET /api/v1/inventory/status - database check latency',
+        '[PASS] API response status 200 OK. Query matched (90ms)',
+        '[SUCCESS] Jest API verification complete. Gateway responsive.'
       ]
     },
     {
-      id: 'backend',
+      id: 'db',
       title: 'DB State Validation',
       desc: 'Verifying queue offsets and cache sync status across Kafka and Redis.',
       icon: <Database size={18} />,
       logs: [
-        '[INFO] Starting backend data integration diagnostics...',
-        '[STEP] Publish event payload: kafka:topic:user-register-event',
-        '[STEP] Subscribe to user service Kafka partition queue...',
-        '[PASS] Acknowledged message partition offset reference: #KAFKA-9481',
-        '[STEP] Audit MongoDB collection for document presence and model consistency',
-        '[PASS] Record synced in DB. Entity fields verified.',
-        '[STEP] Verify write-through caching layers are populated',
-        '[PASS] Cache key "session:user_id_94" found in Redis store.',
-        '[PASS] Cache TTL validation matches configuration policy (3600s).',
+        '[INFO] Starting test execution hook: node db-verify.js',
+        '[STEP] Connecting to Redis caching store...',
+        '[PASS] Redis connection active. PING -> PONG resolved (12ms)',
+        '[STEP] Asserting cache key invalidation lifecycle (5000ms TTL)',
+        '[PASS] Key successfully purged on expiration trigger.',
+        '[STEP] Connecting to Kafka message queue clusters...',
+        '[PASS] Kafka brokers online. Consumer group partition active.',
+        '[STEP] Validate consumer queue offsets matching producer sync states',
+        '[PASS] Offset partition 0 matched target write index: 149491',
         '[SUCCESS] Kafka to DB synchronization pipeline checks complete. All states match.'
       ]
     }
@@ -79,10 +79,13 @@ const AutomationSandbox = () => {
 
   const activeScenario = scenarios.find(s => s.id === activeScenarioId) || scenarios[0];
 
-  // Auto-scroll logs to bottom only when pipeline is running
+  // Auto-scroll logs container to bottom only when pipeline is running
   useEffect(() => {
-    if (consoleEndRef.current && isRunning) {
-      consoleEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (consoleBodyRef.current && isRunning) {
+      consoleBodyRef.current.scrollTo({
+        top: consoleBodyRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [consoleLogs, isRunning]);
 
@@ -205,7 +208,7 @@ const AutomationSandbox = () => {
               </div>
             </div>
 
-            <div className="sandbox-console-body">
+            <div className="sandbox-console-body" ref={consoleBodyRef}>
               {consoleLogs.map((log, idx) => {
                 let logClass = 'log-muted';
                 if (log.startsWith('[PASS]') || log.startsWith('🟢')) {
@@ -232,7 +235,6 @@ const AutomationSandbox = () => {
                   <span className="terminal-cursor" style={{ background: 'var(--text-console)' }}></span>
                 </div>
               )}
-              <div ref={consoleEndRef} />
             </div>
           </div>
 
