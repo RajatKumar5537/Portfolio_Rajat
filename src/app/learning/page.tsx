@@ -474,7 +474,7 @@ export default function LearningPage() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
           {/* Modal card */}
-          <div className="relative z-10 w-full max-w-md bg-[#0d0d1a] border border-indigo-500/30 rounded-2xl shadow-2xl shadow-black/60 p-6 space-y-4 animate-fade-in">
+          <div className="relative z-10 w-full max-w-md bg-[#0d0d1a] light:bg-white border border-indigo-500/30 light:border-slate-200 rounded-2xl shadow-2xl shadow-black/60 light:shadow-slate-200/50 p-6 space-y-4 animate-fade-in">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
@@ -483,7 +483,7 @@ export default function LearningPage() {
               </div>
               <button
                 onClick={() => { setShowAddMilestoneForm(false); setNewMilestoneForm({ name: "", desc: "" }); }}
-                className="text-slate-500 hover:text-slate-300 p-1.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer"
+                className="text-slate-500 hover:text-slate-300 light:hover:text-slate-700 p-1.5 rounded-lg hover:bg-white/5 light:hover:bg-slate-100 transition-all cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -518,13 +518,14 @@ export default function LearningPage() {
             <div className="flex justify-end gap-2 pt-1">
               <button
                 onClick={() => { setShowAddMilestoneForm(false); setNewMilestoneForm({ name: "", desc: "" }); }}
-                className="flex items-center gap-1.5 text-xs text-slate-400 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 text-xs text-slate-400 px-4 py-2 rounded-lg border border-white/10 light:border-slate-200 hover:bg-white/5 light:hover:bg-slate-50 transition-all cursor-pointer"
               >
                 <X size={12} /> Cancel
               </button>
               <button
                 onClick={handleMilestoneConfirmAdd}
                 disabled={!newMilestoneForm.name.trim()}
+                style={{ color: "#ffffff" }}
                 className="flex items-center gap-1.5 text-xs text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all cursor-pointer"
               >
                 <Check size={12} /> Save Milestone
@@ -721,6 +722,7 @@ export default function LearningPage() {
                 </div>
                 <button
                   onClick={handleToggleSession}
+                  style={{ color: "#ffffff" }}
                   className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest cursor-pointer transition-all flex items-center justify-center gap-2 ${
                     isSessionActive
                       ? "bg-red-600 hover:bg-red-500 text-white"
@@ -793,7 +795,7 @@ export default function LearningPage() {
                           </div>
                           <div className="flex justify-end gap-2">
                             <button onClick={() => setEditingMilestoneId(null)} className="flex items-center gap-1 text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all cursor-pointer"><X size={12} /> Cancel</button>
-                            <button onClick={() => handleMilestoneEditSave(m.id)} className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer"><Check size={12} /> Save</button>
+                            <button onClick={() => handleMilestoneEditSave(m.id)} style={{ color: "#ffffff" }} className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer"><Check size={12} /> Save</button>
                           </div>
                         </div>
                       ) : (
