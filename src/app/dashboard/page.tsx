@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const hoverTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -80,31 +81,43 @@ export default function DashboardPage() {
   };
 
   const getContextLabel = () => {
+    if (selectedDate) {
+      return new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
     if (selectedMonth === -1 && selectedYear === -1) return "Lifetime";
     if (selectedMonth === -1) return `${selectedYear} (Year)`;
     if (selectedYear === -1) return `${months[selectedMonth]} (All Years)`;
     return `${months[selectedMonth].slice(0, 3)} '${String(selectedYear).slice(-2)}`;
   };
 
-  // Filter transactions by selected Month and Year
+  // Filter transactions by selected Month, Year or Specific Date
   const filteredTransactions = data.expenses.filter((exp) => {
     const expDate = new Date(exp.date);
+    if (selectedDate) {
+      return expDate.toDateString() === new Date(selectedDate).toDateString();
+    }
     const monthMatches = selectedMonth === -1 || expDate.getMonth() === selectedMonth;
     const yearMatches = selectedYear === -1 || expDate.getFullYear() === selectedYear;
     return monthMatches && yearMatches;
   });
 
-  // Filter study logs by selected Month and Year
+  // Filter study logs by selected Month, Year or Specific Date
   const filteredStudyLogs = data.studyLogs.filter((log) => {
     const logDate = new Date(log.date);
+    if (selectedDate) {
+      return logDate.toDateString() === new Date(selectedDate).toDateString();
+    }
     const monthMatches = selectedMonth === -1 || logDate.getMonth() === selectedMonth;
     const yearMatches = selectedYear === -1 || logDate.getFullYear() === selectedYear;
     return monthMatches && yearMatches;
   });
 
-  // Filter food logs by selected Month and Year
+  // Filter food logs by selected Month, Year or Specific Date
   const filteredFoodLogs = data.foodLogs.filter((log) => {
     const logDate = new Date(log.date);
+    if (selectedDate) {
+      return logDate.toDateString() === new Date(selectedDate).toDateString();
+    }
     const monthMatches = selectedMonth === -1 || logDate.getMonth() === selectedMonth;
     const yearMatches = selectedYear === -1 || logDate.getFullYear() === selectedYear;
     return monthMatches && yearMatches;
@@ -122,14 +135,14 @@ export default function DashboardPage() {
   const totalStudyMinutes = filteredStudyLogs.reduce((acc, curr) => acc + curr.durationMinutes, 0);
   const totalStudyHours = (totalStudyMinutes / 60).toFixed(1);
 
-  // Protein Calculations (dynamic depending on whether filtered month/year matches current month/year)
+  // Protein Calculations (dynamic depending on whether filtered date is today, a specific day, or a monthly view)
   const proteinGoal = 120; // Default protein target (120g)
   const todayStr = new Date().toDateString();
   const todayFood = data.foodLogs.filter(f => new Date(f.date).toDateString() === todayStr);
   const todayProtein = todayFood.reduce((acc, curr) => acc + curr.calculatedProtein, 0);
   const todayProteinPercent = Math.min(100, Math.round((todayProtein / proteinGoal) * 100));
 
-  const isCurrentMonthYear = (selectedMonth === -1 || selectedMonth === new Date().getMonth()) && 
+  const isCurrentMonthYear = !selectedDate && (selectedMonth === -1 || selectedMonth === new Date().getMonth()) && 
                              (selectedYear === -1 || selectedYear === new Date().getFullYear());
 
   const uniqueDays = new Set(filteredFoodLogs.map(l => new Date(l.date).toDateString())).size;
@@ -137,9 +150,17 @@ export default function DashboardPage() {
   const avgDailyProtein = uniqueDays > 0 ? totalFilteredProtein / uniqueDays : 0;
   const avgProteinPercent = Math.min(100, Math.round((avgDailyProtein / proteinGoal) * 100));
 
-  const displayProtein = isCurrentMonthYear ? todayProtein : avgDailyProtein;
-  const displayProteinPercent = isCurrentMonthYear ? todayProteinPercent : avgProteinPercent;
-  const displayProteinLabel = isCurrentMonthYear ? "Today's Protein Intake" : `Avg Daily Protein (${getContextLabel()})`;
+  // Determine display values for protein card based on single-day vs monthly filtering
+  const isSingleDay = !!selectedDate;
+  const displayProtein = isSingleDay 
+    ? totalFilteredProtein 
+    : (isCurrentMonthYear ? todayProtein : avgDailyProtein);
+  const displayProteinPercent = isSingleDay 
+    ? Math.min(100, Math.round((totalFilteredProtein / proteinGoal) * 100))
+    : (isCurrentMonthYear ? todayProteinPercent : avgProteinPercent);
+  const displayProteinLabel = isSingleDay 
+    ? `Protein logged on ${new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+    : (isCurrentMonthYear ? "Today's Protein Intake" : `Avg Daily Protein (${getContextLabel()})`);
 
   // Study Streak Calculation (remains dynamic for current overall active days)
   const calculateStreak = (): number => {
@@ -209,51 +230,70 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Aggregate status reports across system scopes</p>
             </div>
 
-            <div className="flex items-center gap-4">
-              {/* Premium Month/Year selection bar */}
-              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+              {/* Premium Month/Year/Date selection bar */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
                 <button
                   onClick={handlePrevMonth}
-                  className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer transition-all"
+                  disabled={!!selectedDate}
+                  className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronLeft size={14} />
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                    className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
-                  >
-                    <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">
-                      ALL MONTHS
-                    </option>
-                    {months.map((m, idx) => (
-                      <option key={m} value={idx} className="bg-[#0c0c16] text-slate-300">
-                        {m.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!selectedDate ? (
+                    <>
+                      <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                      >
+                        <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL MONTHS</option>
+                        {months.map((m, idx) => (
+                          <option key={m} value={idx} className="bg-[#0c0c16] text-slate-300">{m.toUpperCase()}</option>
+                        ))}
+                      </select>
 
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
-                  >
-                    <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">
-                      ALL YEARS
-                    </option>
-                    {availableYears.map((year) => (
-                      <option key={year} value={year} className="bg-[#0c0c16] text-slate-300">
-                        {year}
-                      </option>
-                    ))}
-                  </select>
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                      >
+                        <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL YEARS</option>
+                        {availableYears.map((year) => (
+                          <option key={year} value={year} className="bg-[#0c0c16] text-slate-300">{year}</option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 px-2 py-1">
+                      {new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  )}
+
+                  <div className="flex items-center gap-1.5 border-l border-white/10 pl-2">
+                    <input
+                      type="date"
+                      value={selectedDate || ""}
+                      onChange={(e) => setSelectedDate(e.target.value || null)}
+                      className="bg-transparent text-xs font-bold text-indigo-400 outline-none cursor-pointer py-0.5 px-1 font-mono w-[115px]"
+                    />
+                    {selectedDate && (
+                      <button
+                        onClick={() => setSelectedDate(null)}
+                        className="text-[10px] text-red-400 hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <button
                   onClick={handleNextMonth}
-                  className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer transition-all"
+                  disabled={!!selectedDate}
+                  className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronRight size={14} />
                 </button>

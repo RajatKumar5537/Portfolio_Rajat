@@ -19,6 +19,7 @@ export default function ExpensesPage() {
   // Selected Month & Year states (-1 represents "All")
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()); // 0-11 or -1
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()); // Year or -1
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Interactive Card Filter state
   const [activeFilter, setActiveFilter] = useState<{
@@ -29,7 +30,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedMonth, selectedYear, activeFilter]);
+  }, [selectedMonth, selectedYear, selectedDate, activeFilter]);
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -236,15 +237,21 @@ export default function ExpensesPage() {
 
   // Helper to print correct month/year selection label in elements
   const getContextLabel = () => {
+    if (selectedDate) {
+      return new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
     if (selectedMonth === -1 && selectedYear === -1) return "Lifetime";
     if (selectedMonth === -1) return `${selectedYear} (Year)`;
     if (selectedYear === -1) return `${months[selectedMonth]} (All Years)`;
     return `${months[selectedMonth].slice(0, 3)} '${String(selectedYear).slice(-2)}`;
   };
 
-  // 1. Filter expenses by selected Month and Year
+  // 1. Filter expenses by selected Month, Year or Specific Date
   const monthlyExpenses = expenses.filter((exp) => {
     const expDate = new Date(exp.date);
+    if (selectedDate) {
+      return expDate.toDateString() === new Date(selectedDate).toDateString();
+    }
     const monthMatches = selectedMonth === -1 || expDate.getMonth() === selectedMonth;
     const yearMatches = selectedYear === -1 || expDate.getFullYear() === selectedYear;
     return monthMatches && yearMatches;
@@ -291,50 +298,69 @@ export default function ExpensesPage() {
               <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Manage and segment all cash flows</p>
             </div>
 
-            {/* Premium Month/Year selection bar */}
-            <div className="flex items-center gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
+            {/* Premium Month/Year/Date selection bar */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
               <button
                 onClick={handlePrevMonth}
-                className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer transition-all"
+                disabled={!!selectedDate}
+                className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft size={14} />
               </button>
 
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                  className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
-                >
-                  <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">
-                    ALL MONTHS
-                  </option>
-                  {months.map((m, idx) => (
-                    <option key={m} value={idx} className="bg-[#0c0c16] text-slate-300">
-                      {m.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-wrap items-center gap-2">
+                {!selectedDate ? (
+                  <>
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                    >
+                      <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL MONTHS</option>
+                      {months.map((m, idx) => (
+                        <option key={m} value={idx} className="bg-[#0c0c16] text-slate-300">{m.toUpperCase()}</option>
+                      ))}
+                    </select>
 
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
-                >
-                  <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">
-                    ALL YEARS
-                  </option>
-                  {availableYears.map((year) => (
-                    <option key={year} value={year} className="bg-[#0c0c16] text-slate-300">
-                      {year}
-                    </option>
-                  ))}
-                </select>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                    >
+                      <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL YEARS</option>
+                      {availableYears.map((year) => (
+                        <option key={year} value={year} className="bg-[#0c0c16] text-slate-300">{year}</option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 px-2 py-1">
+                    {new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                )}
+
+                <div className="flex items-center gap-1.5 border-l border-white/10 pl-2">
+                  <input
+                    type="date"
+                    value={selectedDate || ""}
+                    onChange={(e) => setSelectedDate(e.target.value || null)}
+                    className="bg-transparent text-xs font-bold text-indigo-400 outline-none cursor-pointer py-0.5 px-1 font-mono w-[115px]"
+                  />
+                  {selectedDate && (
+                    <button
+                      onClick={() => setSelectedDate(null)}
+                      className="text-[10px] text-red-400 hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               <button
                 onClick={handleNextMonth}
-                className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer transition-all"
+                disabled={!!selectedDate}
+                className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronRight size={14} />
               </button>
