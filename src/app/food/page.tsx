@@ -523,7 +523,7 @@ export default function FoodPage() {
                         editingFoodId === log._id ? (
                           /* ── INLINE EDIT ROW ── */
                           <div key={log._id} className="p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/5 space-y-3">
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <div>
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Date</label>
                                 <input type="date" value={editFoodForm.date} onChange={e => setEditFoodForm({...editFoodForm, date: e.target.value})}
@@ -542,7 +542,7 @@ export default function FoodPage() {
                               <input type="text" value={editFoodForm.foodName} onChange={e => setEditFoodForm({...editFoodForm, foodName: e.target.value})}
                                 className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <div>
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Portion (g)</label>
                                 <input type="number" value={editFoodForm.portionGrams} onChange={e => setEditFoodForm({...editFoodForm, portionGrams: e.target.value})}
@@ -592,19 +592,19 @@ export default function FoodPage() {
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-black font-mono text-teal-400">
+                              <span className="text-sm font-black font-mono text-teal-400 mr-2">
                                 +{log.calculatedProtein.toFixed(1)}g
                               </span>
                               <button
                                 onClick={() => handleFoodEditStart(log)}
-                                className="text-slate-600 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-indigo-500/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                                className="text-slate-500 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-indigo-500/10 transition-all cursor-pointer"
                                 title="Edit Food Entry"
                               >
                                 <Pencil size={13} />
                               </button>
                               <button
                                 onClick={() => handleDelete(log._id)}
-                                className="text-slate-600 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                                className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer"
                                 title="Delete Food Log"
                               >
                                 <Trash2 size={14} />

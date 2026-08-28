@@ -669,7 +669,7 @@ export default function ExpensesPage() {
                         editingId === exp._id ? (
                           /* ── INLINE EDIT ROW ── */
                           <div key={exp._id} className="p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/5 space-y-3">
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <div>
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Date</label>
                                 <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})}
@@ -686,7 +686,7 @@ export default function ExpensesPage() {
                               <input type="text" value={editForm.description} onChange={e => setEditForm({...editForm, description: e.target.value})}
                                 className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <div>
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Category</label>
                                 <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value})}
@@ -752,14 +752,14 @@ export default function ExpensesPage() {
                               </span>
                               <button
                                 onClick={() => handleEditStart(exp)}
-                                className="text-slate-600 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-indigo-500/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                                className="text-slate-500 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-indigo-500/10 transition-all cursor-pointer"
                                 title="Edit Entry"
                               >
                                 <Pencil size={13} />
                               </button>
                               <button
                                 onClick={() => handleDelete(exp._id)}
-                                className="text-slate-600 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                                className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer"
                                 title="Delete Ledger Entry"
                               >
                                 <Trash2 size={14} />

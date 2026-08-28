@@ -121,9 +121,7 @@ body {
 
 /* Stronger light mode grid */
 .light .cyber-grid {
-  background-image:
-    linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px) !important;
+  display: none !important;
 }
 
 /* Premium 3D mini-stat cards for dashboard */

@@ -714,14 +714,14 @@ export default function LearningPage() {
                           </h4>
                           <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{m.desc}</p>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all">
+                        <div className="flex items-center gap-1 flex-shrink-0 transition-all">
                           <button onClick={() => handleMilestoneEditStart(m)}
-                            className="text-slate-600 hover:text-indigo-400 p-1 rounded-lg hover:bg-indigo-500/10 transition-all cursor-pointer"
+                            className="text-slate-500 hover:text-indigo-400 p-1 rounded-lg hover:bg-indigo-500/10 transition-all cursor-pointer"
                             title="Edit milestone">
                             <Pencil size={12} />
                           </button>
                           <button onClick={() => handleMilestoneDelete(m.id)}
-                            className="text-slate-600 hover:text-red-400 p-1 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer"
+                            className="text-slate-500 hover:text-red-400 p-1 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer"
                             title="Delete milestone">
                             <Trash2 size={12} />
                           </button>
@@ -789,7 +789,7 @@ export default function LearningPage() {
                                   <input type="text" value={editLogForm.topic} onChange={e => setEditLogForm({...editLogForm, topic: e.target.value})}
                                     className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                   <div>
                                     <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Duration (min)</label>
                                     <input type="number" value={editLogForm.durationMinutes} onChange={e => setEditLogForm({...editLogForm, durationMinutes: e.target.value})}
@@ -825,11 +825,13 @@ export default function LearningPage() {
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <button onClick={() => handleEditLogStart(log)}
-                                    className="text-slate-600 hover:text-indigo-400 p-1.5 rounded-lg transition-all cursor-pointer hover:bg-indigo-500/10 opacity-0 group-hover:opacity-100">
+                                    className="text-slate-500 hover:text-indigo-400 p-1.5 rounded-lg transition-all cursor-pointer hover:bg-indigo-500/10"
+                                    title="Edit Entry">
                                     <Pencil size={13} />
                                   </button>
                                   <button onClick={() => handleDeleteLog(log._id)}
-                                    className="text-slate-600 hover:text-red-400 p-1.5 rounded-lg transition-all cursor-pointer hover:bg-red-500/10 opacity-0 group-hover:opacity-100">
+                                    className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg transition-all cursor-pointer hover:bg-red-500/10"
+                                    title="Delete Entry">
                                     <Trash2 size={14} />
                                   </button>
                                 </div>
