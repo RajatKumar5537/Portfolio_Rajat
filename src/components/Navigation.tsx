@@ -12,23 +12,23 @@ import {
 // Quick actions shown in each nav link's popup
 const NAV_POPUPS: Record<string, { label: string; href: string; icon: React.ReactNode; color: string }[]> = {
   "/dashboard": [
-    { label: "View Summary", href: "/dashboard", icon: <BarChart2 size={12} />, color: "text-indigo-400" },
-    { label: "Import Excel", href: "/dashboard/import", icon: <ClipboardList size={12} />, color: "text-slate-400" },
+    { label: "View Summary", href: "/dashboard", icon: <BarChart2 size={12} />, color: "popup-link-indigo" },
+    { label: "Import Excel", href: "/dashboard/import", icon: <ClipboardList size={12} />, color: "popup-link-slate" },
   ],
   "/learning": [
-    { label: "Start Study Timer", href: "/learning", icon: <Timer size={12} />, color: "text-indigo-400" },
-    { label: "Log Topic", href: "/learning", icon: <PlusCircle size={12} />, color: "text-purple-400" },
-    { label: "View Roadmap", href: "/learning", icon: <ClipboardList size={12} />, color: "text-slate-400" },
+    { label: "Start Study Timer", href: "/learning", icon: <Timer size={12} />, color: "popup-link-indigo" },
+    { label: "Log Topic", href: "/learning", icon: <PlusCircle size={12} />, color: "popup-link-purple" },
+    { label: "View Roadmap", href: "/learning", icon: <ClipboardList size={12} />, color: "popup-link-slate" },
   ],
   "/expenses": [
-    { label: "Log Expense", href: "/expenses", icon: <PlusCircle size={12} />, color: "text-purple-400" },
-    { label: "Log Income", href: "/expenses", icon: <ArrowUpRight size={12} />, color: "text-emerald-400" },
-    { label: "View Ledger", href: "/expenses", icon: <BarChart2 size={12} />, color: "text-slate-400" },
+    { label: "Log Expense", href: "/expenses", icon: <PlusCircle size={12} />, color: "popup-link-purple" },
+    { label: "Log Income", href: "/expenses", icon: <ArrowUpRight size={12} />, color: "popup-link-emerald" },
+    { label: "View Ledger", href: "/expenses", icon: <BarChart2 size={12} />, color: "popup-link-slate" },
   ],
   "/food": [
-    { label: "Log Meal", href: "/food", icon: <Utensils size={12} />, color: "text-teal-400" },
-    { label: "Track Protein", href: "/food", icon: <Dumbbell size={12} />, color: "text-indigo-400" },
-    { label: "View Logs", href: "/food", icon: <ClipboardList size={12} />, color: "text-slate-400" },
+    { label: "Log Meal", href: "/food", icon: <Utensils size={12} />, color: "popup-link-teal" },
+    { label: "Track Protein", href: "/food", icon: <Dumbbell size={12} />, color: "popup-link-indigo" },
+    { label: "View Logs", href: "/food", icon: <ClipboardList size={12} />, color: "popup-link-slate" },
   ],
 };
 
@@ -71,7 +71,7 @@ export default function Navigation() {
   ];
 
   return (
-    <header className="relative z-20 w-full border-b border-white/5 bg-slate-950/20 backdrop-blur-md">
+    <header className="relative z-20 w-full nav-header">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
         {/* Brand Link to Dashboard */}
         <Link href="/dashboard" className="flex items-center gap-2 group cursor-pointer select-none">
@@ -100,10 +100,8 @@ export default function Navigation() {
               >
                 <Link
                   href={link.href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                    isActive
-                      ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/15"
-                      : "text-slate-500 hover:text-slate-300 border border-transparent"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all nav-link ${
+                    isActive ? "nav-link-active" : ""
                   }`}
                 >
                   {link.icon}
@@ -118,8 +116,8 @@ export default function Navigation() {
                     onMouseLeave={handleMouseLeave}
                   >
                     {/* Arrow tip */}
-                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-[#0f0f1a] border-l border-t border-white/10" />
-                    <div className="relative bg-[#0f0f1a]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl shadow-black/60 overflow-hidden py-1">
+                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 popup-menu-arrow-top" />
+                    <div className="relative popup-menu-card rounded-xl overflow-hidden py-1">
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-600 px-3 pt-2 pb-1">{link.label}</p>
                       {popupItems.map((item, idx) => (
                         <Link
@@ -138,6 +136,7 @@ export default function Navigation() {
             );
           })}
         </nav>
+
 
         {/* Profile, Theme Switcher & LogOut */}
         <div className="flex items-center gap-2 sm:gap-4">

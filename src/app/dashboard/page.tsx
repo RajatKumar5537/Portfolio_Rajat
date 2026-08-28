@@ -249,13 +249,13 @@ export default function DashboardPage() {
           {/* ── Mini Stat Strip with hover popups ── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
             {[
-              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, color: "text-emerald-400", bg: "bg-emerald-500/5 border-emerald-500/15", popup: [{ label: "Log Income", href: "/expenses", color: "text-emerald-400" }] },
-              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, color: "text-red-400", bg: "bg-red-500/5 border-red-500/15", popup: [{ label: "Log Expense", href: "/expenses", color: "text-red-400" }] },
-              { key: "savings", label: "Savings / Net", value: `₹${netSavings.toLocaleString()}`, color: netSavings >= 0 ? "text-purple-400" : "text-red-400", bg: "bg-purple-500/5 border-purple-500/15", popup: [{ label: "View Ledger", href: "/expenses", color: "text-purple-400" }] },
-              { key: "home", label: "Home Spend", value: `₹${homeExpenses.toLocaleString()}`, color: "text-indigo-300", bg: "bg-white/[0.02] border-white/5", popup: [{ label: "Log Home Expense", href: "/expenses", color: "text-indigo-400" }] },
-              { key: "ajit", label: "Ajit Spend", value: `₹${ajitExpenses.toLocaleString()}`, color: "text-indigo-300", bg: "bg-white/[0.02] border-white/5", popup: [{ label: "Log Ajit Expense", href: "/expenses", color: "text-indigo-400" }] },
-              { key: "swarna", label: "Swarna Spend", value: `₹${swarnaExpenses.toLocaleString()}`, color: "text-indigo-300", bg: "bg-white/[0.02] border-white/5", popup: [{ label: "Log Swarna Expense", href: "/expenses", color: "text-indigo-400" }] },
-              { key: "delhi", label: "Delhi Room", value: `₹${filteredTransactions.filter(e=>e.category==="Delhi Room"&&e.type==="Expense").reduce((a,c)=>a+c.amount,0).toLocaleString()}`, color: "text-indigo-300", bg: "bg-white/[0.02] border-white/5", popup: [{ label: "Log Delhi Expense", href: "/expenses", color: "text-indigo-400" }] },
+              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, color: "text-emerald-400 light:text-emerald-600", popup: [{ label: "Log Income", href: "/expenses", color: "popup-link-emerald" }] },
+              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, color: "text-red-400 light:text-red-600", popup: [{ label: "Log Expense", href: "/expenses", color: "popup-link-red" }] },
+              { key: "savings", label: "Savings / Net", value: `₹${netSavings.toLocaleString()}`, color: netSavings >= 0 ? "text-purple-400 light:text-purple-600" : "text-red-400 light:text-red-600", popup: [{ label: "View Ledger", href: "/expenses", color: "popup-link-purple" }] },
+              { key: "home", label: "Home Spend", value: `₹${homeExpenses.toLocaleString()}`, color: "mini-3d-card-value", popup: [{ label: "Log Home Expense", href: "/expenses", color: "popup-link-indigo" }] },
+              { key: "ajit", label: "Ajit Spend", value: `₹${ajitExpenses.toLocaleString()}`, color: "mini-3d-card-value", popup: [{ label: "Log Ajit Expense", href: "/expenses", color: "popup-link-indigo" }] },
+              { key: "swarna", label: "Swarna Spend", value: `₹${swarnaExpenses.toLocaleString()}`, color: "mini-3d-card-value", popup: [{ label: "Log Swarna Expense", href: "/expenses", color: "popup-link-indigo" }] },
+              { key: "delhi", label: "Delhi Room", value: `₹${filteredTransactions.filter(e=>e.category==="Delhi Room"&&e.type==="Expense").reduce((a,c)=>a+c.amount,0).toLocaleString()}`, color: "mini-3d-card-value", popup: [{ label: "Log Delhi Expense", href: "/expenses", color: "popup-link-indigo" }] },
             ].map(card => (
               <div
                 key={card.key}
@@ -263,7 +263,7 @@ export default function DashboardPage() {
                 onMouseEnter={() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); setHoveredCard(card.key); }}
                 onMouseLeave={() => { hoverTimer.current = setTimeout(() => setHoveredCard(null), 160); }}
               >
-                <div className={`rounded-xl border px-3 py-2.5 cursor-default transition-all ${card.bg} hover:scale-[1.03]`}>
+                <div className="mini-3d-card rounded-xl px-3 py-2.5 cursor-default transition-all hover:scale-[1.03]">
                   <p className="text-[8px] uppercase tracking-widest text-slate-500 font-mono font-bold flex items-center gap-1">
                     <Plus size={8} className="opacity-60" />{card.label}
                   </p>
@@ -273,11 +273,11 @@ export default function DashboardPage() {
                 {/* Hover popup */}
                 {hoveredCard === card.key && (
                   <div
-                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 z-50"
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 z-50 animate-in fade-in duration-100"
                     onMouseEnter={() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); setHoveredCard(card.key); }}
                     onMouseLeave={() => { hoverTimer.current = setTimeout(() => setHoveredCard(null), 160); }}
                   >
-                    <div className="relative bg-[#0f0f1a]/96 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl shadow-black/60 overflow-hidden py-1">
+                    <div className="relative popup-menu-card rounded-xl overflow-hidden py-1">
                       <p className="text-[8px] font-black uppercase tracking-widest text-slate-600 px-3 pt-2 pb-1">Quick Log</p>
                       {card.popup.map((p, i) => (
                         <Link key={i} href={p.href}
@@ -286,12 +286,12 @@ export default function DashboardPage() {
                         </Link>
                       ))}
                       <Link href="/expenses"
-                        className="flex items-center gap-2 px-3 py-2 text-[11px] font-semibold hover:bg-white/5 transition-all text-slate-400">
+                        className="flex items-center gap-2 px-3 py-2 text-[11px] font-semibold hover:bg-white/5 transition-all popup-link-slate">
                         <ArrowUpRight size={11} />View All Logs
                       </Link>
                     </div>
                     {/* Arrow */}
-                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-[#0f0f1a] border-r border-b border-white/10" />
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 popup-menu-arrow-bottom" />
                   </div>
                 )}
               </div>
