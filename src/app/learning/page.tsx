@@ -525,8 +525,12 @@ export default function LearningPage() {
               <button
                 onClick={handleMilestoneConfirmAdd}
                 disabled={!newMilestoneForm.name.trim()}
-                style={{ color: "#ffffff" }}
-                className="flex items-center gap-1.5 text-xs text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all cursor-pointer"
+                style={{ color: newMilestoneForm.name.trim() ? "#ffffff" : undefined }}
+                className={`flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg transition-all ${
+                  newMilestoneForm.name.trim()
+                    ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
+                    : "bg-slate-800 light:bg-slate-100 text-slate-500 light:text-slate-400 cursor-not-allowed"
+                }`}
               >
                 <Check size={12} /> Save Milestone
               </button>
@@ -795,7 +799,18 @@ export default function LearningPage() {
                           </div>
                           <div className="flex justify-end gap-2">
                             <button onClick={() => setEditingMilestoneId(null)} className="flex items-center gap-1 text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all cursor-pointer"><X size={12} /> Cancel</button>
-                            <button onClick={() => handleMilestoneEditSave(m.id)} style={{ color: "#ffffff" }} className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer"><Check size={12} /> Save</button>
+                            <button
+                              onClick={() => handleMilestoneEditSave(m.id)}
+                              disabled={!editMilestoneForm.name.trim()}
+                              style={{ color: editMilestoneForm.name.trim() ? "#ffffff" : undefined }}
+                              className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-all ${
+                                editMilestoneForm.name.trim()
+                                  ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
+                                  : "bg-slate-800 light:bg-slate-100 text-slate-500 light:text-slate-400 cursor-not-allowed"
+                              }`}
+                            >
+                              <Check size={12} /> Save
+                            </button>
                           </div>
                         </div>
                       ) : (
