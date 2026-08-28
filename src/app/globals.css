@@ -179,26 +179,109 @@ body {
 }
 
 .nav-link {
-  color: #64748b;
+  color: #8a99ad;
   border: 1px solid transparent;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .nav-link:hover {
-  color: #cbd5e1;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.04);
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 0.02) inset,
+    0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 .nav-link-active {
-  background: rgba(99, 102, 241, 0.1);
-  color: #818cf8;
-  border: 1px solid rgba(99, 102, 241, 0.15);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.05) 100%) !important;
+  color: #a5b4fc !important;
+  border-color: rgba(99, 102, 241, 0.25) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
+    0 4px 12px rgba(99, 102, 241, 0.1) !important;
 }
 
 .light .nav-link:hover {
   color: #1e293b !important;
+  background: rgba(99, 102, 241, 0.03) !important;
+  border-color: rgba(99, 102, 241, 0.08) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 4px 10px rgba(99, 102, 241, 0.03) !important;
+  transform: translateY(-1px);
 }
 .light .nav-link-active {
-  background: rgba(99, 102, 241, 0.08) !important;
+  background: linear-gradient(160deg, #ffffff 0%, #f5f5ff 100%) !important;
   color: #4f46e5 !important;
-  border: 1px solid rgba(99, 102, 241, 0.12) !important;
+  border-color: rgba(99, 102, 241, 0.2) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 -1px 0 0 rgba(99, 102, 241, 0.04) inset,
+    0 2px 4px rgba(0, 0, 0, 0.02),
+    0 6px 12px rgba(99, 102, 241, 0.08) !important;
 }
+
+/* Active/Selected states for 3D mini-stat cards */
+.mini-3d-card-active-income {
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  background: rgba(16, 185, 129, 0.15) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+    0 0 20px 0 rgba(16, 185, 129, 0.15) !important;
+}
+.light .mini-3d-card-active-income {
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 4px 15px rgba(16, 185, 129, 0.15) !important;
+}
+
+.mini-3d-card-active-expense {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+    0 0 20px 0 rgba(239, 68, 68, 0.15) !important;
+}
+.light .mini-3d-card-active-expense {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 4px 15px rgba(239, 68, 68, 0.15) !important;
+}
+
+.mini-3d-card-active-savings {
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  background: rgba(99, 102, 241, 0.15) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+    0 0 20px 0 rgba(99, 102, 241, 0.15) !important;
+}
+.light .mini-3d-card-active-savings {
+  border-color: rgba(99, 102, 241, 0.5) !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 4px 15px rgba(99, 102, 241, 0.15) !important;
+}
+
+.mini-3d-card-active-category {
+  border-color: rgba(168, 85, 247, 0.45) !important;
+  background: rgba(168, 85, 247, 0.15) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 0.05) inset,
+    0 0 20px 0 rgba(168, 85, 247, 0.15) !important;
+}
+.light .mini-3d-card-active-category {
+  border-color: rgba(168, 85, 247, 0.5) !important;
+  background: rgba(168, 85, 247, 0.08) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 4px 15px rgba(168, 85, 247, 0.15) !important;
+}
+
 
 /* Theme-Aware Popup Menu and Arrow elements */
 .popup-menu-card {

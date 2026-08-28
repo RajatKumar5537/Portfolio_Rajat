@@ -246,57 +246,22 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ── Mini Stat Strip with hover popups ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
+          {/* ── Mini Stat Strip (Only global totals, no category spend cards, no tooltips) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             {[
-              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, color: "text-emerald-400 light:text-emerald-600", popup: [{ label: "Log Income", href: "/expenses", color: "popup-link-emerald" }] },
-              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, color: "text-red-400 light:text-red-600", popup: [{ label: "Log Expense", href: "/expenses", color: "popup-link-red" }] },
-              { key: "savings", label: "Savings / Net", value: `₹${netSavings.toLocaleString()}`, color: netSavings >= 0 ? "text-purple-400 light:text-purple-600" : "text-red-400 light:text-red-600", popup: [{ label: "View Ledger", href: "/expenses", color: "popup-link-purple" }] },
-              { key: "home", label: "Home Spend", value: `₹${homeExpenses.toLocaleString()}`, color: "mini-3d-card-value", popup: [{ label: "Log Home Expense", href: "/expenses", color: "popup-link-indigo" }] },
-              { key: "ajit", label: "Ajit Spend", value: `₹${ajitExpenses.toLocaleString()}`, color: "mini-3d-card-value", popup: [{ label: "Log Ajit Expense", href: "/expenses", color: "popup-link-indigo" }] },
-              { key: "swarna", label: "Swarna Spend", value: `₹${swarnaExpenses.toLocaleString()}`, color: "mini-3d-card-value", popup: [{ label: "Log Swarna Expense", href: "/expenses", color: "popup-link-indigo" }] },
-              { key: "delhi", label: "Delhi Room", value: `₹${filteredTransactions.filter(e=>e.category==="Delhi Room"&&e.type==="Expense").reduce((a,c)=>a+c.amount,0).toLocaleString()}`, color: "mini-3d-card-value", popup: [{ label: "Log Delhi Expense", href: "/expenses", color: "popup-link-indigo" }] },
+              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, color: "text-emerald-400 light:text-emerald-600" },
+              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, color: "text-red-400 light:text-red-600" },
+              { key: "savings", label: "Savings / Net", value: `₹${netSavings.toLocaleString()}`, color: netSavings >= 0 ? "text-purple-400 light:text-purple-600" : "text-red-400 light:text-red-600" },
             ].map(card => (
-              <div
-                key={card.key}
-                className="relative"
-                onMouseEnter={() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); setHoveredCard(card.key); }}
-                onMouseLeave={() => { hoverTimer.current = setTimeout(() => setHoveredCard(null), 160); }}
-              >
-                <div className="mini-3d-card rounded-xl px-3 py-2.5 cursor-default transition-all hover:scale-[1.03]">
-                  <p className="text-[8px] uppercase tracking-widest text-slate-500 font-mono font-bold flex items-center gap-1">
-                    <Plus size={8} className="opacity-60" />{card.label}
-                  </p>
-                  <p className={`text-sm font-black font-mono mt-1 ${card.color}`}>{card.value}</p>
-                </div>
-
-                {/* Hover popup */}
-                {hoveredCard === card.key && (
-                  <div
-                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 z-50 animate-in fade-in duration-100"
-                    onMouseEnter={() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); setHoveredCard(card.key); }}
-                    onMouseLeave={() => { hoverTimer.current = setTimeout(() => setHoveredCard(null), 160); }}
-                  >
-                    <div className="relative popup-menu-card rounded-xl overflow-hidden py-1">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-600 px-3 pt-2 pb-1">Quick Log</p>
-                      {card.popup.map((p, i) => (
-                        <Link key={i} href={p.href}
-                          className={`flex items-center gap-2 px-3 py-2 text-[11px] font-semibold hover:bg-white/5 transition-all ${p.color}`}>
-                          <Plus size={11} />{p.label}
-                        </Link>
-                      ))}
-                      <Link href="/expenses"
-                        className="flex items-center gap-2 px-3 py-2 text-[11px] font-semibold hover:bg-white/5 transition-all popup-link-slate">
-                        <ArrowUpRight size={11} />View All Logs
-                      </Link>
-                    </div>
-                    {/* Arrow */}
-                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 popup-menu-arrow-bottom" />
-                  </div>
-                )}
+              <div key={card.key} className="mini-3d-card rounded-xl px-4 py-3 cursor-default transition-all hover:scale-[1.02]">
+                <p className="text-[9px] uppercase tracking-widest text-slate-500 font-mono font-bold">
+                  {card.label}
+                </p>
+                <p className={`text-base font-black font-mono mt-1 ${card.color}`}>{card.value}</p>
               </div>
             ))}
           </div>
+
 
           {/* Quick Metrics Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -423,7 +388,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Link
                 href="/learning"
-                className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] hover:border-indigo-500/30 transition-all text-slate-300 hover:text-indigo-400"
+                className="mini-3d-card flex items-center justify-between p-4 rounded-xl cursor-pointer text-slate-300 light:text-slate-700 hover:text-indigo-400 light:hover:text-indigo-600 transition-all"
               >
                 <div className="flex items-center gap-3">
                   <BookOpen size={16} />
@@ -433,7 +398,7 @@ export default function DashboardPage() {
               </Link>
               <Link
                 href="/expenses"
-                className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] hover:border-purple-500/30 transition-all text-slate-300 hover:text-purple-400"
+                className="mini-3d-card flex items-center justify-between p-4 rounded-xl cursor-pointer text-slate-300 light:text-slate-700 hover:text-purple-400 light:hover:text-purple-600 transition-all"
               >
                 <div className="flex items-center gap-3">
                   <CreditCard size={16} />
@@ -443,7 +408,7 @@ export default function DashboardPage() {
               </Link>
               <Link
                 href="/food"
-                className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] hover:border-teal-500/30 transition-all text-slate-300 hover:text-teal-400"
+                className="mini-3d-card flex items-center justify-between p-4 rounded-xl cursor-pointer text-slate-300 light:text-slate-700 hover:text-teal-400 light:hover:text-teal-600 transition-all"
               >
                 <div className="flex items-center gap-3">
                   <Apple size={16} />
@@ -453,7 +418,7 @@ export default function DashboardPage() {
               </Link>
               <Link
                 href="/dashboard/import"
-                className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] hover:border-indigo-500/30 transition-all text-slate-300 hover:text-indigo-400"
+                className="mini-3d-card flex items-center justify-between p-4 rounded-xl cursor-pointer text-slate-300 light:text-slate-700 hover:text-indigo-400 light:hover:text-indigo-600 transition-all"
               >
                 <div className="flex items-center gap-3">
                   <FileUp size={16} />
@@ -463,6 +428,7 @@ export default function DashboardPage() {
               </Link>
             </div>
           </div>
+
         </main>
       </div>
 

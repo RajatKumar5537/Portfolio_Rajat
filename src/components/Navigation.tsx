@@ -72,7 +72,8 @@ export default function Navigation() {
 
   return (
     <header className="relative z-20 w-full nav-header">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-1 sm:gap-4">
+
         {/* Brand Link to Dashboard */}
         <Link href="/dashboard" className="flex items-center gap-2 group cursor-pointer select-none">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-black text-sm text-white group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">

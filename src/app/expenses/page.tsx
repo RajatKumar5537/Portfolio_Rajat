@@ -346,49 +346,49 @@ export default function ExpensesPage() {
             {/* Income Card */}
             <div
               onClick={() => handleCardFilter("Income", null, "Income")}
-              className={`p-4 rounded-xl border transition-all cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
                 activeFilter.type === "Income" && !activeFilter.category
-                  ? "border-emerald-500/40 bg-emerald-950/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                  : "border-white/5 bg-emerald-950/5 hover:border-emerald-500/20"
+                  ? "mini-3d-card-active-income"
+                  : ""
               }`}
             >
-              <span className="text-[9px] uppercase tracking-widest text-emerald-400 font-bold flex items-center gap-1">
+              <span className="text-[9px] uppercase tracking-widest text-emerald-400 light:text-emerald-600 font-bold flex items-center gap-1">
                 <TrendingUp size={10} />
                 <span>Income ({getContextLabel()})</span>
               </span>
-              <h3 className="text-lg font-black font-mono text-slate-100 mt-1">₹{incomeTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono text-slate-100 dark:text-slate-100 light:text-slate-900 mt-1">₹{incomeTotal.toLocaleString()}</h3>
             </div>
 
             {/* Outflow Card */}
             <div
               onClick={() => handleCardFilter("Expense", null, "Outflow")}
-              className={`p-4 rounded-xl border transition-all cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
                 activeFilter.type === "Expense" && !activeFilter.category
-                  ? "border-red-500/40 bg-red-950/20 shadow-[0_0_15px_rgba(239,68,68,0.15)]"
-                  : "border-white/5 bg-red-950/5 hover:border-red-500/20"
+                  ? "mini-3d-card-active-expense"
+                  : ""
               }`}
             >
-              <span className="text-[9px] uppercase tracking-widest text-red-400 font-bold flex items-center gap-1">
+              <span className="text-[9px] uppercase tracking-widest text-red-400 light:text-red-600 font-bold flex items-center gap-1">
                 <TrendingDown size={10} />
                 <span>Outflow ({getContextLabel()})</span>
               </span>
-              <h3 className="text-lg font-black font-mono text-slate-100 mt-1">₹{expenseTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono text-slate-100 dark:text-slate-100 light:text-slate-900 mt-1">₹{expenseTotal.toLocaleString()}</h3>
             </div>
 
             {/* Savings Card */}
             <div
               onClick={() => handleCardFilter(null, null, "All")}
-              className={`p-4 rounded-xl border transition-all cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
                 !activeFilter.type && !activeFilter.category
-                  ? "border-indigo-500/40 bg-indigo-950/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
-                  : "border-white/5 bg-indigo-950/5 hover:border-indigo-500/20"
+                  ? "mini-3d-card-active-savings"
+                  : ""
               }`}
             >
-              <span className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold flex items-center gap-1">
+              <span className="text-[9px] uppercase tracking-widest text-indigo-400 light:text-indigo-600 font-bold flex items-center gap-1">
                 <Wallet size={10} />
                 <span>Savings / Net</span>
               </span>
-              <h3 className={`text-lg font-black font-mono mt-1 ${remainTotal >= 0 ? "text-slate-100" : "text-red-400"}`}>
+              <h3 className={`text-lg font-black font-mono mt-1 ${remainTotal >= 0 ? "text-slate-100 dark:text-slate-100 light:text-slate-900" : "text-red-400 light:text-red-600"}`}>
                 ₹{remainTotal.toLocaleString()}
               </h3>
             </div>
@@ -396,55 +396,56 @@ export default function ExpensesPage() {
             {/* Home Spend Card */}
             <div
               onClick={() => handleCardFilter("Expense", "Home", "Home Spend")}
-              className={`p-4 rounded-xl border transition-all cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
                 activeFilter.category === "Home"
-                  ? "border-purple-500/45 bg-purple-950/20 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
-                  : "border-white/5 hover:border-purple-500/20"
+                  ? "mini-3d-card-active-category"
+                  : ""
               }`}
             >
               <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Home Spend</span>
-              <h3 className="text-lg font-black font-mono text-slate-300 mt-1">₹{homeTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{homeTotal.toLocaleString()}</h3>
             </div>
 
             {/* Ajit Spend Card */}
             <div
               onClick={() => handleCardFilter("Expense", "Ajit", "Ajit Spend")}
-              className={`p-4 rounded-xl border transition-all cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
                 activeFilter.category === "Ajit"
-                  ? "border-purple-500/45 bg-purple-950/20 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
-                  : "border-white/5 hover:border-purple-500/20"
+                  ? "mini-3d-card-active-category"
+                  : ""
               }`}
             >
               <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Ajit Spend</span>
-              <h3 className="text-lg font-black font-mono text-slate-300 mt-1">₹{ajitTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{ajitTotal.toLocaleString()}</h3>
             </div>
 
             {/* Swarna Spend Card */}
             <div
               onClick={() => handleCardFilter("Expense", "Swarna", "Swarna Spend")}
-              className={`p-4 rounded-xl border transition-all cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
                 activeFilter.category === "Swarna"
-                  ? "border-purple-500/45 bg-purple-950/20 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
-                  : "border-white/5 hover:border-purple-500/20"
+                  ? "mini-3d-card-active-category"
+                  : ""
               }`}
             >
               <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Swarna Spend</span>
-              <h3 className="text-lg font-black font-mono text-slate-300 mt-1">₹{swarnaTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{swarnaTotal.toLocaleString()}</h3>
             </div>
 
             {/* Delhi Room Card */}
             <div
               onClick={() => handleCardFilter("Expense", "Delhi Room", "Delhi Room")}
-              className={`p-4 rounded-xl border transition-all cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
                 activeFilter.category === "Delhi Room"
-                  ? "border-purple-500/45 bg-purple-950/20 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
-                  : "border-white/5 hover:border-purple-500/20"
+                  ? "mini-3d-card-active-category"
+                  : ""
               }`}
             >
               <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Delhi Room</span>
-              <h3 className="text-lg font-black font-mono text-slate-300 mt-1">₹{delhiRoomTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{delhiRoomTotal.toLocaleString()}</h3>
             </div>
           </div>
+
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Form Column */}

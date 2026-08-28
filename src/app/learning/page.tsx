@@ -463,7 +463,8 @@ export default function LearningPage() {
               <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Track growth roadmaps and study time</p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
+
               {/* Premium Month/Year selection bar */}
               <div className="flex items-center gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
                 <button
