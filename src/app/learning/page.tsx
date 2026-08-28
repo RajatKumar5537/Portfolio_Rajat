@@ -49,6 +49,8 @@ export default function LearningPage() {
   const [milestones, setMilestones] = useState(MILESTONE_TEMPLATES);
   const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(null);
   const [editMilestoneForm, setEditMilestoneForm] = useState({ name: "", desc: "" });
+  const [showAddMilestoneForm, setShowAddMilestoneForm] = useState(false);
+  const [newMilestoneForm, setNewMilestoneForm] = useState({ name: "", desc: "" });
 
   // Study log inline edit
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
@@ -283,14 +285,14 @@ export default function LearningPage() {
     localStorage.setItem("custom_milestones", JSON.stringify(updated));
   };
 
-  const handleMilestoneAdd = () => {
+  const handleMilestoneConfirmAdd = () => {
+    if (!newMilestoneForm.name.trim()) return;
     const nextId = milestones.length > 0 ? Math.max(...milestones.map(m => m.id)) + 1 : 1;
-    const updated = [...milestones, { id: nextId, name: `Month ${nextId}: New Milestone`, desc: "Add your milestone description here." }];
+    const updated = [...milestones, { id: nextId, name: newMilestoneForm.name.trim(), desc: newMilestoneForm.desc.trim() }];
     setMilestones(updated);
     localStorage.setItem("custom_milestones", JSON.stringify(updated));
-    // Auto-open edit for the new item
-    setEditingMilestoneId(nextId);
-    setEditMilestoneForm({ name: `Month ${nextId}: New Milestone`, desc: "Add your milestone description here." });
+    setNewMilestoneForm({ name: "", desc: "" });
+    setShowAddMilestoneForm(false);
   };
 
   const handleToggleSession = async () => {
@@ -758,13 +760,55 @@ export default function LearningPage() {
                   })}
                 </div>
 
-                {/* Add Milestone Button */}
-                <button
-                  onClick={handleMilestoneAdd}
-                  className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-indigo-500/20 text-indigo-400 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
-                >
-                  <Plus size={14} /> Add Milestone
-                </button>
+                {/* Add Milestone inline form */}
+                {showAddMilestoneForm ? (
+                  <div className="mt-4 p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/5 space-y-3">
+                    <p className="text-[9px] uppercase tracking-widest text-indigo-400 font-mono font-bold">New Milestone</p>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Milestone Name *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Month 7: Advanced Testing"
+                        value={newMilestoneForm.name}
+                        onChange={e => setNewMilestoneForm({ ...newMilestoneForm, name: e.target.value })}
+                        className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Description</label>
+                      <textarea
+                        placeholder="What will you learn or achieve?"
+                        value={newMilestoneForm.desc}
+                        onChange={e => setNewMilestoneForm({ ...newMilestoneForm, desc: e.target.value })}
+                        rows={2}
+                        className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 resize-none"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => { setShowAddMilestoneForm(false); setNewMilestoneForm({ name: "", desc: "" }); }}
+                        className="flex items-center gap-1 text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all cursor-pointer"
+                      >
+                        <X size={12} /> Cancel
+                      </button>
+                      <button
+                        onClick={handleMilestoneConfirmAdd}
+                        disabled={!newMilestoneForm.name.trim()}
+                        className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                      >
+                        <Check size={12} /> Save Milestone
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowAddMilestoneForm(true)}
+                    className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-indigo-500/20 text-indigo-400 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+                  >
+                    <Plus size={14} /> Add Milestone
+                  </button>
+                )}
               </>
               ) : (
                 <div className="space-y-6">
