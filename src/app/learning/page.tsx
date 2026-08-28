@@ -51,6 +51,8 @@ export default function LearningPage() {
   const [editMilestoneForm, setEditMilestoneForm] = useState({ name: "", desc: "" });
   const [showAddMilestoneForm, setShowAddMilestoneForm] = useState(false);
   const [newMilestoneForm, setNewMilestoneForm] = useState({ name: "", desc: "" });
+  const [roadmapPage, setRoadmapPage] = useState(1);
+  const MILESTONES_PER_PAGE = 6;
 
   // Study log inline edit
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
@@ -672,7 +674,7 @@ export default function LearningPage() {
                       activeTab === "roadmap" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-300"
                     }`}
                   >
-                    6-Month Roadmap
+                    {milestones.length}-Month Roadmap
                   </button>
                   <button
                     onClick={() => setActiveTab("studied")}
@@ -693,72 +695,104 @@ export default function LearningPage() {
 
               {/* Tab Content */}
               {activeTab === "roadmap" ? (
-                <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {dynamicMilestones.map((m) => {
-                    const isCompleted = currentMs >= m.end.getTime();
-                    const isActive = currentMs >= m.start.getTime() && currentMs < m.end.getTime();
+                (() => {
+                  const totalPages = Math.ceil(dynamicMilestones.length / MILESTONES_PER_PAGE);
+                  const pagedMilestones = dynamicMilestones.slice(
+                    (roadmapPage - 1) * MILESTONES_PER_PAGE,
+                    roadmapPage * MILESTONES_PER_PAGE
+                  );
+                  return (
+                  <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {pagedMilestones.map((m) => {
+                      const isCompleted = currentMs >= m.end.getTime();
+                      const isActive = currentMs >= m.start.getTime() && currentMs < m.end.getTime();
 
-                    return editingMilestoneId === m.id ? (
-                      /* ── EDITABLE MILESTONE ── */
-                      <div key={m.id} className="p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/5 space-y-2">
-                        <div>
-                          <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Milestone Name</label>
-                          <input type="text" value={editMilestoneForm.name} onChange={e => setEditMilestoneForm({...editMilestoneForm, name: e.target.value})}
-                            className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
+                      return editingMilestoneId === m.id ? (
+                        /* ── EDITABLE MILESTONE ── */
+                        <div key={m.id} className="p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/5 space-y-2">
+                          <div>
+                            <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Milestone Name</label>
+                            <input type="text" value={editMilestoneForm.name} onChange={e => setEditMilestoneForm({...editMilestoneForm, name: e.target.value})}
+                              className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
+                          </div>
+                          <div>
+                            <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Description</label>
+                            <textarea value={editMilestoneForm.desc} onChange={e => setEditMilestoneForm({...editMilestoneForm, desc: e.target.value})} rows={2}
+                              className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 resize-none" />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setEditingMilestoneId(null)} className="flex items-center gap-1 text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all cursor-pointer"><X size={12} /> Cancel</button>
+                            <button onClick={() => handleMilestoneEditSave(m.id)} className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer"><Check size={12} /> Save</button>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Description</label>
-                          <textarea value={editMilestoneForm.desc} onChange={e => setEditMilestoneForm({...editMilestoneForm, desc: e.target.value})} rows={2}
-                            className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 resize-none" />
+                      ) : (
+                        <div
+                          key={m.id}
+                          className={`p-4 rounded-xl border flex gap-3 items-start transition-all group ${
+                            isCompleted
+                              ? "bg-emerald-950/5 border-emerald-500/10 text-slate-500"
+                              : isActive
+                              ? "bg-indigo-950/20 border-indigo-500/20 shadow-lg shadow-indigo-500/5"
+                              : "bg-white/[0.01] border-white/5"
+                          }`}
+                        >
+                          <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0 ${
+                            isCompleted
+                              ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
+                              : isActive
+                              ? "border-indigo-500 text-indigo-400 bg-indigo-500/10"
+                              : "border-slate-800 text-slate-600"
+                          }`}>
+                            {isCompleted ? "✓" : m.id}
+                          </div>
+                          <div className="flex-grow min-w-0">
+                            <h4 className={`text-xs font-bold ${isActive ? "text-slate-100" : "text-slate-300"} ${isCompleted ? "line-through text-slate-600" : ""}`}>
+                              {m.name}
+                            </h4>
+                            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{m.desc}</p>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0 transition-all">
+                            <button onClick={() => handleMilestoneEditStart(m)}
+                              className="text-slate-500 hover:text-indigo-400 p-1 rounded-lg hover:bg-indigo-500/10 transition-all cursor-pointer"
+                              title="Edit milestone">
+                              <Pencil size={12} />
+                            </button>
+                            <button onClick={() => handleMilestoneDelete(m.id)}
+                              className="text-slate-500 hover:text-red-400 p-1 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer"
+                              title="Delete milestone">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex justify-end gap-2">
-                          <button onClick={() => setEditingMilestoneId(null)} className="flex items-center gap-1 text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-all cursor-pointer"><X size={12} /> Cancel</button>
-                          <button onClick={() => handleMilestoneEditSave(m.id)} className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer"><Check size={12} /> Save</button>
-                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4 px-1">
+                      <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">
+                        Page {roadmapPage} of {totalPages} &middot; {dynamicMilestones.length} milestones
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setRoadmapPage(p => Math.max(1, p - 1))}
+                          disabled={roadmapPage === 1}
+                          className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-indigo-400 px-3 py-1.5 rounded-lg border border-white/10 hover:border-indigo-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                        >
+                          <ChevronLeft size={12} /> Prev
+                        </button>
+                        <button
+                          onClick={() => setRoadmapPage(p => Math.min(totalPages, p + 1))}
+                          disabled={roadmapPage === totalPages}
+                          className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-indigo-400 px-3 py-1.5 rounded-lg border border-white/10 hover:border-indigo-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                        >
+                          Next <ChevronRight size={12} />
+                        </button>
                       </div>
-                    ) : (
-                      <div
-                        key={m.id}
-                        className={`p-4 rounded-xl border flex gap-3 items-start transition-all group ${
-                          isCompleted
-                            ? "bg-emerald-950/5 border-emerald-500/10 text-slate-500"
-                            : isActive
-                            ? "bg-indigo-950/20 border-indigo-500/20 shadow-lg shadow-indigo-500/5"
-                            : "bg-white/[0.01] border-white/5"
-                        }`}
-                      >
-                        <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-bold font-mono flex-shrink-0 ${
-                          isCompleted
-                            ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
-                            : isActive
-                            ? "border-indigo-500 text-indigo-400 bg-indigo-500/10"
-                            : "border-slate-800 text-slate-600"
-                        }`}>
-                          {isCompleted ? "✓" : m.id}
-                        </div>
-                        <div className="flex-grow min-w-0">
-                          <h4 className={`text-xs font-bold ${isActive ? "text-slate-100" : "text-slate-300"} ${isCompleted ? "line-through text-slate-600" : ""}`}>
-                            {m.name}
-                          </h4>
-                          <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{m.desc}</p>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0 transition-all">
-                          <button onClick={() => handleMilestoneEditStart(m)}
-                            className="text-slate-500 hover:text-indigo-400 p-1 rounded-lg hover:bg-indigo-500/10 transition-all cursor-pointer"
-                            title="Edit milestone">
-                            <Pencil size={12} />
-                          </button>
-                          <button onClick={() => handleMilestoneDelete(m.id)}
-                            className="text-slate-500 hover:text-red-400 p-1 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer"
-                            title="Delete milestone">
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  )}
 
                 {/* Add Milestone inline form */}
                 {showAddMilestoneForm ? (
@@ -810,6 +844,8 @@ export default function LearningPage() {
                   </button>
                 )}
               </>
+                  );
+                })()
               ) : (
                 <div className="space-y-6">
                   {/* Quick Add Form */}
