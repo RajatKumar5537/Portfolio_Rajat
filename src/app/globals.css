@@ -1,0 +1,380 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --background: #030308;
+  --foreground: #f8fafc;
+  --card-bg: rgba(8, 8, 16, 0.55);
+  --border-color: rgba(255, 255, 255, 0.04);
+  --grid-color: rgba(255, 255, 255, 0.01);
+  --ring-track: rgba(255, 255, 255, 0.06);
+}
+
+.light {
+  color-scheme: light;
+  --background: #f5f5f7;
+  --foreground: #1c1c1e;
+  --card-bg: rgba(255, 255, 255, 0.8);
+  --border-color: rgba(0, 0, 0, 0.05);
+  --grid-color: rgba(0, 0, 0, 0.01);
+  --ring-track: rgba(99, 102, 241, 0.15);
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background-attachment: fixed;
+  background-image: 
+    radial-gradient(circle at 15% 25%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 85% 75%, rgba(168, 85, 247, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(20, 184, 166, 0.04) 0%, transparent 60%);
+}
+
+.light body {
+  background-color: #eef0f8 !important;
+  background-image:
+    radial-gradient(ellipse at 10% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at 90% 80%, rgba(168, 85, 247, 0.10) 0%, transparent 40%),
+    radial-gradient(ellipse at 55% 50%, rgba(20, 184, 166, 0.07) 0%, transparent 50%) !important;
+}
+
+/* Cyber Tech Grid Background */
+.cyber-grid {
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center;
+  mask-image: radial-gradient(circle at center, black 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Custom Glassmorphism styles */
+.glass-card {
+  background: linear-gradient(135deg, rgba(8, 8, 18, 0.6) 0%, rgba(4, 4, 10, 0.75) 100%);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 20px 0 rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.light .glass-card {
+  background: linear-gradient(160deg, #ffffff 0%, #f8f8ff 60%, #f2f2fa 100%) !important;
+  border: 1px solid rgba(99, 102, 241, 0.15) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 -1px 0 0 rgba(99, 102, 241, 0.06) inset,
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(99, 102, 241, 0.06),
+    0 24px 48px rgba(99, 102, 241, 0.04) !important;
+}
+
+.light .glass-card:hover {
+  transform: translateY(-6px) scale(1.005);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 -1px 0 0 rgba(99, 102, 241, 0.08) inset,
+    0 4px 8px rgba(0, 0, 0, 0.05),
+    0 16px 40px rgba(99, 102, 241, 0.12),
+    0 40px 70px rgba(99, 102, 241, 0.07) !important;
+  border-color: rgba(99, 102, 241, 0.28) !important;
+}
+
+.glass-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2), transparent);
+  z-index: 1;
+}
+
+.light .glass-card::before {
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), rgba(168, 85, 247, 0.4), transparent);
+  height: 2px;
+}
+
+/* Stronger light mode grid */
+.light .cyber-grid {
+  background-image:
+    linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px) !important;
+}
+
+/* Card Radial Glows for Premium Apple/Cyber Aesthetics */
+.card-glow-indigo::after,
+.card-glow-purple::after,
+.card-glow-teal::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  right: -20%;
+  width: 160px;
+  height: 160px;
+  pointer-events: none;
+  z-index: 0;
+  transition: all 0.5s ease;
+}
+
+.card-glow-indigo::after {
+  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.2) 0%, transparent 65%);
+}
+.light .card-glow-indigo::after {
+  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.13) 0%, transparent 65%);
+}
+.light .card-glow-indigo {
+  border-top: 2px solid rgba(99, 102, 241, 0.35) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,1) inset,
+    0 2px 4px rgba(0,0,0,0.04),
+    0 8px 24px rgba(99, 102, 241, 0.10),
+    0 24px 48px rgba(99, 102, 241, 0.06) !important;
+}
+
+.card-glow-purple::after {
+  background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.2) 0%, transparent 65%);
+}
+.light .card-glow-purple::after {
+  background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.13) 0%, transparent 65%);
+}
+.light .card-glow-purple {
+  border-top: 2px solid rgba(168, 85, 247, 0.35) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,1) inset,
+    0 2px 4px rgba(0,0,0,0.04),
+    0 8px 24px rgba(168, 85, 247, 0.10),
+    0 24px 48px rgba(168, 85, 247, 0.06) !important;
+}
+
+.card-glow-teal::after {
+  background: radial-gradient(circle at top right, rgba(20, 184, 166, 0.2) 0%, transparent 65%);
+}
+.light .card-glow-teal::after {
+  background: radial-gradient(circle at top right, rgba(20, 184, 166, 0.13) 0%, transparent 65%);
+}
+.light .card-glow-teal {
+  border-top: 2px solid rgba(20, 184, 166, 0.35) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,1) inset,
+    0 2px 4px rgba(0,0,0,0.04),
+    0 8px 24px rgba(20, 184, 166, 0.10),
+    0 24px 48px rgba(20, 184, 166, 0.06) !important;
+}
+
+/* Animations */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s infinite ease-in-out;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.4);
+}
+
+/* ==========================================================================
+   Light Mode Overrides
+   ========================================================================== */
+.light .text-slate-100 { color: #09090b !important; }
+.light .text-slate-200 { color: #18181b !important; }
+.light .text-slate-300 { color: #27272a !important; }
+.light .text-slate-400 { color: #52525b !important; }
+.light .text-slate-500 { color: #71717a !important; }
+.light .text-white { color: #09090b !important; }
+.light .text-slate-200\/60 { color: rgba(24, 24, 27, 0.6) !important; }
+
+/* BG overrides */
+.light .bg-\[\#030308\] { background-color: var(--background) !important; }
+.light .bg-\[\#0c0c16\] { background-color: #f4f4f5 !important; }
+.light .bg-white\/\[0\.02\] { background-color: rgba(9, 9, 11, 0.02) !important; }
+.light .bg-white\/\[0\.01\] { background-color: rgba(9, 9, 11, 0.015) !important; }
+.light .bg-white\/\[0\.005\] { background-color: rgba(9, 9, 11, 0.008) !important; }
+.light .bg-slate-950\/20 { background-color: rgba(255, 255, 255, 0.6) !important; }
+.light .border-white\/5 { border-color: rgba(9, 9, 11, 0.06) !important; }
+.light .border-white\/10 { border-color: rgba(9, 9, 11, 0.08) !important; }
+
+/* Select fields option lists override */
+.light select option {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+}
+
+.light select optgroup {
+  background-color: #ffffff !important;
+  color: #71717a !important;
+}
+
+/* Nav links active bg */
+.light .bg-indigo-500\/10 {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+}
+.light .border-indigo-500\/15 {
+  border-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+/* Colored Badge & Tag Overrides for Light Mode */
+.light .bg-indigo-950\/20,
+.light .bg-indigo-950\/30,
+.light .bg-indigo-950\/40,
+.light .bg-indigo-950\/60 {
+  background-color: rgba(99, 102, 241, 0.08) !important;
+  border-color: rgba(99, 102, 241, 0.15) !important;
+}
+.light .text-indigo-400 {
+  color: #4f46e5 !important;
+}
+
+.light .bg-purple-950\/5,
+.light .bg-purple-950\/20,
+.light .bg-purple-950\/40 {
+  background-color: rgba(168, 85, 247, 0.08) !important;
+  border-color: rgba(168, 85, 247, 0.15) !important;
+}
+.light .text-purple-400 {
+  color: #7c3aed !important;
+}
+
+.light .bg-teal-950\/5,
+.light .bg-teal-950\/20,
+.light .bg-teal-950\/40 {
+  background-color: rgba(20, 184, 166, 0.08) !important;
+  border-color: rgba(20, 184, 166, 0.15) !important;
+}
+.light .text-teal-400 {
+  color: #0d9488 !important;
+}
+
+.light .bg-emerald-950\/5,
+.light .bg-emerald-950\/20,
+.light .bg-emerald-950\/40 {
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  border-color: rgba(16, 185, 129, 0.15) !important;
+}
+.light .text-emerald-400 {
+  color: #059669 !important;
+}
+
+.light .bg-red-950\/5,
+.light .bg-red-950\/20,
+.light .bg-red-950\/40 {
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.15) !important;
+}
+.light .text-red-400 {
+  color: #dc2626 !important;
+}
+
+.light .bg-orange-950\/20,
+.light .bg-orange-950\/40 {
+  background-color: rgba(249, 115, 22, 0.08) !important;
+  border-color: rgba(249, 115, 22, 0.15) !important;
+}
+.light .text-orange-400 {
+  color: #ea580c !important;
+}
+
+.light .bg-amber-950\/20,
+.light .bg-amber-950\/40 {
+  background-color: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.15) !important;
+}
+.light .text-amber-400 {
+  color: #d97706 !important;
+}
+
+.light .bg-yellow-950\/20,
+.light .bg-yellow-950\/40 {
+  background-color: rgba(234, 179, 8, 0.08) !important;
+  border-color: rgba(234, 179, 8, 0.15) !important;
+}
+.light .text-yellow-400 {
+  color: #ca8a04 !important;
+}
+
+/* Scrollbar overrides for Light Mode */
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(9, 9, 11, 0.1) !important;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* Light Mode Universal Typography & Form Element Contrast Overrides */
+.light .text-slate-100,
+.light .text-slate-200,
+.light .text-slate-300,
+.light .text-white {
+  color: #1c1c1e !important;
+}
+
+.light .text-slate-400 {
+  color: #48484a !important;
+}
+
+.light .text-slate-500 {
+  color: #636366 !important;
+}
+
+.light .text-slate-600 {
+  color: #8e8e93 !important;
+}
+
+.light input,
+.light select,
+.light textarea {
+  color: #1c1c1e !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.light input::placeholder {
+  color: #8e8e93 !important;
+}
+
+.light form.bg-\[\#070711\] {
+  background-color: rgba(0, 0, 0, 0.025) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
