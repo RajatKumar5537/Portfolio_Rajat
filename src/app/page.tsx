@@ -51,8 +51,8 @@ export default function LandingPage() {
       <header className="relative z-10 w-full max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
         {/* Brand Link to Home */}
         <Link href="/" className="flex items-center gap-2 group cursor-pointer select-none">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-black text-sm text-white group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
-            PL
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white group-hover:scale-105 transition-all shadow-md shadow-indigo-500/10">
+            <Activity size={16} className="animate-pulse" />
           </div>
           <div>
             <h1 className="text-sm font-black uppercase tracking-widest text-slate-200 group-hover:text-indigo-400 transition-all">Personal Labs</h1>
