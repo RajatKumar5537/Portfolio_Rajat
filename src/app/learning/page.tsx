@@ -46,7 +46,7 @@ export default function LearningPage() {
   const [activeTab, setActiveTab] = useState<"roadmap" | "studied">("roadmap");
 
   // Editable milestones (loaded from localStorage on mount)
-  const [milestones, setMilestones] = useState(MILESTONE_TEMPLATES);
+  const [milestones, setMilestones] = useState<any[]>([]);
   const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(null);
   const [editMilestoneForm, setEditMilestoneForm] = useState({ name: "", desc: "" });
   const [showAddMilestoneForm, setShowAddMilestoneForm] = useState(false);
@@ -106,6 +106,8 @@ export default function LearningPage() {
     const savedMilestones = localStorage.getItem("custom_milestones");
     if (savedMilestones) {
       try { setMilestones(JSON.parse(savedMilestones)); } catch {}
+    } else {
+      setMilestones([]);
     }
 
     fetchStudyLogs();
@@ -780,8 +782,13 @@ export default function LearningPage() {
                   return (
                   <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {pagedMilestones.map((m) => {
-                      const isCompleted = currentMs >= m.end.getTime();
+                    {pagedMilestones.length === 0 ? (
+                      <div className="col-span-full py-8 text-center text-xs text-slate-500 italic border border-dashed border-white/5 rounded-xl">
+                        No milestones logged yet. Click "+ Add Milestone" below to start your roadmap!
+                      </div>
+                    ) : (
+                      pagedMilestones.map((m) => {
+                        const isCompleted = currentMs >= m.end.getTime();
                       const isActive = currentMs >= m.start.getTime() && currentMs < m.end.getTime();
 
                       return editingMilestoneId === m.id ? (
@@ -853,7 +860,7 @@ export default function LearningPage() {
                           </div>
                         </div>
                       );
-                    })}
+                    }))}
                   </div>
 
                   {/* Pagination Controls */}

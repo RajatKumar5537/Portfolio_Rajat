@@ -42,13 +42,8 @@ export default function ExpensesPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const expenseCategories = [
-    "Delhi Room", "Food", "Swarna", "Ajit", "Home", "Shopping", 
-    "Recharge", "Travel", "Gift", "Puri", "Aditya Verma", 
-    "Bikash", "Health", "Education", "Others"
-  ];
-  
-  const incomeCategories = ["Salary", "Bonus", "Other Trns", "Others"];
+  const [expenseCategories, setExpenseCategories] = useState<string[]>([]);
+  const [incomeCategories, setIncomeCategories] = useState<string[]>([]);
   
   const months = [
     "January", "February", "March", "April", "May", "June", 
@@ -70,6 +65,93 @@ export default function ExpensesPage() {
       console.error("Failed to fetch expenses: ", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+
+  // 1. Initial load from LocalStorage
+  useEffect(() => {
+    const savedExp = localStorage.getItem("custom_expense_categories");
+    const savedInc = localStorage.getItem("custom_income_categories");
+
+    if (savedExp) {
+      try { setExpenseCategories(JSON.parse(savedExp)); } catch {}
+    }
+    if (savedInc) {
+      try { setIncomeCategories(JSON.parse(savedInc)); } catch {}
+    }
+  }, []);
+
+  // 2. Dynamic generation of custom lists based on transaction history (protects user's data from being deleted)
+  useEffect(() => {
+    if (expenses.length === 0) return;
+
+    const uniqueExpCats = Array.from(new Set(expenses.filter(e => e.type === "Expense").map(e => e.category)));
+    const uniqueIncCats = Array.from(new Set(expenses.filter(e => e.type === "Income").map(e => e.category)));
+
+    setExpenseCategories(prev => {
+      const merged = Array.from(new Set([...prev, ...uniqueExpCats, "Others"]));
+      if (!localStorage.getItem("custom_expense_categories")) {
+        // If it's a new user with 0 logged expenses, start fresh with only "Others"
+        if (expenses.filter(e => e.type === "Expense").length === 0) {
+          localStorage.setItem("custom_expense_categories", JSON.stringify(["Others"]));
+          return ["Others"];
+        }
+        localStorage.setItem("custom_expense_categories", JSON.stringify(merged));
+      }
+      return merged;
+    });
+
+    setIncomeCategories(prev => {
+      const merged = Array.from(new Set([...prev, ...uniqueIncCats, "Others"]));
+      if (!localStorage.getItem("custom_income_categories")) {
+        if (expenses.filter(e => e.type === "Income").length === 0) {
+          localStorage.setItem("custom_income_categories", JSON.stringify(["Others"]));
+          return ["Others"];
+        }
+        localStorage.setItem("custom_income_categories", JSON.stringify(merged));
+      }
+      return merged;
+    });
+  }, [expenses]);
+
+  const handleAddCustomCategory = (name: string) => {
+    const cleanName = name.trim();
+    if (!cleanName) return;
+
+    if (form.type === "Expense") {
+      if (expenseCategories.includes(cleanName)) return;
+      const updated = [...expenseCategories, cleanName];
+      setExpenseCategories(updated);
+      localStorage.setItem("custom_expense_categories", JSON.stringify(updated));
+      setForm(prev => ({ ...prev, category: cleanName }));
+    } else {
+      if (incomeCategories.includes(cleanName)) return;
+      const updated = [...incomeCategories, cleanName];
+      setIncomeCategories(updated);
+      localStorage.setItem("custom_income_categories", JSON.stringify(updated));
+      setForm(prev => ({ ...prev, category: cleanName }));
+    }
+  };
+
+  const handleDeleteCustomCategory = () => {
+    const target = form.category;
+    if (target === "Others") {
+      alert("Cannot delete the default 'Others' category.");
+      return;
+    }
+    if (!confirm(`Delete custom category '${target}'? (Existing transactions will remain unchanged)`)) return;
+
+    if (form.type === "Expense") {
+      const updated = expenseCategories.filter(c => c !== target);
+      setExpenseCategories(updated);
+      localStorage.setItem("custom_expense_categories", JSON.stringify(updated));
+      setForm(prev => ({ ...prev, category: "Others" }));
+    } else {
+      const updated = incomeCategories.filter(c => c !== target);
+      setIncomeCategories(updated);
+      localStorage.setItem("custom_income_categories", JSON.stringify(updated));
+      setForm(prev => ({ ...prev, category: "Others" }));
     }
   };
 
@@ -262,10 +344,13 @@ export default function ExpensesPage() {
   const expenseTotal = monthlyExpenses.filter(e => e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
   const remainTotal = incomeTotal - expenseTotal;
 
-  const homeTotal = monthlyExpenses.filter(e => e.category === "Home" && e.type === "Expense").reduce((acc, exp) => acc + exp.amount, 0);
-  const ajitTotal = monthlyExpenses.filter(e => e.category === "Ajit" && e.type === "Expense").reduce((acc, exp) => acc + exp.amount, 0);
-  const swarnaTotal = monthlyExpenses.filter(e => e.category === "Swarna" && e.type === "Expense").reduce((acc, exp) => acc + exp.amount, 0);
-  const delhiRoomTotal = monthlyExpenses.filter(e => e.category === "Delhi Room" && e.type === "Expense").reduce((acc, exp) => acc + exp.amount, 0);
+  // Dynamically compute sum for all active categories
+  const categoryTotals = expenseCategories.map(cat => {
+    const total = monthlyExpenses
+      .filter(e => e.category === cat && e.type === "Expense")
+      .reduce((acc, curr) => acc + curr.amount, 0);
+    return { category: cat, total };
+  }).filter(item => item.total > 0 || ["Home", "Ajit", "Swarna", "Delhi Room"].includes(item.category));
 
   // 3. Filter displayed logs based on active card filters
   const displayedExpenses = monthlyExpenses.filter((exp) => {
@@ -419,57 +504,21 @@ export default function ExpensesPage() {
               </h3>
             </div>
 
-            {/* Home Spend Card */}
-            <div
-              onClick={() => handleCardFilter("Expense", "Home", "Home Spend")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
-                activeFilter.category === "Home"
-                  ? "mini-3d-card-active-category"
-                  : ""
-              }`}
-            >
-              <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Home Spend</span>
-              <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{homeTotal.toLocaleString()}</h3>
-            </div>
-
-            {/* Ajit Spend Card */}
-            <div
-              onClick={() => handleCardFilter("Expense", "Ajit", "Ajit Spend")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
-                activeFilter.category === "Ajit"
-                  ? "mini-3d-card-active-category"
-                  : ""
-              }`}
-            >
-              <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Ajit Spend</span>
-              <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{ajitTotal.toLocaleString()}</h3>
-            </div>
-
-            {/* Swarna Spend Card */}
-            <div
-              onClick={() => handleCardFilter("Expense", "Swarna", "Swarna Spend")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
-                activeFilter.category === "Swarna"
-                  ? "mini-3d-card-active-category"
-                  : ""
-              }`}
-            >
-              <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Swarna Spend</span>
-              <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{swarnaTotal.toLocaleString()}</h3>
-            </div>
-
-            {/* Delhi Room Card */}
-            <div
-              onClick={() => handleCardFilter("Expense", "Delhi Room", "Delhi Room")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
-                activeFilter.category === "Delhi Room"
-                  ? "mini-3d-card-active-category"
-                  : ""
-              }`}
-            >
-              <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">Delhi Room</span>
-              <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{delhiRoomTotal.toLocaleString()}</h3>
-            </div>
+            {/* Dynamic Category Spend Cards */}
+            {categoryTotals.map((item) => (
+              <div
+                key={item.category}
+                onClick={() => handleCardFilter("Expense", item.category, `${item.category} Spend`)}
+                className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
+                  activeFilter.category === item.category
+                    ? "mini-3d-card-active-category"
+                    : ""
+                }`}
+              >
+                <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">{item.category} Spend</span>
+                <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{item.total.toLocaleString()}</h3>
+              </div>
+            ))}
           </div>
 
 
@@ -583,6 +632,29 @@ export default function ExpensesPage() {
                           </option>
                         ))}
                       </select>
+                    </div>
+                    <div className="flex gap-3 mt-1 px-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newCat = prompt("Enter new category name:");
+                          if (newCat && newCat.trim()) {
+                            handleAddCustomCategory(newCat.trim());
+                          }
+                        }}
+                        className="text-[9px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      >
+                        + Add Custom
+                      </button>
+                      {form.category !== "Others" && (
+                        <button
+                          type="button"
+                          onClick={handleDeleteCustomCategory}
+                          className="text-[9px] text-red-400 hover:text-red-300 font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                        >
+                          - Delete Selected
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -717,7 +789,7 @@ export default function ExpensesPage() {
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Category</label>
                                 <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value})}
                                   className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50">
-                                  {["Home","Ajit","Swarna","Delhi Room","Food","Travel","Health","Entertainment","Education","Others"].map(c => <option key={c} value={c}>{c}</option>)}
+                                  {(editForm.type === "Income" ? incomeCategories : expenseCategories).map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                               </div>
                               <div>
