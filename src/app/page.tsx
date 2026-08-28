@@ -56,7 +56,9 @@ export default function LandingPage() {
           </div>
           <div>
             <h1 className="text-sm font-black uppercase tracking-widest text-slate-200 group-hover:text-indigo-400 transition-all">Personal Labs</h1>
-            <p className="text-[9px] uppercase tracking-wider text-slate-600">Rajat's Growth Core</p>
+            <p className="text-[9px] uppercase tracking-wider text-slate-600">
+              {session?.user?.name ? `${session.user.name.split(" ")[0]}'s` : "System"} Growth Core
+            </p>
           </div>
         </Link>
         <div className="flex items-center gap-3">
