@@ -60,9 +60,10 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          if [ -z "$VERCEL_TOKEN" ]; then echo "❌ VERCEL_TOKEN is NOT set in GitHub Secrets"; else echo "✅ VERCEL_TOKEN is set (length: ${#VERCEL_TOKEN})"; fi
-          if [ -z "$VERCEL_ORG_ID" ]; then echo "❌ VERCEL_ORG_ID is NOT set in GitHub Secrets"; else echo "✅ VERCEL_ORG_ID is set (value: $VERCEL_ORG_ID)"; fi
-          if [ -z "$VERCEL_PROJECT_ID" ]; then echo "❌ VERCEL_PROJECT_ID is NOT set in GitHub Secrets"; else echo "✅ VERCEL_PROJECT_ID is set (value: $VERCEL_PROJECT_ID)"; fi
+          if [ -z "$VERCEL_TOKEN" ]; then echo "❌ VERCEL_TOKEN is NOT set"; else echo "✅ VERCEL_TOKEN is set (length: ${#VERCEL_TOKEN})"; fi
+          if [ -z "$VERCEL_ORG_ID" ]; then echo "❌ VERCEL_ORG_ID is NOT set"; else echo "✅ VERCEL_ORG_ID is set (length: ${#VERCEL_ORG_ID})"; fi
+          if [ -z "$VERCEL_PROJECT_ID" ]; then echo "❌ VERCEL_PROJECT_ID is NOT set"; else echo "✅ VERCEL_PROJECT_ID is set (length: ${#VERCEL_PROJECT_ID})"; fi
+
 
       - name: 🚀 Deploy to Vercel (Production)
         env:
