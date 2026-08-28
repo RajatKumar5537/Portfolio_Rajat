@@ -10,35 +10,10 @@ import {
   Activity
 } from "lucide-react";
 
-// Quick actions shown in each nav link's popup
-const NAV_POPUPS: Record<string, { label: string; href: string; icon: React.ReactNode; color: string }[]> = {
-  "/dashboard": [
-    { label: "View Summary", href: "/dashboard", icon: <BarChart2 size={12} />, color: "popup-link-indigo" },
-    { label: "Import Excel", href: "/dashboard/import", icon: <ClipboardList size={12} />, color: "popup-link-slate" },
-  ],
-  "/learning": [
-    { label: "Start Study Timer", href: "/learning", icon: <Timer size={12} />, color: "popup-link-indigo" },
-    { label: "Log Topic", href: "/learning", icon: <PlusCircle size={12} />, color: "popup-link-purple" },
-    { label: "View Roadmap", href: "/learning", icon: <ClipboardList size={12} />, color: "popup-link-slate" },
-  ],
-  "/expenses": [
-    { label: "Log Expense", href: "/expenses", icon: <PlusCircle size={12} />, color: "popup-link-purple" },
-    { label: "Log Income", href: "/expenses", icon: <ArrowUpRight size={12} />, color: "popup-link-emerald" },
-    { label: "View Ledger", href: "/expenses", icon: <BarChart2 size={12} />, color: "popup-link-slate" },
-  ],
-  "/food": [
-    { label: "Log Meal", href: "/food", icon: <Utensils size={12} />, color: "popup-link-teal" },
-    { label: "Track Protein", href: "/food", icon: <Dumbbell size={12} />, color: "popup-link-indigo" },
-    { label: "View Logs", href: "/food", icon: <ClipboardList size={12} />, color: "popup-link-slate" },
-  ],
-};
-
 export default function Navigation() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [hoveredLink, setHoveredLink] = useState<string | null>(null);
-  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as "dark" | "light";
@@ -53,15 +28,6 @@ export default function Navigation() {
     setTheme(nextTheme);
     localStorage.setItem("theme", nextTheme);
     document.documentElement.classList.toggle("light", nextTheme === "light");
-  };
-
-  const handleMouseEnter = (href: string) => {
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    setHoveredLink(href);
-  };
-
-  const handleMouseLeave = () => {
-    hoverTimerRef.current = setTimeout(() => setHoveredLink(null), 150);
   };
 
   const links = [
@@ -86,55 +52,22 @@ export default function Navigation() {
           </div>
         </Link>
 
-        {/* Links with hover popups */}
+        {/* Links (Static buttons, no popups) */}
         <nav className="flex items-center gap-1 sm:gap-2">
           {links.map((link) => {
             const isActive = pathname === link.href;
-            const popupItems = NAV_POPUPS[link.href] ?? [];
-            const isOpen = hoveredLink === link.href;
 
             return (
-              <div
+              <Link
                 key={link.href}
-                className="relative"
-                onMouseEnter={() => handleMouseEnter(link.href)}
-                onMouseLeave={handleMouseLeave}
+                href={link.href}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all nav-link ${
+                  isActive ? "nav-link-active" : ""
+                }`}
               >
-                <Link
-                  href={link.href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all nav-link ${
-                    isActive ? "nav-link-active" : ""
-                  }`}
-                >
-                  {link.icon}
-                  <span className="hidden md:inline">{link.label}</span>
-                </Link>
-
-                {/* Hover Popup */}
-                {isOpen && popupItems.length > 0 && (
-                  <div
-                    className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
-                    onMouseEnter={() => handleMouseEnter(link.href)}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    {/* Arrow tip */}
-                    <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 popup-menu-arrow-top" />
-                    <div className="relative popup-menu-card rounded-xl overflow-hidden py-1">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-600 px-3 pt-2 pb-1">{link.label}</p>
-                      {popupItems.map((item, idx) => (
-                        <Link
-                          key={idx}
-                          href={item.href}
-                          className={`flex items-center gap-2 px-3 py-2 text-[11px] font-semibold hover:bg-white/5 transition-all ${item.color}`}
-                        >
-                          {item.icon}
-                          {item.label}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+                {link.icon}
+                <span className="hidden md:inline">{link.label}</span>
+              </Link>
             );
           })}
         </nav>
