@@ -17,27 +17,19 @@ export default function DashboardPage() {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const hoverTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch all user records
+  // Fetch all user records from the optimized consolidated API endpoint
   useEffect(() => {
     async function fetchDashboardData() {
       try {
-        const [expRes, studyRes, foodRes] = await Promise.all([
-          fetch("/api/tracking/expenses"),
-          fetch("/api/tracking/study"),
-          fetch("/api/tracking/food"),
-        ]);
-
-        const [expenses, studyLogs, foodLogs] = await Promise.all([
-          expRes.json(),
-          studyRes.json(),
-          foodRes.json(),
-        ]);
-
-        setData({
-          expenses: Array.isArray(expenses) ? expenses : [],
-          studyLogs: Array.isArray(studyLogs) ? studyLogs : [],
-          foodLogs: Array.isArray(foodLogs) ? foodLogs : [],
-        });
+        const res = await fetch("/api/dashboard");
+        if (res.ok) {
+          const result = await res.json();
+          setData({
+            expenses: Array.isArray(result.expenses) ? result.expenses : [],
+            studyLogs: Array.isArray(result.studyLogs) ? result.studyLogs : [],
+            foodLogs: Array.isArray(result.foodLogs) ? result.foodLogs : [],
+          });
+        }
       } catch (err) {
         console.error("Dashboard Fetch Error:", err);
       } finally {
@@ -102,6 +94,22 @@ export default function DashboardPage() {
     return monthMatches && yearMatches;
   });
 
+  // Filter study logs by selected Month and Year
+  const filteredStudyLogs = data.studyLogs.filter((log) => {
+    const logDate = new Date(log.date);
+    const monthMatches = selectedMonth === -1 || logDate.getMonth() === selectedMonth;
+    const yearMatches = selectedYear === -1 || logDate.getFullYear() === selectedYear;
+    return monthMatches && yearMatches;
+  });
+
+  // Filter food logs by selected Month and Year
+  const filteredFoodLogs = data.foodLogs.filter((log) => {
+    const logDate = new Date(log.date);
+    const monthMatches = selectedMonth === -1 || logDate.getMonth() === selectedMonth;
+    const yearMatches = selectedYear === -1 || logDate.getFullYear() === selectedYear;
+    return monthMatches && yearMatches;
+  });
+
   // calculations
   const totalExpenses = filteredTransactions.filter(e => e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
   const totalIncome = filteredTransactions.filter(e => e.type === "Income").reduce((acc, curr) => acc + curr.amount, 0);
@@ -111,17 +119,29 @@ export default function DashboardPage() {
   const ajitExpenses = filteredTransactions.filter(e => e.category === "Ajit" && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
   const swarnaExpenses = filteredTransactions.filter(e => e.category === "Swarna" && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
 
-  const totalStudyMinutes = data.studyLogs.reduce((acc, curr) => acc + curr.durationMinutes, 0);
+  const totalStudyMinutes = filteredStudyLogs.reduce((acc, curr) => acc + curr.durationMinutes, 0);
   const totalStudyHours = (totalStudyMinutes / 60).toFixed(1);
 
-  // Today's Protein Calculation
+  // Protein Calculations (dynamic depending on whether filtered month/year matches current month/year)
+  const proteinGoal = 120; // Default protein target (120g)
   const todayStr = new Date().toDateString();
   const todayFood = data.foodLogs.filter(f => new Date(f.date).toDateString() === todayStr);
   const todayProtein = todayFood.reduce((acc, curr) => acc + curr.calculatedProtein, 0);
-  const proteinGoal = 120; // Default protein target (120g)
-  const proteinPercent = Math.min(100, Math.round((todayProtein / proteinGoal) * 100));
+  const todayProteinPercent = Math.min(100, Math.round((todayProtein / proteinGoal) * 100));
 
-  // Study Streak Calculation
+  const isCurrentMonthYear = (selectedMonth === -1 || selectedMonth === new Date().getMonth()) && 
+                             (selectedYear === -1 || selectedYear === new Date().getFullYear());
+
+  const uniqueDays = new Set(filteredFoodLogs.map(l => new Date(l.date).toDateString())).size;
+  const totalFilteredProtein = filteredFoodLogs.reduce((acc, curr) => acc + curr.calculatedProtein, 0);
+  const avgDailyProtein = uniqueDays > 0 ? totalFilteredProtein / uniqueDays : 0;
+  const avgProteinPercent = Math.min(100, Math.round((avgDailyProtein / proteinGoal) * 100));
+
+  const displayProtein = isCurrentMonthYear ? todayProtein : avgDailyProtein;
+  const displayProteinPercent = isCurrentMonthYear ? todayProteinPercent : avgProteinPercent;
+  const displayProteinLabel = isCurrentMonthYear ? "Today's Protein Intake" : `Avg Daily Protein (${getContextLabel()})`;
+
+  // Study Streak Calculation (remains dynamic for current overall active days)
   const calculateStreak = (): number => {
     if (data.studyLogs.length === 0) return 0;
     
@@ -283,13 +303,13 @@ export default function DashboardPage() {
 
                 <div className="mt-4">
                   <h3 className="text-2xl font-black font-mono text-slate-100">{totalStudyHours} Hrs</h3>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 mt-1">Study Logs Resolved</p>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 mt-1">Study Logs Resolved ({getContextLabel()})</p>
                 </div>
               </div>
 
               <div className="border-t border-white/5 pt-4 mt-6 flex justify-between items-center">
                 <span className="text-[11px] text-slate-500 uppercase tracking-wider">
-                  {data.studyLogs.length > 0 ? `Latest: ${data.studyLogs[0].topic}` : "No study logged yet"}
+                  {filteredStudyLogs.length > 0 ? `Latest: ${filteredStudyLogs[0].topic}` : "No study logged yet"}
                 </span>
                 <Link
                   href="/learning"
@@ -344,15 +364,15 @@ export default function DashboardPage() {
                     <Apple size={20} />
                   </div>
                   <span className="text-[10px] bg-teal-950/40 border border-teal-500/20 px-2.5 py-1 rounded-full text-teal-400 font-bold font-mono">
-                    {proteinPercent}% GOAL
+                    {displayProteinPercent}% GOAL
                   </span>
                 </div>
 
                 <div className="mt-4">
                   <h3 className="text-2xl font-black font-mono text-slate-100">
-                    {todayProtein.toFixed(1)}g <span className="text-sm font-medium text-slate-500">/ {proteinGoal}g</span>
+                    {displayProtein.toFixed(1)}g <span className="text-sm font-medium text-slate-500">/ {proteinGoal}g</span>
                   </h3>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-teal-400 mt-1">Today's Protein Intake</p>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-teal-400 mt-1">{displayProteinLabel}</p>
                 </div>
               </div>
 
@@ -361,7 +381,7 @@ export default function DashboardPage() {
                 <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-teal-500 to-indigo-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${proteinPercent}%` }}
+                    style={{ width: `${displayProteinPercent}%` }}
                   ></div>
                 </div>
               </div>
