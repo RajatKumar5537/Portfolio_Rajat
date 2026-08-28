@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Navigation from "@/components/Navigation";
 import { BookOpen, CreditCard, Apple, ArrowUpRight, TrendingUp, Sparkles, Flame, PlusCircle, Loader2, Wallet, FileUp, ChevronLeft, ChevronRight, Plus, TrendingDown } from "lucide-react";
@@ -15,8 +15,6 @@ export default function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-  const hoverTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch all user records from the optimized consolidated API endpoint
   useEffect(() => {

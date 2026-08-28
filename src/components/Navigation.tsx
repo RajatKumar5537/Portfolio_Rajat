@@ -1,13 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
-  BookOpen, CreditCard, Apple, LayoutDashboard, LogOut, User, Sun, Moon,
-  PlusCircle, BarChart2, ClipboardList, Timer, Dumbbell, Utensils, ArrowUpRight,
-  Activity
+  BookOpen, CreditCard, Apple, LayoutDashboard, LogOut, User, Sun, Moon, Activity
 } from "lucide-react";
 
 export default function Navigation() {

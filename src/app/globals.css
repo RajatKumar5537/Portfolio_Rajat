@@ -281,60 +281,7 @@ body {
 }
 
 
-/* Theme-Aware Popup Menu and Arrow elements */
-.popup-menu-card {
-  background: rgba(15, 15, 26, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-}
-.popup-menu-arrow-top {
-  background: #0f0f1a;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-.popup-menu-arrow-bottom {
-  background: #0f0f1a;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
 
-.light .popup-menu-card {
-  background: linear-gradient(160deg, #ffffff 0%, #f9f9fc 100%) !important;
-  border: 1px solid rgba(99, 102, 241, 0.15) !important;
-  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.08) !important;
-}
-.light .popup-menu-arrow-top {
-  background: #ffffff !important;
-  border-left: 1px solid rgba(99, 102, 241, 0.15) !important;
-  border-top: 1px solid rgba(99, 102, 241, 0.15) !important;
-}
-.light .popup-menu-arrow-bottom {
-  background: #ffffff !important;
-  border-right: 1px solid rgba(99, 102, 241, 0.15) !important;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.15) !important;
-}
-
-/* Theme-Aware popup link color utilities */
-.popup-link-indigo { color: #818cf8; }
-.light .popup-link-indigo { color: #4f46e5 !important; }
-
-.popup-link-purple { color: #c084fc; }
-.light .popup-link-purple { color: #9333ea !important; }
-
-.popup-link-emerald { color: #34d399; }
-.light .popup-link-emerald { color: #059669 !important; }
-
-.popup-link-teal { color: #2dd4bf; }
-.light .popup-link-teal { color: #0d9488 !important; }
-
-.popup-link-slate { color: #94a3b8; }
-.light .popup-link-slate { color: #475569 !important; }
-
-.popup-link-red { color: #f87171; }
-.light .popup-link-red { color: #dc2626 !important; }
-
-.mini-3d-card-value { color: #a5b4fc; }
-.light .mini-3d-card-value { color: #4f46e5 !important; }
 
 /* Card Radial Glows for Premium Apple/Cyber Aesthetics */
 .card-glow-indigo::after,

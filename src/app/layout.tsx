@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Personal Life Dashboard | Rajat",
-  description: "Secure, multi-user tracker for study roadmaps, expenses, and protein intake",
+  title: "Personal Labs | Growth Tracker",
+  description: "Secure personal tracker for study roadmaps, expenses, and protein intake",
 };
 
 export default function RootLayout({
