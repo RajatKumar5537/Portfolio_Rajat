@@ -396,8 +396,9 @@ export default function LearningPage() {
   const daysElapsed = Math.floor(elapsed / (1000 * 60 * 60 * 24));
   const totalDays = Math.floor(totalGoalTime / (1000 * 60 * 60 * 24));
 
-  const milestoneStepMs = totalGoalTime / 6;
-  const dynamicMilestones = MILESTONE_TEMPLATES.map((tpl, idx) => {
+  const milestoneCount = milestones.length || 1;
+  const milestoneStepMs = totalGoalTime / milestoneCount;
+  const dynamicMilestones = milestones.map((tpl, idx) => {
     const mStart = new Date(startMs + idx * milestoneStepMs);
     const mEnd = new Date(startMs + (idx + 1) * milestoneStepMs);
     return { ...tpl, start: mStart, end: mEnd };
