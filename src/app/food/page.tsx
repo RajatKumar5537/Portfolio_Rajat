@@ -63,7 +63,7 @@ export default function FoodPage() {
     calories: "0",
     carbs: "0",
     fats: "0",
-    mealType: "Snack",
+    mealType: "Breakfast",
     isAvoid: false
   });
   
@@ -283,7 +283,7 @@ export default function FoodPage() {
         calories: "0",
         carbs: "0",
         fats: "0",
-        mealType: "Snack",
+        mealType: "Breakfast",
         isAvoid: false
       });
       setSuccess("Food logged successfully!");
@@ -813,7 +813,7 @@ export default function FoodPage() {
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Meal Type</label>
                                 <select value={editFoodForm.mealType} onChange={e => setEditFoodForm({...editFoodForm, mealType: e.target.value})}
                                   className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
-                                  {mealTypes.map(m => <option key={m} value={m}>{m}</option>)}
+                                  {mealTypes.map(m => <option key={m} value={m} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-200">{m}</option>)}
                                 </select>
                               </div>
                             </div>
