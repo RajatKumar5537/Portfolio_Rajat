@@ -64,7 +64,7 @@ export default function WellnessPage() {
 
   // Logging Form states (Split into Hours & Minutes, defaulting minutes and calories to 0)
   const [exerciseForm, setExerciseForm] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDateString(),
     activityName: "",
     hours: "0",
     minutes: "0",
@@ -74,7 +74,7 @@ export default function WellnessPage() {
   });
 
   const [sleepForm, setSleepForm] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDateString(),
     hours: "8",
     minutes: "0",
     sleepQuality: "Good",
@@ -333,6 +333,7 @@ export default function WellnessPage() {
       setWellnessLogs([newLog, ...wellnessLogs]);
 
       // Shift selectors to newly added log date
+      setSelectedDate(payload.date);
       const newLogDate = new Date(payload.date);
       setSelectedMonth(newLogDate.getMonth());
       setSelectedYear(newLogDate.getFullYear());
@@ -341,7 +342,7 @@ export default function WellnessPage() {
       // Reset forms
       if (activeFormTab === "exercise") {
         setExerciseForm({
-          date: new Date().toISOString().split("T")[0],
+          date: getLocalDateString(),
           activityName: "",
           hours: "0",
           minutes: "0",
@@ -352,7 +353,7 @@ export default function WellnessPage() {
         setExercisesList([]);
       } else {
         setSleepForm({
-          date: new Date().toISOString().split("T")[0],
+          date: getLocalDateString(),
           hours: "8",
           minutes: "0",
           sleepQuality: "Good",
