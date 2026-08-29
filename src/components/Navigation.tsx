@@ -214,30 +214,30 @@ export default function Navigation() {
 
       {/* Persistent Floating Stopwatch Widget (visible on all pages when active) */}
       {stopwatchActive && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#0d0d1a]/95 light:bg-white/95 border border-teal-500/30 light:border-teal-500/20 backdrop-blur-xl shadow-2xl p-3.5 rounded-2xl animate-pulse-subtle transition-all">
+        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 sm:gap-3 bg-[#0d0d1a]/95 light:bg-white/95 border border-teal-500/30 light:border-teal-500/20 backdrop-blur-xl shadow-2xl p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl animate-pulse-subtle transition-all">
           <div className="relative flex items-center justify-center flex-shrink-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping absolute" />
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 relative" />
+            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-teal-500 animate-ping absolute" />
+            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-teal-500 relative" />
           </div>
 
           <div className="flex flex-col text-left">
-            <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 light:text-slate-400">Study Session Active</span>
-            <span className="text-sm font-black font-mono tracking-widest text-slate-100 light:text-slate-800">{formatStopwatch(stopwatchSeconds)}</span>
+            <span className="hidden sm:inline text-[8px] font-black uppercase tracking-wider text-slate-500 light:text-slate-400">Study Session Active</span>
+            <span className="text-xs sm:text-sm font-black font-mono tracking-widest text-slate-100 light:text-slate-800">{formatStopwatch(stopwatchSeconds)}</span>
           </div>
 
-          <div className="flex items-center gap-2 border-l border-white/10 light:border-slate-200 pl-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 border-l border-white/10 light:border-slate-200 pl-2 sm:pl-3">
             <Link
               href="/learning"
-              className="text-[9px] font-bold text-indigo-400 light:text-indigo-600 hover:underline hover:text-indigo-300 light:hover:text-indigo-500 whitespace-nowrap"
+              className="text-[8px] sm:text-[9px] font-bold text-indigo-400 light:text-indigo-600 hover:underline hover:text-indigo-300 light:hover:text-indigo-500 whitespace-nowrap"
             >
               Console
             </Link>
             <button
               onClick={handleStopPersistentSession}
-              className="flex items-center gap-1 bg-red-600 hover:bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-red-500/20 shadow-md transition-all cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1 bg-red-600 hover:bg-red-500 text-white text-[8px] sm:text-[9px] font-bold uppercase tracking-wider px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-red-500/20 shadow-md transition-all cursor-pointer whitespace-nowrap"
               title="Stop and save session"
             >
-              <Square size={9} fill="currentColor" />
+              <Square size={8} fill="currentColor" />
               <span>Stop</span>
             </button>
           </div>
