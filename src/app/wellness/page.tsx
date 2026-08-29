@@ -15,6 +15,7 @@ interface ExerciseSet {
 interface ExerciseItem {
   name: string;
   sets: ExerciseSet[];
+  isCustom?: boolean;
 }
 
 export default function WellnessPage() {
