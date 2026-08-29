@@ -745,20 +745,20 @@ export default function ExpensesPage() {
             {/* List Column */}
             <div ref={logsRef} className="lg:col-span-2">
               <div className="glass-card card-glow-indigo p-6 rounded-2xl border border-white/5 h-full flex flex-col min-h-[400px]">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 mb-6 flex items-center justify-between gap-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <span className="flex items-center gap-2">
-                    <Sparkles size={14} className="text-indigo-400 animate-pulse" />
-                    <span>
-                      Logs ({getContextLabel()})
+                    <Sparkles size={14} className="text-indigo-400 animate-pulse flex-shrink-0" />
+                    <span className="leading-normal flex flex-wrap items-center gap-1.5">
+                      <span>Logs ({getContextLabel()})</span>
                       {activeFilter.label !== "All" && (
-                        <span className="ml-2 text-[9px] text-indigo-400 bg-indigo-950/60 border border-indigo-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold uppercase">
+                        <span className="text-[8px] text-indigo-400 bg-indigo-950/60 border border-indigo-500/20 px-2 py-0.5 rounded-full font-mono font-bold uppercase whitespace-nowrap">
                           Filtered: {activeFilter.label}
                         </span>
                       )}
                     </span>
                   </span>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                     {/* General category dropdown filter */}
                     <select
                       value={activeFilter.category || ""}
@@ -775,17 +775,17 @@ export default function ExpensesPage() {
                           });
                         }
                       }}
-                      className="bg-white/[0.02] border border-white/5 focus:border-indigo-500/50 rounded-lg py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-300 outline-none cursor-pointer font-sans"
+                      className="bg-white/[0.02] light:bg-white border border-white/5 light:border-slate-200 focus:border-indigo-500/50 rounded-lg py-1 px-2.5 text-[9px] font-bold uppercase tracking-wider text-slate-300 light:text-slate-700 outline-none cursor-pointer font-sans"
                     >
-                      <option value="" className="bg-[#0c0c16]">ALL CATEGORIES</option>
-                      <optgroup label="Expenses" className="bg-[#0c0c16] text-slate-500">
+                      <option value="" className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-350">ALL CATEGORIES</option>
+                      <optgroup label="Expenses" className="bg-white dark:bg-[#0c0c16] text-slate-500">
                         {expenseCategories.map(cat => (
-                          <option key={cat} value={cat} className="bg-[#0c0c16] text-slate-300">{cat.toUpperCase()}</option>
+                          <option key={cat} value={cat} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{cat.toUpperCase()}</option>
                         ))}
                       </optgroup>
-                      <optgroup label="Income" className="bg-[#0c0c16] text-slate-500">
+                      <optgroup label="Income" className="bg-white dark:bg-[#0c0c16] text-slate-500">
                         {incomeCategories.map(cat => (
-                          <option key={cat} value={cat} className="bg-[#0c0c16] text-slate-300">{cat.toUpperCase()}</option>
+                          <option key={cat} value={cat} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{cat.toUpperCase()}</option>
                         ))}
                       </optgroup>
                     </select>
@@ -793,7 +793,7 @@ export default function ExpensesPage() {
                     {activeFilter.label !== "All" && (
                       <button
                         onClick={() => setActiveFilter({ type: null, category: null, label: "All" })}
-                        className="text-[9px] text-slate-500 hover:text-slate-300 underline font-bold uppercase tracking-wider cursor-pointer font-mono"
+                        className="text-[9px] text-slate-500 hover:text-slate-305 light:text-slate-600 light:hover:text-slate-800 underline font-bold uppercase tracking-wider cursor-pointer font-mono whitespace-nowrap"
                       >
                         Reset
                       </button>
