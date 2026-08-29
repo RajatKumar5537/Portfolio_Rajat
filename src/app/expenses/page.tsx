@@ -484,7 +484,7 @@ export default function ExpensesPage() {
                       type="date"
                       value={startDate || ""}
                       onChange={(e) => setStartDate(e.target.value || null)}
-                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
                     />
                   </div>
                   <div className="range-pill flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/5 border border-indigo-200 dark:border-indigo-500/20 px-2 py-1 rounded-xl text-indigo-600 dark:text-indigo-400">
@@ -493,7 +493,7 @@ export default function ExpensesPage() {
                       type="date"
                       value={endDate || ""}
                       onChange={(e) => setEndDate(e.target.value || null)}
-                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
                     />
                   </div>
                 </div>

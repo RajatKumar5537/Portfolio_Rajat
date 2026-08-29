@@ -18,6 +18,9 @@ export const foodDictionary: FoodItem[] = [
   { name: "Almond (Badam)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 1.2, proteinPerBase: 0.25, carbsPerBase: 0.25, fatsPerBase: 0.6, caloriesPerBase: 7 },
   { name: "Banana", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 120, proteinPerBase: 1.3, carbsPerBase: 27, fatsPerBase: 0.4, caloriesPerBase: 105 },
   { name: "Poha", defaultUnit: "Plate", defaultSize: 1, gramsEquivalent: 150, proteinPerBase: 4, carbsPerBase: 45, fatsPerBase: 6, caloriesPerBase: 250 },
+  { name: "Boiled Egg", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 50, proteinPerBase: 6, carbsPerBase: 0.6, fatsPerBase: 5, caloriesPerBase: 78 },
+  { name: "Egg White", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 33, proteinPerBase: 3.6, carbsPerBase: 0.2, fatsPerBase: 0.1, caloriesPerBase: 17 },
+  { name: "Omelette (1 Egg)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 60, proteinPerBase: 6.5, carbsPerBase: 0.8, fatsPerBase: 7, caloriesPerBase: 95 },
   { name: "Oats", defaultUnit: "Bowl", defaultSize: 1, gramsEquivalent: 150, proteinPerBase: 6.5, carbsPerBase: 32, fatsPerBase: 3.5, caloriesPerBase: 190 },
 
   // Meals & Veg/Non-Veg (Base 100g)
@@ -45,5 +48,9 @@ export const foodDictionary: FoodItem[] = [
   // Avoid Items (Ice creams)
   { name: "Amul Cookie Crunch Cone", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 120, proteinPerBase: 3.5, carbsPerBase: 28, fatsPerBase: 13, caloriesPerBase: 240, isAvoid: true },
   { name: "Amul Tricone Chocolate Cone (50 Rs)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 120, proteinPerBase: 4, carbsPerBase: 34, fatsPerBase: 14, caloriesPerBase: 280, isAvoid: true },
-  { name: "Standard Ice Cream Scoop", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 100, proteinPerBase: 3.5, carbsPerBase: 24, fatsPerBase: 10, caloriesPerBase: 200, isAvoid: true }
+  { name: "Butterscotch Ice Cream (Cup)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 100, proteinPerBase: 3.5, carbsPerBase: 24, fatsPerBase: 10, caloriesPerBase: 200, isAvoid: true },
+  { name: "Vanilla Ice Cream (Cup)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 100, proteinPerBase: 3.5, carbsPerBase: 22, fatsPerBase: 9, caloriesPerBase: 180, isAvoid: true },
+  { name: "Amul Rajbhog Ice Cream (Cup)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 100, proteinPerBase: 4, carbsPerBase: 26, fatsPerBase: 12, caloriesPerBase: 230, isAvoid: true },
+  { name: "Kulfi Ice Cream (Stick)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 70, proteinPerBase: 4, carbsPerBase: 22, fatsPerBase: 11, caloriesPerBase: 200, isAvoid: true },
+  { name: "Standard Ice Cream Cone", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 100, proteinPerBase: 3.5, carbsPerBase: 24, fatsPerBase: 10, caloriesPerBase: 200, isAvoid: true }
 ];

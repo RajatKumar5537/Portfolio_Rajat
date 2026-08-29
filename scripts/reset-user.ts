@@ -1,12 +1,39 @@
-import { MongoClient } from "mongodb";
+import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import readline from "readline";
-import dotenv from "dotenv";
+import fs from "fs";
 import path from "path";
 
-// Load environment variables from .env or .env.local
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+// Simple manual env file parser to eliminate external dotenv dependency
+function loadEnv() {
+  const paths = [
+    path.resolve(process.cwd(), ".env.local"),
+    path.resolve(process.cwd(), ".env")
+  ];
+  for (const envPath of paths) {
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, "utf-8");
+      content.split("\n").forEach((line) => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith("#") && trimmed.includes("=")) {
+          const firstEquals = trimmed.indexOf("=");
+          const key = trimmed.slice(0, firstEquals).trim();
+          let val = trimmed.slice(firstEquals + 1).trim();
+          // Remove wrapping quotes if present
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (!process.env[key]) {
+            process.env[key] = val;
+          }
+        }
+      });
+    }
+  }
+}
+
+// Load env files
+loadEnv();
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -25,6 +52,7 @@ async function main() {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     console.error("❌ Error: MONGODB_URI is not defined in your environment (.env or .env.local).");
+    rl.close();
     process.exit(1);
   }
 
@@ -58,15 +86,13 @@ async function main() {
     process.exit(1);
   }
 
-  const client = new MongoClient(uri);
-
   try {
     console.log("\nConnecting to database...");
-    await client.connect();
-    
-    // Extract db name from connection string or default to 'personal-tracker'
-    const dbName = uri.includes("personal-tracker") ? "personal-tracker" : undefined;
-    const db = client.db(dbName);
+    await mongoose.connect(uri);
+    const db = mongoose.connection.db;
+    if (!db) {
+      throw new Error("Could not establish database connection.");
+    }
     const usersCollection = db.collection("users");
 
     // Check if user exists
@@ -74,7 +100,7 @@ async function main() {
     if (!user) {
       console.error(`❌ Error: No user account found with email: ${email}`);
       rl.close();
-      await client.close();
+      await mongoose.disconnect();
       process.exit(1);
     }
 
@@ -112,7 +138,7 @@ async function main() {
     console.error("❌ Database connection error:", err.message || err);
   } finally {
     rl.close();
-    await client.close();
+    await mongoose.disconnect();
   }
 }
 

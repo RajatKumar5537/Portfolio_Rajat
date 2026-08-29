@@ -13,6 +13,14 @@ export default function FoodPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  // Helper to get local date string in YYYY-MM-DD format
+  const getLocalDateString = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Inline edit state
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
   const [editFoodForm, setEditFoodForm] = useState({ 
@@ -45,11 +53,11 @@ export default function FoodPage() {
 
   // Form State
   const [form, setForm] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDateString(),
     foodName: "",
-    portion: "100",
+    portion: "0",
     portionUnit: "Grams",
-    portionGrams: "100",
+    portionGrams: "0",
     proteinPer100g: "0",
     calculatedProtein: "0",
     calories: "0",
@@ -112,7 +120,17 @@ export default function FoodPage() {
   // Auto-calculator: recalculates macros based on portion, unit, and selected dictionary item
   const calculateMacros = (foodNameStr: string, portionVal: string) => {
     const numericPortion = parseFloat(portionVal) || 0;
-    if (numericPortion <= 0) return;
+    if (numericPortion <= 0) {
+      setForm(prev => ({
+        ...prev,
+        portionGrams: "0",
+        calculatedProtein: "0",
+        calories: "0",
+        carbs: "0",
+        fats: "0"
+      }));
+      return;
+    }
 
     // Check if the typed food name matches an item in our dictionary exactly
     const matchedItem = foodDictionary.find(
@@ -141,16 +159,16 @@ export default function FoodPage() {
         isAvoid: matchedItem.isAvoid ?? false
       }));
     } else {
-      // If custom food, fallback calculation (protein = portionGrams * proteinPer100g / 100)
-      const grams = parseFloat(form.portionGrams) || 0;
+      // If custom food, calculate based on the new typed portionVal directly
+      const portionNum = parseFloat(portionVal) || 0;
       const protPer100 = parseFloat(form.proteinPer100g) || 0;
-      const calcProtein = (grams * protPer100) / 100;
+      const calcProtein = (portionNum * protPer100) / 100;
       
       setForm(prev => ({
         ...prev,
+        portionGrams: portionVal,
         calculatedProtein: String(calcProtein.toFixed(1)),
         portionUnit: "Grams",
-        portion: form.portionGrams,
         isAvoid: false
       }));
     }
@@ -255,11 +273,11 @@ export default function FoodPage() {
 
       // Reset form
       setForm({
-        date: new Date().toISOString().split("T")[0],
+        date: getLocalDateString(),
         foodName: "",
-        portion: "100",
+        portion: "0",
         portionUnit: "Grams",
-        portionGrams: "100",
+        portionGrams: "0",
         proteinPer100g: "0",
         calculatedProtein: "0",
         calories: "0",
@@ -299,7 +317,7 @@ export default function FoodPage() {
   const handleFoodEditStart = (log: any) => {
     setEditingFoodId(log._id);
     setEditFoodForm({
-      date: new Date(log.date).toISOString().split("T")[0],
+      date: getLocalDateString(new Date(log.date)),
       foodName: log.foodName,
       portionGrams: String(log.portionGrams),
       proteinPer100g: String(log.proteinPer100g),
@@ -462,7 +480,7 @@ export default function FoodPage() {
                       type="date"
                       value={selectedDate || ""}
                       onChange={(e) => setSelectedDate(e.target.value || null)}
-                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
                     />
                   </div>
                   {selectedDate && (
@@ -620,17 +638,17 @@ export default function FoodPage() {
                     {showSuggestions && suggestions.length > 0 && (
                       <div 
                         ref={suggestionsRef}
-                        className="absolute z-30 left-0 right-0 mt-1 max-h-[180px] overflow-y-auto rounded-xl border border-white/10 bg-[#0c0c16]/95 backdrop-blur-xl shadow-2xl space-y-1 p-1 text-xs"
+                        className="absolute z-30 left-0 right-0 mt-1 max-h-[180px] overflow-y-auto rounded-xl border border-white/10 light:border-slate-200 bg-[#0c0c16]/95 light:bg-white backdrop-blur-xl shadow-2xl space-y-1 p-1 text-xs"
                       >
                         {suggestions.map((item) => (
                           <button
                             key={item.name}
                             type="button"
                             onClick={() => handleSuggestionClick(item)}
-                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-500/15 text-slate-300 hover:text-teal-400 font-bold transition-all cursor-pointer flex justify-between items-center"
+                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-500/15 light:hover:bg-teal-50 text-slate-300 light:text-slate-700 hover:text-teal-400 light:hover:text-teal-600 font-bold transition-all cursor-pointer flex justify-between items-center"
                           >
                             <span>{item.name}</span>
-                            <span className="text-[9px] text-slate-500 font-normal">Base: {item.defaultSize} {item.defaultUnit}</span>
+                            <span className="text-[9px] text-slate-500 light:text-slate-400 font-normal">Base: {item.defaultSize} {item.defaultUnit}</span>
                           </button>
                         ))}
                       </div>
@@ -639,9 +657,18 @@ export default function FoodPage() {
 
                   {/* Red Avoid Warning Alert if Sweet Treat is selected */}
                   {isAvoidItem && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-[10px] font-bold flex items-center gap-2 animate-pulse leading-normal">
+                    <div className={`p-3 border rounded-xl text-[10px] font-bold flex items-center gap-2 leading-normal transition-all ${
+                      (parseFloat(form.portionGrams) || 0) > 10
+                        ? "bg-red-600 text-white border-red-500"
+                        : "bg-red-500/10 border-red-500/30 text-red-400 animate-pulse"
+                    }`}>
                       <ShieldAlert size={14} className="flex-shrink-0" />
-                      <span>Warning: Sweet cheat treat detected. Avoid logging this item to stay on track!</span>
+                      <span>
+                        {(parseFloat(form.portionGrams) || 0) > 10
+                          ? "CRITICAL WARNING: Sugar overload detected (>10g)! Detrimental to your health goals!"
+                          : "Warning: Sweet cheat treat detected. Keep portion under 10g to minimize health impact!"
+                        }
+                      </span>
                     </div>
                   )}
 
@@ -844,8 +871,8 @@ export default function FoodPage() {
                             key={log._id}
                             className={`flex items-center justify-between p-4 rounded-xl border transition-all group ${
                               log.isAvoid 
-                                ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10" 
-                                : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03]"
+                                ? (log.portionGrams > 10 ? "bg-red-500/15 border-red-500/40 hover:bg-red-500/20" : "bg-red-500/5 border-red-500/20 hover:bg-red-500/10")
+                                : "bg-white/[0.01] light:bg-slate-50 border-white/5 light:border-slate-200 hover:bg-white/[0.03] light:hover:bg-slate-100/80"
                             }`}
                           >
                             <div className="flex items-center gap-4 min-w-0 flex-grow">
@@ -859,7 +886,7 @@ export default function FoodPage() {
                               </div>
                               <div className="min-w-0 flex-grow">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className={`text-xs font-bold break-all pr-2 ${log.isAvoid ? "text-red-400" : "text-slate-200"}`} title={log.foodName}>
+                                  <p className={`text-xs font-bold break-all pr-2 ${log.isAvoid ? (log.portionGrams > 10 ? "text-red-500" : "text-red-400") : "text-slate-200 light:text-slate-800"}`} title={log.foodName}>
                                     {log.foodName}
                                   </p>
                                   <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded font-mono flex-shrink-0 border ${
@@ -870,8 +897,12 @@ export default function FoodPage() {
                                     {log.mealType}
                                   </span>
                                   {log.isAvoid && (
-                                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded font-mono flex-shrink-0 bg-red-950/40 text-red-400 border border-red-500/20">
-                                      Avoid Item
+                                    <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded font-mono flex-shrink-0 border ${
+                                      log.portionGrams > 10 
+                                        ? "bg-red-600 text-white border-red-500" 
+                                        : "bg-red-950/40 text-red-400 border-red-500/20"
+                                    }`}>
+                                      {log.portionGrams > 10 ? "⚠️ Sugar Overload (>10g)" : "Avoid Item"}
                                     </span>
                                   )}
                                 </div>

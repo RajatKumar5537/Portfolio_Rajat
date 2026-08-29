@@ -550,18 +550,19 @@ body {
 
 /* Fix date input styling for Safari iOS */
 input[type="date"] {
-  -webkit-appearance: textfield;
+  -webkit-appearance: none;
   appearance: none;
-  min-height: 1.5rem;
+  min-height: 1.5rem !important;
+  line-height: 1.5rem !important;
   color-scheme: dark;
 }
 .light input[type="date"] {
-  color-scheme: light;
+  color-scheme: light !important;
 }
 input[type="date"]::-webkit-date-and-time-value {
-  min-height: 1.5rem;
-  display: flex;
-  align-items: center;
+  min-height: 1.5rem !important;
+  display: flex !important;
+  align-items: center !important;
   text-align: left;
 }
 
@@ -641,3 +642,49 @@ input[type="date"]::-webkit-date-and-time-value {
 .light .page-subheading {
   color: #64748b !important;
 }
+
+/* Inactive navigation links in light mode */
+.light .nav-link:not(.nav-link-active) {
+  color: #475569 !important; /* Darker slate grey for high contrast */
+}
+.light .nav-link:not(.nav-link-active):hover {
+  color: #0f172a !important;
+}
+
+/* Premium 3D Card for Profile button in Navbar */
+.profile-3d-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.00) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 0.02) inset,
+    0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.profile-3d-card:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 
+    0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
+    0 6px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+.light .profile-3d-card {
+  background: linear-gradient(160deg, #ffffff 0%, #f9f9fc 70%, #f3f3fb 100%) !important;
+  border: 1px solid rgba(99, 102, 241, 0.12) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 -1px 0 0 rgba(99, 102, 241, 0.04) inset,
+    0 2px 4px rgba(0, 0, 0, 0.02),
+    0 6px 12px rgba(99, 102, 241, 0.04) !important;
+}
+.light .profile-3d-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(99, 102, 241, 0.25) !important;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 1) inset,
+    0 -1px 0 0 rgba(99, 102, 241, 0.06) inset,
+    0 4px 8px rgba(0, 0, 0, 0.03),
+    0 8px 20px rgba(99, 102, 241, 0.08) !important;
+}
+

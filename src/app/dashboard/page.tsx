@@ -322,7 +322,7 @@ export default function DashboardPage() {
                         type="date"
                         value={selectedDate || ""}
                         onChange={(e) => setSelectedDate(e.target.value || null)}
-                        className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                        className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
                       />
                     </div>
                     {selectedDate && (

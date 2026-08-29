@@ -605,7 +605,7 @@ export default function WellnessPage() {
                       type="date"
                       value={selectedDate || ""}
                       onChange={(e) => setSelectedDate(e.target.value || null)}
-                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
                     />
                   </div>
                   {selectedDate && (
@@ -877,10 +877,16 @@ export default function WellnessPage() {
                                 <div className="space-y-1 pr-6">
                                   <label className="text-[8px] uppercase font-bold text-slate-500 tracking-wider">Exercise Name</label>
                                   <select
-                                    value={ex.name}
+                                    value={ex.isCustom ? "Custom" : ex.name}
                                     onChange={(e) => {
                                       const updated = [...exercisesList];
-                                      updated[exIdx].name = e.target.value;
+                                      if (e.target.value === "Custom") {
+                                        updated[exIdx].isCustom = true;
+                                        updated[exIdx].name = "";
+                                      } else {
+                                        updated[exIdx].isCustom = false;
+                                        updated[exIdx].name = e.target.value;
+                                      }
                                       setExercisesList(updated);
                                     }}
                                     className="w-full bg-[#0c0c16] border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none"
@@ -889,9 +895,10 @@ export default function WellnessPage() {
                                     <option value="Custom">-- Custom Exercise --</option>
                                   </select>
 
-                                  {ex.name === "Custom" && (
+                                  {ex.isCustom && (
                                     <input
                                       type="text"
+                                      value={ex.name}
                                       placeholder="Enter custom exercise name"
                                       onChange={(e) => {
                                         const updated = [...exercisesList];
