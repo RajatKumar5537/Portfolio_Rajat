@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const userId = (session.user as any).id;
-    const { date, foodName, portionGrams, proteinPer100g, mealType } = await req.json();
+    const { date, foodName, portionGrams, proteinPer100g, mealType, portion, portionUnit, calories, carbs, fats, isAvoid } = await req.json();
 
     if (!foodName || portionGrams === undefined || proteinPer100g === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -45,6 +45,12 @@ export async function POST(req: Request) {
       foodName,
       portionGrams: parseFloat(portionGrams),
       proteinPer100g: parseFloat(proteinPer100g),
+      portion: portion !== undefined ? parseFloat(portion) : parseFloat(portionGrams),
+      portionUnit: portionUnit || "Grams",
+      calories: calories !== undefined ? parseFloat(calories) : 0,
+      carbs: carbs !== undefined ? parseFloat(carbs) : 0,
+      fats: fats !== undefined ? parseFloat(fats) : 0,
+      isAvoid: isAvoid ?? false,
       mealType: mealType || "Snack",
     });
 
@@ -100,7 +106,7 @@ export async function PUT(req: Request) {
     }
 
     const userId = (session.user as any).id;
-    const { date, foodName, portionGrams, proteinPer100g, mealType } = await req.json();
+    const { date, foodName, portionGrams, proteinPer100g, mealType, portion, portionUnit, calories, carbs, fats, isAvoid } = await req.json();
 
     const calculatedProtein = (parseFloat(portionGrams) * parseFloat(proteinPer100g)) / 100;
 
@@ -115,6 +121,12 @@ export async function PUT(req: Request) {
         proteinPer100g: parseFloat(proteinPer100g),
         mealType,
         calculatedProtein,
+        portion: portion !== undefined ? parseFloat(portion) : undefined,
+        portionUnit,
+        calories: calories !== undefined ? parseFloat(calories) : undefined,
+        carbs: carbs !== undefined ? parseFloat(carbs) : undefined,
+        fats: fats !== undefined ? parseFloat(fats) : undefined,
+        isAvoid,
       },
       { new: true }
     );

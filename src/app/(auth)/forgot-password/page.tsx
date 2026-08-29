@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, ShieldCheck, ArrowRight, Loader2, Sun, Moon, ArrowLeft, KeyRound } from "lucide-react";
+import { Mail, Lock, ShieldCheck, ArrowRight, Loader2, Sun, Moon, ArrowLeft, KeyRound, Eye, EyeOff } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -11,12 +11,15 @@ export default function ForgotPasswordPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    inviteCode: "",
+    securityPin: "",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") as "dark" | "light";
@@ -43,7 +46,7 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email || !formData.inviteCode || !formData.password || !formData.confirmPassword) {
+    if (!formData.email || !formData.securityPin || !formData.password || !formData.confirmPassword) {
       setError("Please fill out all fields.");
       return;
     }
@@ -69,7 +72,7 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          inviteCode: formData.inviteCode,
+          securityPin: formData.securityPin,
         }),
       });
 
@@ -125,7 +128,7 @@ export default function ForgotPasswordPage() {
             Recover Access
           </h1>
           <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
-            Invite-Code Password Reset
+            PIN-Secured Password Reset
           </p>
         </div>
 
@@ -163,24 +166,32 @@ export default function ForgotPasswordPage() {
             </div>
           </div>
 
-          {/* Invite Code */}
+          {/* Security PIN */}
           <div className="space-y-1">
             <label className="text-[10px] uppercase font-bold tracking-widest text-indigo-400">
-              System Invite Code
+              6-Digit Security PIN
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-600">
-                <ShieldCheck size={16} />
+                <Lock size={16} />
               </span>
               <input
-                type="text"
-                name="inviteCode"
-                value={formData.inviteCode}
+                type={showPin ? "text" : "password"}
+                name="securityPin"
+                maxLength={6}
+                value={formData.securityPin}
                 onChange={handleChange}
-                placeholder="Enter signup invite code"
-                className="w-full bg-white/[0.02] border border-white/5 focus:border-indigo-500/50 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
+                placeholder="Enter your security PIN"
+                className="w-full bg-white/[0.02] border border-white/5 focus:border-indigo-500/50 rounded-xl py-2.5 pl-10 pr-10 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPin(!showPin)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+              >
+                {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
             </div>
           </div>
 
@@ -194,14 +205,21 @@ export default function ForgotPasswordPage() {
                 <Lock size={16} />
               </span>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full bg-white/[0.02] border border-white/5 focus:border-indigo-500/50 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
+                className="w-full bg-white/[0.02] border border-white/5 focus:border-indigo-500/50 rounded-xl py-2.5 pl-10 pr-10 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+              >
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
             </div>
           </div>
 
@@ -215,14 +233,21 @@ export default function ForgotPasswordPage() {
                 <Lock size={16} />
               </span>
               <input
-                type="password"
+                type={showConfirm ? "text" : "password"}
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full bg-white/[0.02] border border-white/5 focus:border-indigo-500/50 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
+                className="w-full bg-white/[0.02] border border-white/5 focus:border-indigo-500/50 rounded-xl py-2.5 pl-10 pr-10 text-sm text-slate-200 placeholder-slate-600 outline-none transition-all"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirm(!showConfirm)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+              >
+                {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
             </div>
           </div>
 

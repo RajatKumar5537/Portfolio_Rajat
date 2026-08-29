@@ -20,6 +20,10 @@ const UserSchema = new Schema(
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters long"],
     },
+    securityPin: {
+      type: String,
+      required: false, // Optional to support legacy accounts
+    },
   },
   {
     timestamps: true,

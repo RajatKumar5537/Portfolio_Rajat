@@ -137,7 +137,7 @@ export default function LandingPage() {
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Expense Tracker</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Sort expenditures across designated categories like Home, Ajit, and Swarna for comprehensive insight.
+                Sort expenditures across your customized tracking categories for comprehensive insights.
               </p>
             </div>
           </div>

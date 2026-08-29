@@ -37,7 +37,13 @@ export default function LearningPage() {
   // Date Filters
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 10;
   const logsRef = useRef<HTMLDivElement>(null);
@@ -85,30 +91,59 @@ export default function LearningPage() {
     setCurrentTime(new Date());
     setQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
 
-    // Load goals from client storage if available
-    const savedStart = localStorage.getItem("goal_start_date");
-    const savedDuration = localStorage.getItem("goal_duration");
-    const savedUnit = localStorage.getItem("goal_duration_unit");
+    // Fetch roadmap from database
+    const fetchRoadmapData = async () => {
+      try {
+        const res = await fetch("/api/tracking/study/roadmap");
+        if (res.ok) {
+          const data = await res.json();
+          if (data && !data.default) {
+            const start = new Date(data.startDate);
+            setGoalStartDate(start);
+            setInputStartDate(data.startDate.split("T")[0]);
+            setInputDuration(data.duration);
+            setInputDurationUnit(data.durationUnit);
+            setGoalEndDate(calculateEndDate(start, data.duration, data.durationUnit));
+            setMilestones(data.milestones || []);
+            return;
+          }
+        }
+        // Fallback to localStorage if default or API fails
+        const savedStart = localStorage.getItem("goal_start_date");
+        const savedDuration = localStorage.getItem("goal_duration");
+        const savedUnit = localStorage.getItem("goal_duration_unit");
+        const savedMilestones = localStorage.getItem("custom_milestones");
 
-    if (savedStart && savedDuration && savedUnit) {
-      const start = new Date(savedStart + "T00:00:00");
-      const dur = parseInt(savedDuration);
-      const unit = savedUnit as "months" | "days";
+        let loadedMilestones = [];
+        if (savedMilestones) {
+          try { loadedMilestones = JSON.parse(savedMilestones); } catch {}
+        } else {
+          loadedMilestones = [];
+        }
+        setMilestones(loadedMilestones);
 
-      setGoalStartDate(start);
-      setInputStartDate(savedStart);
-      setInputDuration(dur);
-      setInputDurationUnit(unit);
-      setGoalEndDate(calculateEndDate(start, dur, unit));
-    }
-
-    // Load custom milestones if user has edited them
-    const savedMilestones = localStorage.getItem("custom_milestones");
-    if (savedMilestones) {
-      try { setMilestones(JSON.parse(savedMilestones)); } catch {}
-    } else {
-      setMilestones([]);
-    }
+        if (savedStart && savedDuration && savedUnit) {
+          const start = new Date(savedStart + "T00:00:00");
+          const dur = parseInt(savedDuration);
+          const unit = savedUnit as "months" | "days";
+          setGoalStartDate(start);
+          setInputStartDate(savedStart);
+          setInputDuration(dur);
+          setInputDurationUnit(unit);
+          setGoalEndDate(calculateEndDate(start, dur, unit));
+        } else {
+          // Initialize defaults
+          setGoalStartDate(DEFAULT_START_DATE);
+          setInputStartDate("2026-08-25");
+          setInputDuration(6);
+          setInputDurationUnit("months");
+          setGoalEndDate(DEFAULT_END_DATE);
+        }
+      } catch (err) {
+        console.error("Error loading roadmap data: ", err);
+      }
+    };
+    fetchRoadmapData();
 
     fetchStudyLogs();
 
@@ -178,6 +213,23 @@ export default function LearningPage() {
     ])
   ).sort((a, b) => b - a);
 
+  const saveRoadmapToDB = async (start: Date, dur: number, unit: "months" | "days", milestonesList: any[]) => {
+    try {
+      await fetch("/api/tracking/study/roadmap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: start.toISOString().split("T")[0],
+          duration: dur,
+          durationUnit: unit,
+          milestones: milestonesList
+        })
+      });
+    } catch (err) {
+      console.error("Error saving roadmap to DB:", err);
+    }
+  };
+
   const handleSaveGoalSettings = (e: React.FormEvent) => {
     e.preventDefault();
     const start = new Date(inputStartDate + "T00:00:00");
@@ -190,6 +242,8 @@ export default function LearningPage() {
     localStorage.setItem("goal_start_date", inputStartDate);
     localStorage.setItem("goal_duration", String(inputDuration));
     localStorage.setItem("goal_duration_unit", inputDurationUnit);
+
+    saveRoadmapToDB(start, inputDuration, inputDurationUnit, milestones);
   };
 
   const handleLogTopic = async (e: React.FormEvent) => {
@@ -280,6 +334,7 @@ export default function LearningPage() {
     setMilestones(updated);
     localStorage.setItem("custom_milestones", JSON.stringify(updated));
     setEditingMilestoneId(null);
+    saveRoadmapToDB(goalStartDate, inputDuration, inputDurationUnit, updated);
   };
 
   const handleMilestoneDelete = (id: number) => {
@@ -287,6 +342,7 @@ export default function LearningPage() {
     const updated = milestones.filter((m) => m.id !== id);
     setMilestones(updated);
     localStorage.setItem("custom_milestones", JSON.stringify(updated));
+    saveRoadmapToDB(goalStartDate, inputDuration, inputDurationUnit, updated);
   };
 
   const handleMilestoneConfirmAdd = () => {
@@ -297,6 +353,7 @@ export default function LearningPage() {
     localStorage.setItem("custom_milestones", JSON.stringify(updated));
     setNewMilestoneForm({ name: "", desc: "" });
     setShowAddMilestoneForm(false);
+    saveRoadmapToDB(goalStartDate, inputDuration, inputDurationUnit, updated);
   };
 
   const handleToggleSession = async () => {
@@ -548,18 +605,18 @@ export default function LearningPage() {
           {/* Header & Date Filters */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
-              <h2 className="text-xl font-black uppercase tracking-widest text-slate-200">Learning Lab</h2>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Track growth roadmaps and study time</p>
+              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Learning Lab</h2>
+              <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Track growth roadmaps and study time</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
 
               {/* Premium Month/Year/Date selection bar */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
+              <div className="filter-bar flex flex-wrap items-center gap-2 sm:gap-3 bg-white dark:bg-[#0c0c16]/60 shadow-lg dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-slate-200 dark:border-white/10 p-2 rounded-xl hover:border-slate-300 dark:hover:border-white/15 transition-all">
                 <button
                   onClick={handlePrevMonth}
                   disabled={!!selectedDate}
-                  className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="bar-btn p-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronLeft size={14} />
                 </button>
@@ -570,42 +627,45 @@ export default function LearningPage() {
                       <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
                       >
-                        <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL MONTHS</option>
+                        <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL MONTHS</option>
                         {months.map((m, idx) => (
-                          <option key={m} value={idx} className="bg-[#0c0c16] text-slate-300">{m.toUpperCase()}</option>
+                          <option key={m} value={idx} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{m.toUpperCase()}</option>
                         ))}
                       </select>
 
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
                       >
-                        <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL YEARS</option>
+                        <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL YEARS</option>
                         {availableYears.map((year) => (
-                          <option key={year} value={year} className="bg-[#0c0c16] text-slate-300">{year}</option>
+                          <option key={year} value={year} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{year}</option>
                         ))}
                       </select>
                     </>
                   ) : (
-                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 px-2 py-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 px-2 py-1">
                       {new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </span>
                   )}
 
-                  <div className="flex items-center gap-1.5 border-l border-white/10 pl-2">
-                    <input
-                      type="date"
-                      value={selectedDate || ""}
-                      onChange={(e) => setSelectedDate(e.target.value || null)}
-                      className="bg-transparent text-xs font-bold text-indigo-400 outline-none cursor-pointer py-0.5 px-1 font-mono w-[115px]"
-                    />
+                  <div className="flex items-center gap-2 border-l border-slate-200 dark:border-white/10 pl-2">
+                    <div className="date-pill flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-500/5 hover:bg-indigo-100 dark:hover:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-2.5 py-1 rounded-xl text-indigo-600 dark:text-indigo-400 transition-all">
+                      <Calendar size={13} className="text-indigo-600/80 dark:text-indigo-400/80 flex-shrink-0" />
+                      <input
+                        type="date"
+                        value={selectedDate || ""}
+                        onChange={(e) => setSelectedDate(e.target.value || null)}
+                        className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                      />
+                    </div>
                     {selectedDate && (
                       <button
                         onClick={() => setSelectedDate(null)}
-                        className="text-[10px] text-red-400 hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
+                        className="text-[10px] text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
                       >
                         Clear
                       </button>
@@ -616,7 +676,7 @@ export default function LearningPage() {
                 <button
                   onClick={handleNextMonth}
                   disabled={!!selectedDate}
-                  className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="bar-btn p-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronRight size={14} />
                 </button>

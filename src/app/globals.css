@@ -58,6 +58,7 @@ body {
     linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 40px 40px;
   background-position: center;
+  -webkit-mask-image: radial-gradient(circle at center, black 50%, transparent 100%);
   mask-image: radial-gradient(circle at center, black 50%, transparent 100%);
   pointer-events: none;
   z-index: 0;
@@ -545,4 +546,98 @@ body {
 .light form.bg-\[\#070711\] {
   background-color: rgba(0, 0, 0, 0.025) !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Fix date input styling for Safari iOS */
+input[type="date"] {
+  -webkit-appearance: textfield;
+  appearance: none;
+  min-height: 1.5rem;
+  color-scheme: dark;
+}
+.light input[type="date"] {
+  color-scheme: light;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  min-height: 1.5rem;
+  display: flex;
+  align-items: center;
+  text-align: left;
+}
+
+/* ============================================================
+   LIGHT MODE: Global selector bar overrides (all pages)
+   Fixes dark-background-in-light-mode bug on all filter bars
+   ============================================================ */
+
+/* Selector bar container */
+.light .filter-bar {
+  background: #ffffff !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+  border-color: #e2e8f0 !important;
+}
+.light .filter-bar:hover {
+  border-color: #cbd5e1 !important;
+}
+
+/* Prev/Next chevron buttons inside selector bar */
+.light .filter-bar .bar-btn {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+.light .filter-bar .bar-btn:hover:not(:disabled) {
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* Select dropdowns inside selector bar */
+.light .filter-bar select {
+  color: #4f46e5 !important;
+}
+.light .filter-bar select option {
+  background: #ffffff !important;
+  color: #1e293b !important;
+}
+
+/* Date input pill */
+.light .filter-bar .date-pill {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4f46e5 !important;
+}
+.light .filter-bar .date-pill input[type="date"] {
+  color: #4f46e5 !important;
+}
+
+/* Range mode date pills (expenses) */
+.light .filter-bar .range-pill {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4f46e5 !important;
+}
+.light .filter-bar .range-pill input[type="date"] {
+  color: #4f46e5 !important;
+}
+
+/* Toggle Mode buttons (Range/Month) */
+.light .filter-bar .mode-toggle {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+.light .filter-bar .mode-toggle button.active {
+  background: rgba(99,102,241,0.1) !important;
+  color: #4f46e5 !important;
+  border-color: #c7d2fe !important;
+}
+.light .filter-bar .mode-toggle button:not(.active) {
+  color: #64748b !important;
+}
+
+/* Page headings (all pages) */
+.light .page-heading {
+  color: #0f172a !important;
+}
+.light .page-subheading {
+  color: #64748b !important;
 }

@@ -16,10 +16,22 @@ export default function ExpensesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ date: "", description: "", amount: "", category: "", type: "Expense" });
 
+  const [filterMode, setFilterMode] = useState<"month" | "range">("range");
+
+  const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [startDate, setStartDate] = useState<string | null>(getLocalDateString());
+  const [endDate, setEndDate] = useState<string | null>(getLocalDateString());
+
   // Selected Month & Year states (-1 represents "All")
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth()); // 0-11 or -1
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear()); // Year or -1
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Interactive Card Filter state
   const [activeFilter, setActiveFilter] = useState<{
@@ -30,7 +42,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedMonth, selectedYear, selectedDate, activeFilter]);
+  }, [selectedMonth, selectedYear, startDate, endDate, filterMode, activeFilter]);
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -319,8 +331,14 @@ export default function ExpensesPage() {
 
   // Helper to print correct month/year selection label in elements
   const getContextLabel = () => {
-    if (selectedDate) {
-      return new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    if (filterMode === "range") {
+      if (startDate && endDate) {
+        if (startDate === endDate) {
+          return new Date(startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        }
+        return `${new Date(startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} to ${new Date(endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+      }
+      return "Date Range";
     }
     if (selectedMonth === -1 && selectedYear === -1) return "Lifetime";
     if (selectedMonth === -1) return `${selectedYear} (Year)`;
@@ -328,11 +346,18 @@ export default function ExpensesPage() {
     return `${months[selectedMonth].slice(0, 3)} '${String(selectedYear).slice(-2)}`;
   };
 
-  // 1. Filter expenses by selected Month, Year or Specific Date
+  // 1. Filter expenses by selected Month, Year or Date Range
   const monthlyExpenses = expenses.filter((exp) => {
     const expDate = new Date(exp.date);
-    if (selectedDate) {
-      return expDate.toDateString() === new Date(selectedDate).toDateString();
+    if (filterMode === "range") {
+      const year = expDate.getFullYear();
+      const month = String(expDate.getMonth() + 1).padStart(2, '0');
+      const day = String(expDate.getDate()).padStart(2, '0');
+      const localExpStr = `${year}-${month}-${day}`;
+      
+      const start = startDate || "1970-01-01";
+      const end = endDate || "2999-12-31";
+      return localExpStr >= start && localExpStr <= end;
     }
     const monthMatches = selectedMonth === -1 || expDate.getMonth() === selectedMonth;
     const yearMatches = selectedYear === -1 || expDate.getFullYear() === selectedYear;
@@ -379,76 +404,100 @@ export default function ExpensesPage() {
           {/* Header & Month Selector */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <h2 className="text-xl font-black uppercase tracking-widest text-slate-200">Personal Ledger</h2>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Manage and segment all cash flows</p>
+              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Personal Ledger</h2>
+              <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Manage and segment all cash flows</p>
             </div>
 
-            {/* Premium Month/Year/Date selection bar */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
-              <button
-                onClick={handlePrevMonth}
-                disabled={!!selectedDate}
-                className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft size={14} />
-              </button>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {!selectedDate ? (
-                  <>
-                    <select
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
-                    >
-                      <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL MONTHS</option>
-                      {months.map((m, idx) => (
-                        <option key={m} value={idx} className="bg-[#0c0c16] text-slate-300">{m.toUpperCase()}</option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={selectedYear}
-                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
-                    >
-                      <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL YEARS</option>
-                      {availableYears.map((year) => (
-                        <option key={year} value={year} className="bg-[#0c0c16] text-slate-300">{year}</option>
-                      ))}
-                    </select>
-                  </>
-                ) : (
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 px-2 py-1">
-                    {new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </span>
-                )}
-
-                <div className="flex items-center gap-1.5 border-l border-white/10 pl-2">
-                  <input
-                    type="date"
-                    value={selectedDate || ""}
-                    onChange={(e) => setSelectedDate(e.target.value || null)}
-                    className="bg-transparent text-xs font-bold text-indigo-400 outline-none cursor-pointer py-0.5 px-1 font-mono w-[115px]"
-                  />
-                  {selectedDate && (
-                    <button
-                      onClick={() => setSelectedDate(null)}
-                      className="text-[10px] text-red-400 hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
+            {/* Premium 3D Floating Mode selector bar */}
+            <div className="filter-bar flex flex-wrap items-center gap-3 bg-white dark:bg-[#0c0c16]/60 shadow-lg dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-slate-200 dark:border-white/10 p-2 rounded-xl hover:border-slate-300 dark:hover:border-white/15 transition-all w-full sm:w-auto">
+              {/* Toggle switch for Range vs Month */}
+              <div className="mode-toggle flex bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 p-0.5 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setFilterMode("range")}
+                  className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                    filterMode === "range"
+                      ? "active bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Range
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterMode("month")}
+                  className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                    filterMode === "month"
+                      ? "active bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Month
+                </button>
               </div>
 
-              <button
-                onClick={handleNextMonth}
-                disabled={!!selectedDate}
-                className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight size={14} />
-              </button>
+              {filterMode === "month" ? (
+                /* Month Mode */
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePrevMonth}
+                    className="bar-btn p-1 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer transition-all"
+                  >
+                    <ChevronLeft size={13} />
+                  </button>
+
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-1 font-sans"
+                  >
+                    <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL MONTHS</option>
+                    {months.map((m, idx) => (
+                      <option key={m} value={idx} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{m.toUpperCase()}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-1 font-sans"
+                  >
+                    <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL YEARS</option>
+                    {availableYears.map((year) => (
+                      <option key={year} value={year} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{year}</option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleNextMonth}
+                    className="bar-btn p-1 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer transition-all"
+                  >
+                    <ChevronRight size={13} />
+                  </button>
+                </div>
+              ) : (
+                /* Range Mode (From Date & To Date) */
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="range-pill flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/5 border border-indigo-200 dark:border-indigo-500/20 px-2 py-1 rounded-xl text-indigo-600 dark:text-indigo-400">
+                    <span className="text-[8px] uppercase tracking-wider font-bold text-slate-500 font-sans mr-1">From</span>
+                    <input
+                      type="date"
+                      value={startDate || ""}
+                      onChange={(e) => setStartDate(e.target.value || null)}
+                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                    />
+                  </div>
+                  <div className="range-pill flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/5 border border-indigo-200 dark:border-indigo-500/20 px-2 py-1 rounded-xl text-indigo-600 dark:text-indigo-400">
+                    <span className="text-[8px] uppercase tracking-wider font-bold text-slate-500 font-sans mr-1">Till</span>
+                    <input
+                      type="date"
+                      value={endDate || ""}
+                      onChange={(e) => setEndDate(e.target.value || null)}
+                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

@@ -5,11 +5,18 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password, inviteCode } = await req.json();
+    const { name, email, password, inviteCode, securityPin } = await req.json();
 
-    if (!name || !email || !password || !inviteCode) {
+    if (!name || !email || !password || !inviteCode || !securityPin) {
       return NextResponse.json(
-        { error: "All fields are required" },
+        { error: "All fields are required (including Security PIN)" },
+        { status: 400 }
+      );
+    }
+
+    if (!/^\d{4,6}$/.test(securityPin)) {
+      return NextResponse.json(
+        { error: "Security PIN must be a 4 to 6 digit number" },
         { status: 400 }
       );
     }
@@ -41,14 +48,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Hash the password securely
+    // Hash credentials securely
     const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPin = await bcrypt.hash(securityPin, 12);
 
     // Create the new User
     const newUser = await User.create({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
+      securityPin: hashedPin,
     });
 
     return NextResponse.json(

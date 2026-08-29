@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
-import { Apple, Trash2, Calendar, Scale, Award, Info, Loader2, Plus, Sparkles, ChevronLeft, ChevronRight, Pencil, Check, X } from "lucide-react";
+import { 
+  Apple, Trash2, Calendar, Scale, Award, Info, Loader2, Plus, Sparkles, 
+  ChevronLeft, ChevronRight, Pencil, Check, X, Flame, ShieldAlert, Heart
+} from "lucide-react";
+import { foodDictionary, FoodItem } from "@/lib/foodDictionary";
 
 export default function FoodPage() {
   const [foodLogs, setFoodLogs] = useState<any[]>([]);
@@ -11,53 +15,168 @@ export default function FoodPage() {
 
   // Inline edit state
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
-  const [editFoodForm, setEditFoodForm] = useState({ date: "", foodName: "", portionGrams: "", proteinPer100g: "", mealType: "Snack" });
+  const [editFoodForm, setEditFoodForm] = useState({ 
+    date: "", 
+    foodName: "", 
+    portionGrams: "", 
+    proteinPer100g: "", 
+    mealType: "Snack",
+    portion: "",
+    portionUnit: "Grams",
+    calories: "",
+    carbs: "",
+    fats: "",
+    isAvoid: false
+  });
 
   // Selected Month & Year states
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 10;
   const logsRef = useRef<HTMLDivElement>(null);
 
+  // Form State
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
     foodName: "",
-    portionGrams: "",
-    proteinPer100g: "",
+    portion: "100",
+    portionUnit: "Grams",
+    portionGrams: "100",
+    proteinPer100g: "0",
+    calculatedProtein: "0",
+    calories: "0",
+    carbs: "0",
+    fats: "0",
     mealType: "Snack",
+    isAvoid: false
   });
+  
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Autocomplete Suggestions State
+  const [suggestions, setSuggestions] = useState<FoodItem[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
   const mealTypes = ["Breakfast", "Lunch", "Dinner", "Snack"];
   const proteinGoal = 120; // Daily protein target (120g)
+  const caloriesGoal = 2200; // Daily calories target
   
   const months = [
     "January", "February", "March", "April", "May", "June", 
     "July", "August", "September", "October", "November", "December"
   ];
 
-  // Quick select food templates
-  const foodTemplates = [
-    { name: "Chicken Breast", protein: 31 },
-    { name: "Whole Egg", protein: 13 },
-    { name: "Egg White", protein: 11 },
-    { name: "Paneer (Cottage Cheese)", protein: 18 },
-    { name: "Whey Protein Powder", protein: 80 },
-    { name: "Soya Chunks", protein: 52 },
-    { name: "Tofu", protein: 8 },
-    { name: "Greek Yogurt", protein: 10 },
-  ];
+  // Quick select food templates from the dictionary
+  const foodTemplates = foodDictionary.slice(0, 8); // show first 8 items as quick templates
 
   useEffect(() => {
     fetchFoodLogs();
+    
+    // Close suggestions dropdown on click outside
+    const handleClickOutside = (e: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedMonth, selectedYear, selectedDate]);
+
+  // Autocomplete filter matching typed text
+  useEffect(() => {
+    if (!form.foodName.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    const matchText = form.foodName.toLowerCase();
+    const filtered = foodDictionary.filter(item => 
+      item.name.toLowerCase().includes(matchText)
+    );
+    setSuggestions(filtered);
+  }, [form.foodName]);
+
+  // Auto-calculator: recalculates macros based on portion, unit, and selected dictionary item
+  const calculateMacros = (foodNameStr: string, portionVal: string) => {
+    const numericPortion = parseFloat(portionVal) || 0;
+    if (numericPortion <= 0) return;
+
+    // Check if the typed food name matches an item in our dictionary exactly
+    const matchedItem = foodDictionary.find(
+      item => item.name.toLowerCase() === foodNameStr.toLowerCase()
+    );
+
+    if (matchedItem) {
+      const scale = numericPortion / matchedItem.defaultSize;
+      const computedGrams = matchedItem.gramsEquivalent * numericPortion;
+      const computedProteinPer100g = (matchedItem.proteinPerBase / (matchedItem.defaultSize * matchedItem.gramsEquivalent)) * 100;
+      
+      const calculatedProteinVal = matchedItem.proteinPerBase * scale;
+      const calculatedCalories = matchedItem.caloriesPerBase * scale;
+      const calculatedCarbs = matchedItem.carbsPerBase * scale;
+      const calculatedFats = matchedItem.fatsPerBase * scale;
+
+      setForm(prev => ({
+        ...prev,
+        portionGrams: String(Math.round(computedGrams)),
+        proteinPer100g: String(computedProteinPer100g.toFixed(1)),
+        calculatedProtein: String(calculatedProteinVal.toFixed(1)),
+        calories: String(Math.round(calculatedCalories)),
+        carbs: String(Math.round(calculatedCarbs)),
+        fats: String(Math.round(calculatedFats)),
+        portionUnit: matchedItem.defaultUnit,
+        isAvoid: matchedItem.isAvoid ?? false
+      }));
+    } else {
+      // If custom food, fallback calculation (protein = portionGrams * proteinPer100g / 100)
+      const grams = parseFloat(form.portionGrams) || 0;
+      const protPer100 = parseFloat(form.proteinPer100g) || 0;
+      const calcProtein = (grams * protPer100) / 100;
+      
+      setForm(prev => ({
+        ...prev,
+        calculatedProtein: String(calcProtein.toFixed(1)),
+        portionUnit: "Grams",
+        portion: form.portionGrams,
+        isAvoid: false
+      }));
+    }
+  };
+
+  // Trigger calculation when portion or food name changes
+  useEffect(() => {
+    calculateMacros(form.foodName, form.portion);
+  }, [form.portion, form.foodName]);
+
+  // If portionGrams or proteinPer100g is manually edited for custom entries
+  useEffect(() => {
+    const matchedItem = foodDictionary.find(
+      item => item.name.toLowerCase() === form.foodName.toLowerCase()
+    );
+    if (!matchedItem) {
+      const grams = parseFloat(form.portionGrams) || 0;
+      const protPer100 = parseFloat(form.proteinPer100g) || 0;
+      const calcProtein = (grams * protPer100) / 100;
+      setForm(prev => ({
+        ...prev,
+        calculatedProtein: String(calcProtein.toFixed(1)),
+        portion: form.portionGrams
+      }));
+    }
+  }, [form.portionGrams, form.proteinPer100g]);
 
   const fetchFoodLogs = async () => {
     try {
@@ -81,25 +200,31 @@ export default function FoodPage() {
     ])
   ).sort((a, b) => b - a);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
-    setError("");
-  };
-
-  const handleApplyTemplate = (tpl: { name: string; protein: number }) => {
+  const handleApplyTemplate = (tpl: FoodItem) => {
     setForm({
       ...form,
       foodName: tpl.name,
-      proteinPer100g: String(tpl.protein),
+      portion: String(tpl.defaultSize),
+      portionUnit: tpl.defaultUnit,
+      isAvoid: tpl.isAvoid ?? false
     });
+    setShowSuggestions(false);
+  };
+
+  const handleSuggestionClick = (tpl: FoodItem) => {
+    setForm({
+      ...form,
+      foodName: tpl.name,
+      portion: String(tpl.defaultSize),
+      portionUnit: tpl.defaultUnit,
+      isAvoid: tpl.isAvoid ?? false
+    });
+    setShowSuggestions(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.foodName || !form.portionGrams || !form.proteinPer100g) {
+    if (!form.foodName || !form.portion || !form.calculatedProtein) {
       setError("Please fill out all required fields.");
       return;
     }
@@ -128,12 +253,20 @@ export default function FoodPage() {
       setSelectedMonth(newLogDate.getMonth());
       setSelectedYear(newLogDate.getFullYear());
 
+      // Reset form
       setForm({
         date: new Date().toISOString().split("T")[0],
         foodName: "",
-        portionGrams: "",
-        proteinPer100g: "",
-        mealType: form.mealType,
+        portion: "100",
+        portionUnit: "Grams",
+        portionGrams: "100",
+        proteinPer100g: "0",
+        calculatedProtein: "0",
+        calories: "0",
+        carbs: "0",
+        fats: "0",
+        mealType: "Snack",
+        isAvoid: false
       });
       setSuccess("Food logged successfully!");
       setTimeout(() => setSuccess(""), 3000);
@@ -171,6 +304,12 @@ export default function FoodPage() {
       portionGrams: String(log.portionGrams),
       proteinPer100g: String(log.proteinPer100g),
       mealType: log.mealType,
+      portion: String(log.portion ?? log.portionGrams),
+      portionUnit: log.portionUnit || "Grams",
+      calories: String(log.calories || 0),
+      carbs: String(log.carbs || 0),
+      fats: String(log.fats || 0),
+      isAvoid: log.isAvoid ?? false
     });
   };
 
@@ -238,11 +377,16 @@ export default function FoodPage() {
     return monthMatches && yearMatches;
   });
 
-  // Calculate unique days and average daily protein intake
+  // Calculate unique days and average daily protein/calorie intake
   const uniqueLoggedDays = new Set(filteredLogs.map(l => new Date(l.date).toDateString())).size;
   const totalProteinLogged = filteredLogs.reduce((acc, curr) => acc + curr.calculatedProtein, 0);
+  const totalCaloriesLogged = filteredLogs.reduce((acc, curr) => acc + (curr.calories || 0), 0);
+  
   const activeProtein = uniqueLoggedDays > 0 ? totalProteinLogged / uniqueLoggedDays : 0;
+  const activeCalories = uniqueLoggedDays > 0 ? totalCaloriesLogged / uniqueLoggedDays : 0;
+  
   const activeProteinPercent = Math.min(100, Math.round((activeProtein / proteinGoal) * 100));
+  const activeCaloriesPercent = Math.min(100, Math.round((activeCalories / caloriesGoal) * 100));
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
@@ -250,6 +394,10 @@ export default function FoodPage() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
+  // Check if a matched item in autocomplete is an avoid item
+  const selectedFoodItem = foodDictionary.find(item => item.name.toLowerCase() === form.foodName.toLowerCase());
+  const isAvoidItem = selectedFoodItem?.isAvoid || form.isAvoid;
 
   return (
     <div className="relative min-h-screen bg-background flex flex-col justify-between">
@@ -262,16 +410,16 @@ export default function FoodPage() {
           {/* Header & Filters */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
-              <h2 className="text-xl font-black uppercase tracking-widest text-slate-200">Protein tracker</h2>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Gram portion intake calculator</p>
+              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Protein & Nutrition tracker</h2>
+              <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Automated Portion Intake Calculator</p>
             </div>
 
-            {/* Premium Month/Year/Date selection bar */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
+            {/* Premium Month/Year/Date selection bar with iPhone visibility fix */}
+            <div className="filter-bar flex flex-wrap items-center gap-2 sm:gap-3 bg-white dark:bg-[#0c0c16]/60 shadow-lg dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-slate-200 dark:border-white/10 p-2 rounded-xl hover:border-slate-300 dark:hover:border-white/15 transition-all">
               <button
                 onClick={handlePrevMonth}
                 disabled={!!selectedDate}
-                className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="bar-btn p-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft size={14} />
               </button>
@@ -282,42 +430,45 @@ export default function FoodPage() {
                     <select
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
                     >
-                      <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL MONTHS</option>
+                      <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL MONTHS</option>
                       {months.map((m, idx) => (
-                        <option key={m} value={idx} className="bg-[#0c0c16] text-slate-300">{m.toUpperCase()}</option>
+                        <option key={m} value={idx} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{m.toUpperCase()}</option>
                       ))}
                     </select>
 
                     <select
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
                     >
-                      <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL YEARS</option>
+                      <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL YEARS</option>
                       {availableYears.map((year) => (
-                        <option key={year} value={year} className="bg-[#0c0c16] text-slate-300">{year}</option>
+                        <option key={year} value={year} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{year}</option>
                       ))}
                     </select>
                   </>
                 ) : (
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 px-2 py-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 px-2 py-1">
                     {new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </span>
                 )}
 
-                <div className="flex items-center gap-1.5 border-l border-white/10 pl-2">
-                  <input
-                    type="date"
-                    value={selectedDate || ""}
-                    onChange={(e) => setSelectedDate(e.target.value || null)}
-                    className="bg-transparent text-xs font-bold text-indigo-400 outline-none cursor-pointer py-0.5 px-1 font-mono w-[115px]"
-                  />
+                <div className="flex items-center gap-2 border-l border-slate-200 dark:border-white/10 pl-2">
+                  <div className="date-pill flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-500/5 hover:bg-indigo-100 dark:hover:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-2.5 py-1 rounded-xl text-indigo-600 dark:text-indigo-400 transition-all">
+                    <Calendar size={13} className="text-indigo-600/80 dark:text-indigo-400/80 flex-shrink-0" />
+                    <input
+                      type="date"
+                      value={selectedDate || ""}
+                      onChange={(e) => setSelectedDate(e.target.value || null)}
+                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                    />
+                  </div>
                   {selectedDate && (
                     <button
                       onClick={() => setSelectedDate(null)}
-                      className="text-[10px] text-red-400 hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
+                      className="text-[10px] text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
                     >
                       Clear
                     </button>
@@ -328,7 +479,7 @@ export default function FoodPage() {
               <button
                 onClick={handleNextMonth}
                 disabled={!!selectedDate}
-                className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="bar-btn p-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronRight size={14} />
               </button>
@@ -336,35 +487,48 @@ export default function FoodPage() {
           </div>
 
           {/* Goal Display Card */}
-          <div className="glass-card card-glow-teal p-6 rounded-2xl border border-white/5 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
-                <Award size={24} />
+          <div className="glass-card card-glow-teal p-6 rounded-2xl border border-white/5 mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            {/* Protein Target */}
+            <div className="flex items-center gap-4 justify-between border-r border-white/5 pr-0 md:pr-6">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
+                  <Award size={22} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">Protein Progress ({getContextLabel()})</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Target: {proteinGoal}g Daily</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">
-                  {selectedMonth === -1 || selectedYear === -1 || uniqueLoggedDays > 1 ? "Average Daily Progress" : "Daily Intake Progress"} ({getContextLabel()})
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {uniqueLoggedDays > 0 
-                    ? `Calculated based on ${uniqueLoggedDays} active logging days in this period`
-                    : `No food logs recorded in this period`
-                  }
-                </p>
+              <div className="w-1/2 space-y-1.5">
+                <div className="flex justify-between items-center text-[10px] font-mono">
+                  <span className="text-slate-400 font-bold">{activeProtein.toFixed(1)}g Avg</span>
+                  <span className="text-teal-400 font-bold">{activeProteinPercent}%</span>
+                </div>
+                <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                  <div className="bg-teal-500 h-full rounded-full transition-all duration-500" style={{ width: `${activeProteinPercent}%` }}></div>
+                </div>
               </div>
             </div>
 
-            {/* Protein percentage scale */}
-            <div className="w-full md:w-1/2 space-y-2">
-              <div className="flex justify-between items-center text-xs font-mono">
-                <span className="text-slate-400 font-bold">{activeProtein.toFixed(1)}g Avg / Day</span>
-                <span className="text-teal-400 font-bold">{activeProteinPercent}% of {proteinGoal}g Target</span>
+            {/* Calories Target */}
+            <div className="flex items-center gap-4 justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                  <Flame size={22} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">Calories Progress</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Target: {caloriesGoal} kcal Daily</p>
+                </div>
               </div>
-              <div className="w-full bg-white/5 h-2.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-teal-500 to-indigo-500 h-full rounded-full transition-all duration-750"
-                  style={{ width: `${activeProteinPercent}%` }}
-                ></div>
+              <div className="w-1/2 space-y-1.5">
+                <div className="flex justify-between items-center text-[10px] font-mono">
+                  <span className="text-slate-400 font-bold">{activeCalories.toFixed(0)} kcal Avg</span>
+                  <span className="text-orange-400 font-bold">{activeCaloriesPercent}%</span>
+                </div>
+                <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                  <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: `${activeCaloriesPercent}%` }}></div>
+                </div>
               </div>
             </div>
           </div>
@@ -373,7 +537,7 @@ export default function FoodPage() {
             {/* Form Column */}
             <div className="lg:col-span-1 space-y-6">
               {/* Form */}
-              <div className="glass-card card-glow-teal p-6 rounded-2xl border border-white/5">
+              <div className="glass-card card-glow-teal p-6 rounded-2xl border border-white/5 relative">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 mb-6 flex items-center gap-2">
                   <Apple size={14} className="text-teal-400" />
                   <span>Log Meal Entry</span>
@@ -401,9 +565,8 @@ export default function FoodPage() {
                       </span>
                       <input
                         type="date"
-                        name="date"
                         value={form.date}
-                        onChange={handleInputChange}
+                        onChange={(e) => setForm({ ...form, date: e.target.value })}
                         className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 outline-none transition-all"
                         required
                       />
@@ -431,8 +594,8 @@ export default function FoodPage() {
                     </div>
                   </div>
 
-                  {/* Food Name */}
-                  <div className="space-y-1">
+                  {/* Food Name Autocomplete Input */}
+                  <div className="space-y-1 relative">
                     <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">Food Item</label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-600">
@@ -440,63 +603,127 @@ export default function FoodPage() {
                       </span>
                       <input
                         type="text"
-                        name="foodName"
                         value={form.foodName}
-                        onChange={handleInputChange}
-                        placeholder="e.g. Scrambled Eggs, Protein Shake"
+                        onChange={(e) => {
+                          setForm({ ...form, foodName: e.target.value });
+                          setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        placeholder="Type food, e.g. Sattu, Dalma, Chicken"
                         className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 placeholder-slate-600 outline-none transition-all"
                         required
+                        autoComplete="off"
                       />
                     </div>
+
+                    {/* Autocomplete Dropdown suggestions list */}
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div 
+                        ref={suggestionsRef}
+                        className="absolute z-30 left-0 right-0 mt-1 max-h-[180px] overflow-y-auto rounded-xl border border-white/10 bg-[#0c0c16]/95 backdrop-blur-xl shadow-2xl space-y-1 p-1 text-xs"
+                      >
+                        {suggestions.map((item) => (
+                          <button
+                            key={item.name}
+                            type="button"
+                            onClick={() => handleSuggestionClick(item)}
+                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-teal-500/15 text-slate-300 hover:text-teal-400 font-bold transition-all cursor-pointer flex justify-between items-center"
+                          >
+                            <span>{item.name}</span>
+                            <span className="text-[9px] text-slate-500 font-normal">Base: {item.defaultSize} {item.defaultUnit}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Portion Grams */}
-                    <div className="space-y-1">
-                      <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">Portion (Grams)</label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-600">
-                          <Scale size={14} />
-                        </span>
-                        <input
-                          type="number"
-                          name="portionGrams"
-                          value={form.portionGrams}
-                          onChange={handleInputChange}
-                          placeholder="150"
-                          min="1"
-                          className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 placeholder-slate-600 outline-none transition-all font-mono"
-                          required
-                        />
-                      </div>
+                  {/* Red Avoid Warning Alert if Sweet Treat is selected */}
+                  {isAvoidItem && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-[10px] font-bold flex items-center gap-2 animate-pulse leading-normal">
+                      <ShieldAlert size={14} className="flex-shrink-0" />
+                      <span>Warning: Sweet cheat treat detected. Avoid logging this item to stay on track!</span>
                     </div>
+                  )}
 
-                    {/* Protein / 100g */}
+                  {/* Dynamic Portion input */}
+                  <div className="grid grid-cols-2 gap-3 animate-fade-in">
                     <div className="space-y-1">
-                      <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">Protein (g/100g)</label>
+                      <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">
+                        Portion ({form.portionUnit})
+                      </label>
                       <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-600">
-                          <Info size={14} />
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-600 font-mono text-[10px]">
+                          #
                         </span>
                         <input
                           type="number"
-                          name="proteinPer100g"
-                          value={form.proteinPer100g}
-                          onChange={handleInputChange}
-                          placeholder="31"
+                          value={form.portion}
+                          onChange={(e) => setForm({ ...form, portion: e.target.value })}
+                          placeholder="100"
                           min="0.1"
-                          step="0.1"
-                          className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 placeholder-slate-600 outline-none transition-all font-mono"
+                          step="any"
+                          className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-8 pr-4 text-xs text-slate-200 placeholder-slate-600 outline-none transition-all font-mono"
                           required
                         />
                       </div>
                     </div>
+
+                    {/* Calculated Protein feedback */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">Protein (g)</label>
+                      <div className="bg-white/[0.01] border border-white/5 rounded-xl py-2 px-3 text-xs font-bold text-teal-400 tracking-wider text-center font-mono">
+                        {parseFloat(form.calculatedProtein).toFixed(1)}g
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Dynamic Macro displays calculated in real-time */}
+                  <div className="grid grid-cols-3 gap-2 bg-white/[0.01] border border-white/5 p-3 rounded-xl">
+                    <div className="text-center">
+                      <p className="text-[8px] uppercase tracking-wider text-slate-500 font-mono">Calories</p>
+                      <p className="text-xs font-bold font-mono text-orange-400 mt-0.5">{form.calories} kcal</p>
+                    </div>
+                    <div className="text-center border-x border-white/5">
+                      <p className="text-[8px] uppercase tracking-wider text-slate-500 font-mono">Carbs</p>
+                      <p className="text-xs font-bold font-mono text-indigo-400 mt-0.5">{form.carbs}g</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[8px] uppercase tracking-wider text-slate-500 font-mono">Fats</p>
+                      <p className="text-xs font-bold font-mono text-purple-400 mt-0.5">{form.fats}g</p>
+                    </div>
+                  </div>
+
+                  {/* Standard fallback/override inputs ONLY if NOT a dictionary item */}
+                  {!selectedFoodItem && (
+                    <div className="p-3 bg-white/[0.01] border border-white/5 rounded-xl space-y-3">
+                      <p className="text-[8px] uppercase tracking-widest text-slate-500 font-bold">Custom Food Override Values</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[8px] uppercase text-slate-500 tracking-wider">Weight (Grams)</label>
+                          <input
+                            type="number"
+                            value={form.portionGrams}
+                            onChange={(e) => setForm({ ...form, portionGrams: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] uppercase text-slate-500 tracking-wider">Protein per 100g</label>
+                          <input
+                            type="number"
+                            value={form.proteinPer100g}
+                            onChange={(e) => setForm({ ...form, proteinPer100g: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full mt-4 bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-500 hover:to-indigo-500 disabled:opacity-50 text-white text-[10px] font-bold uppercase tracking-widest py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-teal-500/20 transition-all"
+                    className={`w-full mt-4 bg-gradient-to-r ${isAvoidItem ? "from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-red-500/20" : "from-teal-600 to-indigo-600 hover:from-teal-500 hover:to-indigo-500 shadow-teal-500/20"} disabled:opacity-50 text-white text-[10px] font-bold uppercase tracking-widest py-2.5 rounded-xl cursor-pointer flex items-center justify-center gap-1.5 shadow-lg transition-all`}
                   >
                     {submitting ? (
                       <Loader2 size={12} className="animate-spin" />
@@ -517,9 +744,9 @@ export default function FoodPage() {
                       key={tpl.name}
                       type="button"
                       onClick={() => handleApplyTemplate(tpl)}
-                      className="bg-white/[0.02] hover:bg-teal-500/10 border border-white/5 hover:border-teal-500/30 text-slate-400 hover:text-teal-400 text-[10px] font-bold py-1 px-2.5 rounded-lg transition-all cursor-pointer"
+                      className={`bg-white/[0.02] border ${tpl.isAvoid ? "hover:bg-red-500/10 hover:border-red-500/30 text-red-400 hover:text-red-400 border-red-500/5" : "hover:bg-teal-500/10 hover:border-teal-500/30 text-slate-400 hover:text-teal-400 border-white/5"} text-[10px] font-bold py-1 px-2.5 rounded-lg transition-all cursor-pointer`}
                     >
-                      {tpl.name} ({tpl.protein}g)
+                      {tpl.name} ({tpl.proteinPerBase}g)
                     </button>
                   ))}
                 </div>
@@ -553,72 +780,109 @@ export default function FoodPage() {
                               <div>
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Date</label>
                                 <input type="date" value={editFoodForm.date} onChange={e => setEditFoodForm({...editFoodForm, date: e.target.value})}
-                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
+                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none" />
                               </div>
                               <div>
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Meal Type</label>
                                 <select value={editFoodForm.mealType} onChange={e => setEditFoodForm({...editFoodForm, mealType: e.target.value})}
-                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50">
-                                  {["Breakfast","Lunch","Dinner","Snack"].map(m => <option key={m} value={m}>{m}</option>)}
+                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+                                  {mealTypes.map(m => <option key={m} value={m}>{m}</option>)}
                                 </select>
                               </div>
                             </div>
                             <div>
                               <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Food Name</label>
                               <input type="text" value={editFoodForm.foodName} onChange={e => setEditFoodForm({...editFoodForm, foodName: e.target.value})}
-                                className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
+                                className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none" />
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                               <div>
-                                <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Portion (g)</label>
-                                <input type="number" value={editFoodForm.portionGrams} onChange={e => setEditFoodForm({...editFoodForm, portionGrams: e.target.value})}
-                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
+                                <label className="text-[8px] uppercase tracking-wider text-slate-500 font-mono">Portion</label>
+                                <input type="number" value={editFoodForm.portion} onChange={e => setEditFoodForm({...editFoodForm, portion: e.target.value})}
+                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none" />
                               </div>
                               <div>
-                                <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Protein/100g</label>
-                                <input type="number" value={editFoodForm.proteinPer100g} onChange={e => setEditFoodForm({...editFoodForm, proteinPer100g: e.target.value})}
-                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
+                                <label className="text-[8px] uppercase tracking-wider text-slate-500 font-mono">Unit</label>
+                                <input type="text" value={editFoodForm.portionUnit} onChange={e => setEditFoodForm({...editFoodForm, portionUnit: e.target.value})}
+                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none" />
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase tracking-wider text-slate-500 font-mono">Calories</label>
+                                <input type="number" value={editFoodForm.calories} onChange={e => setEditFoodForm({...editFoodForm, calories: e.target.value})}
+                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none font-mono" />
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase tracking-wider text-slate-500 font-mono">Carbs</label>
+                                <input type="number" value={editFoodForm.carbs} onChange={e => setEditFoodForm({...editFoodForm, carbs: e.target.value})}
+                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none font-mono" />
+                              </div>
+                              <div>
+                                <label className="text-[8px] uppercase tracking-wider text-slate-500 font-mono">Fats</label>
+                                <input type="number" value={editFoodForm.fats} onChange={e => setEditFoodForm({...editFoodForm, fats: e.target.value})}
+                                  className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none font-mono" />
                               </div>
                             </div>
-                            <div className="flex items-center justify-end gap-2 pt-1">
-                              <button onClick={() => setEditingFoodId(null)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10 transition-all cursor-pointer">
-                                <X size={12} /> Cancel
-                              </button>
-                              <button onClick={() => handleFoodEditSave(log._id)} className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer">
-                                <Check size={12} /> Save
-                              </button>
+                            <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                              <label className="flex items-center gap-1.5 text-[9px] uppercase tracking-widest text-red-400 font-bold cursor-pointer">
+                                <input type="checkbox" checked={editFoodForm.isAvoid} onChange={e => setEditFoodForm({...editFoodForm, isAvoid: e.target.checked})}
+                                  className="cursor-pointer" />
+                                Avoid Cheat Food
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => setEditingFoodId(null)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10 transition-all cursor-pointer">
+                                  <X size={12} /> Cancel
+                                </button>
+                                <button onClick={() => handleFoodEditSave(log._id)} className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer">
+                                  <Check size={12} /> Save
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ) : (
                           /* ── READ VIEW ROW ── */
                           <div
                             key={log._id}
-                            className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all group"
+                            className={`flex items-center justify-between p-4 rounded-xl border transition-all group ${
+                              log.isAvoid 
+                                ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10" 
+                                : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03]"
+                            }`}
                           >
                             <div className="flex items-center gap-4 min-w-0 flex-grow">
-                              <div className="w-9 h-9 rounded-lg bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center flex-shrink-0">
+                              <div className={`w-9 h-9 rounded-lg border flex flex-col items-center justify-center flex-shrink-0 ${log.isAvoid ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/[0.02] border-white/5"}`}>
                                 <span className="text-[8px] font-bold text-slate-500 uppercase font-mono">
                                   {new Date(log.date).toLocaleDateString("en-US", { month: "short" })}
                                 </span>
-                                <span className="text-[11px] font-black text-slate-300 leading-none">
+                                <span className={`text-[11px] font-black leading-none ${log.isAvoid ? "text-red-400" : "text-slate-300"}`}>
                                   {new Date(log.date).toLocaleDateString("en-US", { day: "2-digit" })}
                                 </span>
                               </div>
                               <div className="min-w-0 flex-grow">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="text-xs font-bold text-slate-200 break-all pr-2" title={log.foodName}>{log.foodName}</p>
-                                  <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded font-mono flex-shrink-0 bg-teal-950/20 text-teal-400 border border-teal-500/10">
+                                  <p className={`text-xs font-bold break-all pr-2 ${log.isAvoid ? "text-red-400" : "text-slate-200"}`} title={log.foodName}>
+                                    {log.foodName}
+                                  </p>
+                                  <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded font-mono flex-shrink-0 border ${
+                                    log.isAvoid 
+                                      ? "bg-red-950/20 text-red-400 border-red-500/10" 
+                                      : "bg-teal-950/20 text-teal-400 border-teal-500/10"
+                                  }`}>
                                     {log.mealType}
                                   </span>
+                                  {log.isAvoid && (
+                                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded font-mono flex-shrink-0 bg-red-950/40 text-red-400 border border-red-500/20">
+                                      Avoid Item
+                                    </span>
+                                  )}
                                 </div>
                                 <span className="inline-block text-[9px] uppercase tracking-wider font-bold font-mono text-slate-500 mt-1">
-                                  {log.portionGrams}g portion @ {log.proteinPer100g}g/100g
+                                  Portion: {log.portion ?? log.portionGrams} {log.portionUnit || "Grams"} • Cal: {log.calories || 0} kcal • C: {log.carbs || 0}g • F: {log.fats || 0}g
                                 </span>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-black font-mono text-teal-400 mr-2">
+                              <span className={`text-sm font-black font-mono mr-2 ${log.isAvoid ? "text-red-400" : "text-teal-400"}`}>
                                 +{log.calculatedProtein.toFixed(1)}g
                               </span>
                               <button

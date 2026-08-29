@@ -1,4 +1,5 @@
 import mongoose, { Schema, model, models } from "mongoose";
+import { encrypt, decrypt } from "../crypto";
 
 const ExpenseSchema = new Schema(
   {
@@ -16,11 +17,21 @@ const ExpenseSchema = new Schema(
       type: String,
       required: [true, "Description is required"],
       trim: true,
+      get: decrypt,
+      set: encrypt,
     },
     amount: {
-      type: Number,
+      type: String,
       required: [true, "Amount is required"],
-      min: [0, "Amount cannot be negative"],
+      get: (val: string) => {
+        const decrypted = decrypt(val);
+        return parseFloat(decrypted) || 0;
+      },
+      set: (val: any) => {
+        const num = parseFloat(String(val)) || 0;
+        if (num < 0) throw new Error("Amount cannot be negative");
+        return encrypt(String(num));
+      },
     },
     type: {
       type: String,
@@ -33,10 +44,14 @@ const ExpenseSchema = new Schema(
       required: [true, "Category is required"],
       default: "Others",
       trim: true,
+      get: decrypt,
+      set: encrypt,
     },
   },
   {
     timestamps: true,
+    toJSON: { getters: true },
+    toObject: { getters: true }
   }
 );
 

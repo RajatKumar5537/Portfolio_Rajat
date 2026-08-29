@@ -5,21 +5,12 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, inviteCode } = await req.json();
+    const { email, password, securityPin } = await req.json();
 
-    if (!email || !password || !inviteCode) {
+    if (!email || !password || !securityPin) {
       return NextResponse.json(
-        { error: "All fields are required" },
+        { error: "All fields are required (including Security PIN)" },
         { status: 400 }
-      );
-    }
-
-    // Verify system invite code
-    const systemInviteCode = process.env.REGISTRATION_INVITE_CODE;
-    if (!systemInviteCode || inviteCode !== systemInviteCode) {
-      return NextResponse.json(
-        { error: "Invalid authorization invite code. Reset denied." },
-        { status: 403 }
       );
     }
 
@@ -38,6 +29,23 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "No account found with this email address" },
         { status: 404 }
+      );
+    }
+
+    // Handle legacy user accounts without Security PIN configured
+    if (!user.securityPin) {
+      return NextResponse.json(
+        { error: "This account does not have a Security PIN configured. Please contact the administrator to reset your password." },
+        { status: 400 }
+      );
+    }
+
+    // Verify user-specific Security PIN
+    const isPinMatch = await bcrypt.compare(securityPin, user.securityPin);
+    if (!isPinMatch) {
+      return NextResponse.json(
+        { error: "Invalid Security PIN. Reset denied." },
+        { status: 403 }
       );
     }
 

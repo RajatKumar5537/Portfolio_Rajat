@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import Expense from "@/lib/models/Expense";
+import { isEncrypted } from "@/lib/crypto";
 
 export async function GET() {
   try {
@@ -15,6 +16,33 @@ export async function GET() {
     await dbConnect();
 
     const expenses = await Expense.find({ userId }).sort({ date: -1 });
+
+    // On-the-fly data migration to encrypt older plaintext records
+    let migratedCount = 0;
+    for (const exp of expenses) {
+      let needsMigration = false;
+      const rawDesc = exp.get("description", null, { getters: false });
+      const rawAmount = exp.get("amount", null, { getters: false });
+      const rawCategory = exp.get("category", null, { getters: false });
+
+      if (rawDesc && !isEncrypted(rawDesc)) needsMigration = true;
+      if (rawAmount && !isEncrypted(String(rawAmount))) needsMigration = true;
+      if (rawCategory && !isEncrypted(rawCategory)) needsMigration = true;
+
+      if (needsMigration) {
+        // Accessing via getters decrypts old plaintext correctly, and re-setting triggers setters to encrypt.
+        exp.description = exp.description;
+        exp.amount = exp.amount;
+        exp.category = exp.category;
+        await exp.save();
+        migratedCount++;
+      }
+    }
+
+    if (migratedCount > 0) {
+      console.log(`Migrated ${migratedCount} plaintext expenses to encrypted format on the fly.`);
+    }
+
     return NextResponse.json(expenses);
   } catch (error: any) {
     console.error("GET Expenses Error: ", error);

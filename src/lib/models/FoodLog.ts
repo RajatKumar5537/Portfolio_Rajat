@@ -32,6 +32,39 @@ const FoodLogSchema = new Schema(
       required: true,
       min: [0, "Calculated protein cannot be negative"],
     },
+    portion: {
+      type: Number,
+      required: true,
+      min: [0, "Portion cannot be negative"],
+      default: 100,
+    },
+    portionUnit: {
+      type: String,
+      required: true,
+      default: "Grams",
+    },
+    calories: {
+      type: Number,
+      required: true,
+      min: [0, "Calories cannot be negative"],
+      default: 0,
+    },
+    carbs: {
+      type: Number,
+      required: true,
+      min: [0, "Carbs cannot be negative"],
+      default: 0,
+    },
+    fats: {
+      type: Number,
+      required: true,
+      min: [0, "Fats cannot be negative"],
+      default: 0,
+    },
+    isAvoid: {
+      type: Boolean,
+      default: false,
+    },
     mealType: {
       type: String,
       required: [true, "Meal type is required"],

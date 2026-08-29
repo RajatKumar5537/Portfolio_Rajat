@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Navigation from "@/components/Navigation";
-import { BookOpen, CreditCard, Apple, ArrowUpRight, TrendingUp, Sparkles, Flame, PlusCircle, Loader2, Wallet, FileUp, ChevronLeft, ChevronRight, Plus, TrendingDown } from "lucide-react";
+import { BookOpen, CreditCard, Apple, ArrowUpRight, TrendingUp, Sparkles, Flame, PlusCircle, Loader2, Wallet, FileUp, ChevronLeft, ChevronRight, Plus, TrendingDown, Calendar, Heart } from "lucide-react";
 
 export default function DashboardPage() {
   const [data, setData] = useState({
     expenses: [] as any[],
     studyLogs: [] as any[],
     foodLogs: [] as any[],
+    wellnessLogs: [] as any[],
   });
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
@@ -27,6 +28,7 @@ export default function DashboardPage() {
             expenses: Array.isArray(result.expenses) ? result.expenses : [],
             studyLogs: Array.isArray(result.studyLogs) ? result.studyLogs : [],
             foodLogs: Array.isArray(result.foodLogs) ? result.foodLogs : [],
+            wellnessLogs: Array.isArray(result.wellnessLogs) ? result.wellnessLogs : [],
           });
         }
       } catch (err) {
@@ -121,7 +123,25 @@ export default function DashboardPage() {
     return monthMatches && yearMatches;
   });
 
-  // calculations
+  // Filter wellness logs by selected Month, Year or Specific Date
+  const filteredWellnessLogs = data.wellnessLogs.filter((log) => {
+    const logDate = new Date(log.date);
+    if (selectedDate) {
+      return logDate.toDateString() === new Date(selectedDate).toDateString();
+    }
+    const monthMatches = selectedMonth === -1 || logDate.getMonth() === selectedMonth;
+    const yearMatches = selectedYear === -1 || logDate.getFullYear() === selectedYear;
+    return monthMatches && yearMatches;
+  });
+
+  // Calculations
+  const filteredExercises = filteredWellnessLogs.filter(log => log.type === "exercise");
+  const filteredSleep = filteredWellnessLogs.filter(log => log.type === "sleep");
+  const totalWorkoutMinutes = filteredExercises.reduce((acc, curr) => acc + (curr.exercise?.durationMinutes || 0), 0);
+  const totalWorkoutHours = (totalWorkoutMinutes / 60).toFixed(1);
+  const avgSleep = filteredSleep.length > 0
+    ? filteredSleep.reduce((acc, curr) => acc + (curr.sleep?.sleepHours || 0), 0) / filteredSleep.length
+    : 0;
   const totalExpenses = filteredTransactions.filter(e => e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
   const totalIncome = filteredTransactions.filter(e => e.type === "Income").reduce((acc, curr) => acc + curr.amount, 0);
   const netSavings = totalIncome - totalExpenses;
@@ -133,12 +153,20 @@ export default function DashboardPage() {
   const totalStudyMinutes = filteredStudyLogs.reduce((acc, curr) => acc + curr.durationMinutes, 0);
   const totalStudyHours = (totalStudyMinutes / 60).toFixed(1);
 
-  // Protein Calculations (dynamic depending on whether filtered date is today, a specific day, or a monthly view)
+  // Macronutrient Calculations (dynamic depending on selected dates/months view)
   const proteinGoal = 120; // Default protein target (120g)
+  const caloriesGoal = 2200; // Default calories target (2200 kcal)
+  const carbsGoal = 250; // Default carbs target (250g)
+  const fatsGoal = 70; // Default fats target (70g)
+
   const todayStr = new Date().toDateString();
   const todayFood = data.foodLogs.filter(f => new Date(f.date).toDateString() === todayStr);
   const todayProtein = todayFood.reduce((acc, curr) => acc + curr.calculatedProtein, 0);
   const todayProteinPercent = Math.min(100, Math.round((todayProtein / proteinGoal) * 100));
+
+  const todayCalories = todayFood.reduce((acc, curr) => acc + (curr.calories || 0), 0);
+  const todayCarbs = todayFood.reduce((acc, curr) => acc + (curr.carbs || 0), 0);
+  const todayFats = todayFood.reduce((acc, curr) => acc + (curr.fats || 0), 0);
 
   const isCurrentMonthYear = !selectedDate && (selectedMonth === -1 || selectedMonth === new Date().getMonth()) && 
                              (selectedYear === -1 || selectedYear === new Date().getFullYear());
@@ -148,17 +176,34 @@ export default function DashboardPage() {
   const avgDailyProtein = uniqueDays > 0 ? totalFilteredProtein / uniqueDays : 0;
   const avgProteinPercent = Math.min(100, Math.round((avgDailyProtein / proteinGoal) * 100));
 
-  // Determine display values for protein card based on single-day vs monthly filtering
+  const totalFilteredCalories = filteredFoodLogs.reduce((acc, curr) => acc + (curr.calories || 0), 0);
+  const avgDailyCalories = uniqueDays > 0 ? totalFilteredCalories / uniqueDays : 0;
+
+  const totalFilteredCarbs = filteredFoodLogs.reduce((acc, curr) => acc + (curr.carbs || 0), 0);
+  const avgDailyCarbs = uniqueDays > 0 ? totalFilteredCarbs / uniqueDays : 0;
+
+  const totalFilteredFats = filteredFoodLogs.reduce((acc, curr) => acc + (curr.fats || 0), 0);
+  const avgDailyFats = uniqueDays > 0 ? totalFilteredFats / uniqueDays : 0;
+
+  // Determine display values based on single-day vs monthly filtering
   const isSingleDay = !!selectedDate;
-  const displayProtein = isSingleDay 
-    ? totalFilteredProtein 
-    : (isCurrentMonthYear ? todayProtein : avgDailyProtein);
+  const displayProtein = isSingleDay ? totalFilteredProtein : (isCurrentMonthYear ? todayProtein : avgDailyProtein);
   const displayProteinPercent = isSingleDay 
     ? Math.min(100, Math.round((totalFilteredProtein / proteinGoal) * 100))
     : (isCurrentMonthYear ? todayProteinPercent : avgProteinPercent);
+
+  const displayCalories = isSingleDay ? totalFilteredCalories : (isCurrentMonthYear ? todayCalories : avgDailyCalories);
+  const displayCaloriesPercent = Math.min(100, Math.round((displayCalories / caloriesGoal) * 100));
+
+  const displayCarbs = isSingleDay ? totalFilteredCarbs : (isCurrentMonthYear ? todayCarbs : avgDailyCarbs);
+  const displayCarbsPercent = Math.min(100, Math.round((displayCarbs / carbsGoal) * 100));
+
+  const displayFats = isSingleDay ? totalFilteredFats : (isCurrentMonthYear ? todayFats : avgDailyFats);
+  const displayFatsPercent = Math.min(100, Math.round((displayFats / fatsGoal) * 100));
+
   const displayProteinLabel = isSingleDay 
-    ? `Protein logged on ${new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-    : (isCurrentMonthYear ? "Today's Protein Intake" : `Avg Daily Protein (${getContextLabel()})`);
+    ? `Macros logged on ${new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+    : (isCurrentMonthYear ? "Today's Macro Intake" : `Avg Daily Macros (${getContextLabel()})`);
 
   // Study Streak Calculation (remains dynamic for current overall active days)
   const calculateStreak = (): number => {
@@ -224,17 +269,17 @@ export default function DashboardPage() {
           {/* Header & Month Selector */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <h2 className="text-xl font-black uppercase tracking-widest text-slate-200">Command Center</h2>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mt-0.5">Aggregate status reports across system scopes</p>
+              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Command Center</h2>
+              <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Aggregate status reports across system scopes</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-start">
               {/* Premium Month/Year/Date selection bar */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
+              <div className="filter-bar flex flex-wrap items-center gap-2 sm:gap-3 bg-white dark:bg-[#0c0c16]/60 shadow-lg dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-slate-200 dark:border-white/10 p-2 rounded-xl hover:border-slate-300 dark:hover:border-white/15 transition-all">
                 <button
                   onClick={handlePrevMonth}
                   disabled={!!selectedDate}
-                  className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="bar-btn p-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronLeft size={14} />
                 </button>
@@ -245,42 +290,45 @@ export default function DashboardPage() {
                       <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
                       >
-                        <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL MONTHS</option>
+                        <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL MONTHS</option>
                         {months.map((m, idx) => (
-                          <option key={m} value={idx} className="bg-[#0c0c16] text-slate-300">{m.toUpperCase()}</option>
+                          <option key={m} value={idx} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{m.toUpperCase()}</option>
                         ))}
                       </select>
 
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
                       >
-                        <option value={-1} className="bg-[#0c0c16] text-indigo-400 font-bold">ALL YEARS</option>
+                        <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL YEARS</option>
                         {availableYears.map((year) => (
-                          <option key={year} value={year} className="bg-[#0c0c16] text-slate-300">{year}</option>
+                          <option key={year} value={year} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{year}</option>
                         ))}
                       </select>
                     </>
                   ) : (
-                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 px-2 py-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 px-2 py-1">
                       {new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </span>
                   )}
 
-                  <div className="flex items-center gap-1.5 border-l border-white/10 pl-2">
-                    <input
-                      type="date"
-                      value={selectedDate || ""}
-                      onChange={(e) => setSelectedDate(e.target.value || null)}
-                      className="bg-transparent text-xs font-bold text-indigo-400 outline-none cursor-pointer py-0.5 px-1 font-mono w-[115px]"
-                    />
+                  <div className="flex items-center gap-2 border-l border-slate-200 dark:border-white/10 pl-2">
+                    <div className="date-pill flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-500/5 hover:bg-indigo-100 dark:hover:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-2.5 py-1 rounded-xl text-indigo-600 dark:text-indigo-400 transition-all">
+                      <Calendar size={13} className="text-indigo-600/80 dark:text-indigo-400/80 flex-shrink-0" />
+                      <input
+                        type="date"
+                        value={selectedDate || ""}
+                        onChange={(e) => setSelectedDate(e.target.value || null)}
+                        className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[100px] h-4 leading-none"
+                      />
+                    </div>
                     {selectedDate && (
                       <button
                         onClick={() => setSelectedDate(null)}
-                        className="text-[10px] text-red-400 hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
+                        className="text-[10px] text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
                       >
                         Clear
                       </button>
@@ -291,7 +339,7 @@ export default function DashboardPage() {
                 <button
                   onClick={handleNextMonth}
                   disabled={!!selectedDate}
-                  className="p-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronRight size={14} />
                 </button>
@@ -322,7 +370,7 @@ export default function DashboardPage() {
 
 
           {/* Quick Metrics Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             
             {/* Study Card */}
             <div className="glass-card card-glow-indigo p-6 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[220px]">
@@ -394,45 +442,115 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Protein Intake Card */}
-            <div className="glass-card card-glow-teal p-6 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[220px]">
+            {/* Macro Summary Card */}
+            <div className="glass-card card-glow-teal p-6 rounded-2xl border border-white/5 flex flex-col justify-between">
               <div>
                 <div className="flex justify-between items-start">
                   <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
                     <Apple size={20} />
                   </div>
                   <span className="text-[10px] bg-teal-950/40 border border-teal-500/20 px-2.5 py-1 rounded-full text-teal-400 font-bold font-mono">
-                    {displayProteinPercent}% GOAL
+                    MACROS SUMMARY
                   </span>
                 </div>
 
-                <div className="mt-4">
-                  <h3 className="text-2xl font-black font-mono text-slate-100">
-                    {displayProtein.toFixed(1)}g <span className="text-sm font-medium text-slate-500">/ {proteinGoal}g</span>
-                  </h3>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-teal-400 mt-1">{displayProteinLabel}</p>
+                <div className="mt-3">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-teal-400">{displayProteinLabel}</p>
                 </div>
               </div>
 
-              {/* Progress bar */}
-              <div className="mt-4">
-                <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-teal-500 to-indigo-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${displayProteinPercent}%` }}
-                  ></div>
+              {/* Progress bars for Macros */}
+              <div className="space-y-3 mt-4">
+                {/* Calories */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[9px] font-bold font-mono">
+                    <span className="text-slate-400">Calories</span>
+                    <span className="text-orange-400">{displayCalories.toFixed(0)} / {caloriesGoal} kcal</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-orange-500 h-full rounded-full transition-all duration-300" style={{ width: `${displayCaloriesPercent}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Protein */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[9px] font-bold font-mono">
+                    <span className="text-slate-400">Protein</span>
+                    <span className="text-teal-400">{displayProtein.toFixed(1)}g / {proteinGoal}g</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-teal-500 h-full rounded-full transition-all duration-300" style={{ width: `${displayProteinPercent}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Carbs */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[9px] font-bold font-mono">
+                    <span className="text-slate-400">Carbs</span>
+                    <span className="text-indigo-400">{displayCarbs.toFixed(1)}g / {carbsGoal}g</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-300" style={{ width: `${displayCarbsPercent}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Fats */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[9px] font-bold font-mono">
+                    <span className="text-slate-400">Fats</span>
+                    <span className="text-purple-400">{displayFats.toFixed(1)}g / {fatsGoal}g</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-purple-500 h-full rounded-full transition-all duration-300" style={{ width: `${displayFatsPercent}%` }}></div>
+                  </div>
                 </div>
               </div>
 
-              <div className="border-t border-white/5 pt-4 mt-6 flex justify-between items-center">
-                <span className="text-[11px] text-slate-500 uppercase tracking-wider">
-                  {todayFood.length} entries today
+              <div className="border-t border-white/5 pt-3 mt-4 flex justify-between items-center">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono">
+                  {todayFood.length} meals logged today
                 </span>
                 <Link
                   href="/food"
                   className="text-xs font-bold text-slate-300 hover:text-teal-400 flex items-center gap-1 transition-all"
                 >
-                  <span>Track Meal</span>
+                  <span>Log Nutrition</span>
+                  <ArrowUpRight size={14} />
+                </Link>
+              </div>
+            </div>
+
+            {/* Wellness Card */}
+            <div className="glass-card card-glow-indigo p-6 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[220px]">
+              <div>
+                <div className="flex justify-between items-start">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                    <Heart size={20} />
+                  </div>
+                  <span className="text-[10px] bg-indigo-950/40 border border-indigo-500/20 px-2.5 py-1 rounded-full text-indigo-400 font-bold font-mono">
+                    WELLNESS
+                  </span>
+                </div>
+
+                <div className="mt-4">
+                  <h3 className="text-2xl font-black font-mono text-slate-100">
+                    {totalWorkoutHours} hrs <span className="text-sm font-medium text-slate-500">/ {avgSleep.toFixed(1)}h sleep</span>
+                  </h3>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-indigo-400 mt-1">
+                    Exercise & Sleep Summary ({getContextLabel()})
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-white/5 pt-4 mt-6 flex justify-between items-center">
+                <span className="text-[11px] text-slate-500 uppercase tracking-wider">
+                  {filteredExercises.length} sessions • {filteredSleep.length} sleep logs
+                </span>
+                <Link
+                  href="/wellness"
+                  className="text-xs font-bold text-slate-300 hover:text-indigo-400 flex items-center gap-1 transition-all"
+                >
+                  <span>Wellness Log</span>
                   <ArrowUpRight size={14} />
                 </Link>
               </div>
@@ -443,7 +561,7 @@ export default function DashboardPage() {
           {/* Quick Shortcuts Section */}
           <div className="mt-12 glass-card p-8 rounded-2xl border border-white/5">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-200 mb-6">Quick Actions Console</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <Link
                 href="/learning"
                 className="mini-3d-card flex items-center justify-between p-4 rounded-xl cursor-pointer text-slate-300 light:text-slate-700 hover:text-indigo-400 light:hover:text-indigo-600 transition-all"
@@ -471,6 +589,16 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                   <Apple size={16} />
                   <span className="text-xs font-bold uppercase tracking-wider">Add Protein Log</span>
+                </div>
+                <PlusCircle size={16} />
+              </Link>
+              <Link
+                href="/wellness"
+                className="mini-3d-card flex items-center justify-between p-4 rounded-xl cursor-pointer text-slate-300 light:text-slate-700 hover:text-red-400 light:hover:text-red-600 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <Heart size={16} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Log Wellness</span>
                 </div>
                 <PlusCircle size={16} />
               </Link>
