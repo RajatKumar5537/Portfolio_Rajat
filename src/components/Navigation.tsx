@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
-  BookOpen, CreditCard, Apple, LayoutDashboard, LogOut, User, Sun, Moon, Activity, Heart
+  BookOpen, CreditCard, Apple, LayoutDashboard, LogOut, User, Sun, Moon, Activity, Heart, Timer, Square
 } from "lucide-react";
 
 export default function Navigation() {
@@ -14,6 +14,87 @@ export default function Navigation() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Global persistent study stopwatch widget states
+  const [stopwatchActive, setStopwatchActive] = useState(false);
+  const [stopwatchSeconds, setStopwatchSeconds] = useState(0);
+  const globalTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const checkStopwatch = () => {
+      const active = localStorage.getItem("study_stopwatch_is_active") === "true";
+      setStopwatchActive(active);
+
+      if (active) {
+        const startTime = Number(localStorage.getItem("study_stopwatch_start_time") || Date.now());
+        const accumulated = Number(localStorage.getItem("study_stopwatch_accumulated_seconds") || 0);
+        const elapsed = Math.round((Date.now() - startTime) / 1000) + accumulated;
+        setStopwatchSeconds(elapsed);
+
+        // Start interval
+        if (globalTimerRef.current) clearInterval(globalTimerRef.current);
+        globalTimerRef.current = setInterval(() => {
+          const currentElapsed = Math.round((Date.now() - startTime) / 1000) + accumulated;
+          setStopwatchSeconds(currentElapsed);
+        }, 1000);
+      } else {
+        if (globalTimerRef.current) {
+          clearInterval(globalTimerRef.current);
+          globalTimerRef.current = null;
+        }
+        setStopwatchSeconds(0);
+      }
+    };
+
+    checkStopwatch();
+
+    window.addEventListener("study-stopwatch-changed", checkStopwatch);
+    // Also listen to storage events to sync across multiple tabs
+    window.addEventListener("storage", checkStopwatch);
+
+    return () => {
+      window.removeEventListener("study-stopwatch-changed", checkStopwatch);
+      window.removeEventListener("storage", checkStopwatch);
+      if (globalTimerRef.current) clearInterval(globalTimerRef.current);
+    };
+  }, []);
+
+  const handleStopPersistentSession = async () => {
+    const topicName = prompt("What did you study during this session?", "Algorithms Practice");
+    if (topicName === null) return; // Discard click
+
+    const finalTopic = topicName.trim() || "Algorithms Practice";
+    const minutes = Math.max(1, Math.round(stopwatchSeconds / 60));
+
+    // Clear local storage persistent states
+    localStorage.removeItem("study_stopwatch_is_active");
+    localStorage.removeItem("study_stopwatch_start_time");
+    localStorage.removeItem("study_stopwatch_accumulated_seconds");
+    
+    // Notify all listeners
+    window.dispatchEvent(new Event("study-stopwatch-changed"));
+
+    try {
+      await fetch("/api/tracking/study", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: finalTopic,
+          durationMinutes: minutes,
+          completed: true,
+        }),
+      });
+    } catch (err) {
+      console.error("Error saving persistent study log:", err);
+    }
+  };
+
+  const formatStopwatch = (totalSecs: number) => {
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    return `${hrs > 0 ? String(hrs).padStart(2, '0') + ':' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -130,6 +211,38 @@ export default function Navigation() {
           </button>
         </div>
       </div>
+
+      {/* Persistent Floating Stopwatch Widget (visible on all pages when active) */}
+      {stopwatchActive && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#0d0d1a]/95 light:bg-white/95 border border-teal-500/30 light:border-teal-500/20 backdrop-blur-xl shadow-2xl p-3.5 rounded-2xl animate-pulse-subtle transition-all">
+          <div className="relative flex items-center justify-center flex-shrink-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping absolute" />
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 relative" />
+          </div>
+
+          <div className="flex flex-col text-left">
+            <span className="text-[8px] font-black uppercase tracking-wider text-slate-500 light:text-slate-400">Study Session Active</span>
+            <span className="text-sm font-black font-mono tracking-widest text-slate-100 light:text-slate-800">{formatStopwatch(stopwatchSeconds)}</span>
+          </div>
+
+          <div className="flex items-center gap-2 border-l border-white/10 light:border-slate-200 pl-3">
+            <Link
+              href="/learning"
+              className="text-[9px] font-bold text-indigo-400 light:text-indigo-600 hover:underline hover:text-indigo-300 light:hover:text-indigo-500 whitespace-nowrap"
+            >
+              Console
+            </Link>
+            <button
+              onClick={handleStopPersistentSession}
+              className="flex items-center gap-1 bg-red-600 hover:bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-lg border border-red-500/20 shadow-md transition-all cursor-pointer whitespace-nowrap"
+              title="Stop and save session"
+            >
+              <Square size={9} fill="currentColor" />
+              <span>Stop</span>
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

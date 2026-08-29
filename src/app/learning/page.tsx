@@ -144,11 +144,44 @@ export default function LearningPage() {
       }
     };
     fetchRoadmapData();
-
     fetchStudyLogs();
+
+    // Persistent stopwatch initial load
+    const stopwatchActive = localStorage.getItem("study_stopwatch_is_active") === "true";
+    if (stopwatchActive) {
+      const startTime = Number(localStorage.getItem("study_stopwatch_start_time") || Date.now());
+      const accumulated = Number(localStorage.getItem("study_stopwatch_accumulated_seconds") || 0);
+      const elapsed = Math.round((Date.now() - startTime) / 1000) + accumulated;
+      setSessionSeconds(elapsed);
+      setIsSessionActive(true);
+    } else {
+      const accumulated = Number(localStorage.getItem("study_stopwatch_accumulated_seconds") || 0);
+      setSessionSeconds(accumulated);
+      setIsSessionActive(false);
+    }
+
+    // Sync state if stopwatch status is changed globally (e.g. from the float pill on other pages)
+    const handleStopwatchChanged = () => {
+      const active = localStorage.getItem("study_stopwatch_is_active") === "true";
+      if (active) {
+        setIsSessionActive(true);
+        const startTime = Number(localStorage.getItem("study_stopwatch_start_time") || Date.now());
+        const accumulated = Number(localStorage.getItem("study_stopwatch_accumulated_seconds") || 0);
+        const elapsed = Math.round((Date.now() - startTime) / 1000) + accumulated;
+        setSessionSeconds(elapsed);
+      } else {
+        setIsSessionActive(false);
+        const accumulated = Number(localStorage.getItem("study_stopwatch_accumulated_seconds") || 0);
+        setSessionSeconds(accumulated);
+        // Reload logs since a study log may have been saved by the global floating widget
+        fetchStudyLogs();
+      }
+    };
+    window.addEventListener("study-stopwatch-changed", handleStopwatchChanged);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      window.removeEventListener("study-stopwatch-changed", handleStopwatchChanged);
     };
   }, []);
 
@@ -177,8 +210,12 @@ export default function LearningPage() {
   // Session timer handler
   useEffect(() => {
     if (isSessionActive) {
+      const startTime = Number(localStorage.getItem("study_stopwatch_start_time") || Date.now());
+      const accumulated = Number(localStorage.getItem("study_stopwatch_accumulated_seconds") || 0);
+
       timerRef.current = setInterval(() => {
-        setSessionSeconds((prev) => prev + 1);
+        const elapsed = Math.round((Date.now() - startTime) / 1000) + accumulated;
+        setSessionSeconds(elapsed);
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -358,19 +395,29 @@ export default function LearningPage() {
 
   const handleToggleSession = async () => {
     if (isSessionActive) {
+      const topicName = prompt("What did you study during this session?", "Algorithms Practice");
+      if (topicName === null) {
+        // User clicked cancel, do nothing (keep session active)
+        return;
+      }
+      const finalTopic = topicName.trim() || "Algorithms Practice";
       const minutes = Math.max(1, Math.round(sessionSeconds / 60));
+
       setIsSessionActive(false);
       setSessionSeconds(0);
 
-      const topicName = prompt("What did you study during this session?", "Algorithms Practice");
-      if (!topicName) return;
+      // Clean up localStorage persistence
+      localStorage.removeItem("study_stopwatch_is_active");
+      localStorage.removeItem("study_stopwatch_start_time");
+      localStorage.removeItem("study_stopwatch_accumulated_seconds");
+      window.dispatchEvent(new Event("study-stopwatch-changed"));
 
       try {
         const res = await fetch("/api/tracking/study", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            topic: topicName,
+            topic: finalTopic,
             durationMinutes: minutes,
             completed: true,
           }),
@@ -391,6 +438,13 @@ export default function LearningPage() {
         console.error(err);
       }
     } else {
+      // Start stopwatch session
+      const startTime = Date.now();
+      localStorage.setItem("study_stopwatch_is_active", "true");
+      localStorage.setItem("study_stopwatch_start_time", String(startTime));
+      localStorage.setItem("study_stopwatch_accumulated_seconds", "0");
+      window.dispatchEvent(new Event("study-stopwatch-changed"));
+
       setIsSessionActive(true);
       setSessionSeconds(0);
     }
