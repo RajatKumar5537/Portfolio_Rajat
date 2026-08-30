@@ -34,6 +34,8 @@ export const foodDictionary: FoodItem[] = [
   { name: "Chicken Breast (Cooked)", defaultUnit: "Grams", defaultSize: 100, gramsEquivalent: 1, proteinPerBase: 31, carbsPerBase: 0, fatsPerBase: 3.6, caloriesPerBase: 165 },
   { name: "KFC Chicken Leg Piece (Drumstick)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 70, proteinPerBase: 14, carbsPerBase: 4, fatsPerBase: 10, caloriesPerBase: 160 },
   { name: "KFC Chicken Breast (Fried)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 170, proteinPerBase: 35, carbsPerBase: 11, fatsPerBase: 21, caloriesPerBase: 390 },
+  { name: "Rice (Bowl)", defaultUnit: "Bowl", defaultSize: 1, gramsEquivalent: 150, proteinPerBase: 4, carbsPerBase: 44, fatsPerBase: 0.5, caloriesPerBase: 200 },
+  { name: "Dal (Plain Cooked)", defaultUnit: "Bowl", defaultSize: 1, gramsEquivalent: 200, proteinPerBase: 8, carbsPerBase: 24, fatsPerBase: 2, caloriesPerBase: 150 },
 
   // Odisha Traditional Foods
   { name: "Dalma (Odisha Lentil Stew)", defaultUnit: "Bowl", defaultSize: 1, gramsEquivalent: 250, proteinPerBase: 7, carbsPerBase: 25, fatsPerBase: 2, caloriesPerBase: 150 },
