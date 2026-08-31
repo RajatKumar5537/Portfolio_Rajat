@@ -237,8 +237,8 @@ export default function WellnessPage() {
     fetchWellnessLogs();
     fetchUnreadChatCount();
 
-    // Poll unread chat messages count every 10 seconds for dynamic color shifts
-    const chatInterval = setInterval(fetchUnreadChatCount, 10000);
+    // Poll unread chat messages count every 5 seconds for dynamic color shifts
+    const chatInterval = setInterval(fetchUnreadChatCount, 5000);
     return () => clearInterval(chatInterval);
   }, []);
 
@@ -598,13 +598,20 @@ export default function WellnessPage() {
               className="cursor-pointer select-none group transition-all"
               title="Wellness Console"
             >
-              <h2 className={`page-heading text-xl font-black uppercase tracking-widest transition-colors duration-300 ${
-                unreadChatCount > 0
-                  ? "text-amber-500 dark:text-amber-400 font-black animate-pulse"
-                  : "text-slate-900 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400"
-              }`}>
-                Wellness tracker
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className={`page-heading text-xl font-black uppercase tracking-widest transition-colors duration-300 ${
+                  unreadChatCount > 0
+                    ? "text-amber-500 dark:text-amber-400 font-black animate-pulse"
+                    : "text-slate-900 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400"
+                }`}>
+                  Wellness tracker
+                </h2>
+                {unreadChatCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black text-white bg-amber-500 rounded-full shadow-md shadow-amber-500/40 animate-bounce font-mono">
+                    {unreadChatCount}
+                  </span>
+                )}
+              </div>
               <p className={`page-subheading text-xs uppercase tracking-wider mt-0.5 transition-colors duration-300 ${
                 unreadChatCount > 0
                   ? "text-amber-600 dark:text-amber-300 font-bold"

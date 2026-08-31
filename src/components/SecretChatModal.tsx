@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { 
   X, Send, Reply, Pencil, Trash2, Shield, User, 
   Sparkles, RefreshCw, Check, Ban, Smile, Copy, CheckCheck,
-  Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock
+  Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete
 } from "lucide-react";
 
 interface ReplyToData {
@@ -22,6 +22,7 @@ interface MessageItem {
   text: string;
   replyTo?: ReplyToData | null;
   isRead: boolean;
+  isDelivered?: boolean;
   isEdited: boolean;
   isDeleted?: boolean;
   retentionHours: number;
@@ -58,10 +59,64 @@ interface ActiveUser {
   lastSeenAt: string;
 }
 
-const EMOJI_LIST = [
-  "❤️", "😂", "🔥", "👍", "😍", "🎉", "👀", "🤫", "✨", "💯", 
-  "💀", "🥺", "🙌", "😎", "🚀", "😴", "💪", "💡", "😭", "🤝", 
-  "🥳", "⚡", "🌟", "👌", "☕", "🍕", "🏋️", "🎯", "🔒", "👑"
+const EMOJI_CATEGORIES = [
+  {
+    id: "smileys",
+    name: "Smileys & People",
+    icon: "😊",
+    emojis: [
+      "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "🥲", "🥹", "☺️", "😊", 
+      "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", 
+      "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳", "😏", 
+      "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", 
+      "😢", "😭", "😮‍💨", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", 
+      "😨", "😰", "😥", "😓", "🤗", "🤔", "🫣", "🤭", "🤫", "🤥", "😶", "😐", 
+      "😑", "😬", "🫠", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", 
+      "😪", "😵", "😵‍💫", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", 
+      "🤠", "😈", "👿", "🤡", "💩", "👻", "💀", "☠️", "👽", "👾", "🤖"
+    ]
+  },
+  {
+    id: "gestures",
+    name: "Hands & Gestures",
+    icon: "👍",
+    emojis: [
+      "👍", "👎", "👊", "✊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", 
+      "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "👃", "🤏", "👈", 
+      "👉", "👆", "👇", "☝️", "✌️", "🤞", "🫰", "🤟", "🤘", "🤙", "🖐️", "✋", 
+      "👌", "🤌", "👋", "🫡", "🫶", "🫂"
+    ]
+  },
+  {
+    id: "hearts",
+    name: "Hearts & Love",
+    icon: "❤️",
+    emojis: [
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹", 
+      "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "💌", "💋", "💐", 
+      "🌹", "🥀", "🌺", "🌸", "🌷", "🌻"
+    ]
+  },
+  {
+    id: "reactions",
+    name: "Sparkles & Reactions",
+    icon: "🔥",
+    emojis: [
+      "🔥", "💯", "✨", "🌟", "⭐", "💥", "⚡", "💫", "🌈", "☀️", "🌙", "🪐", 
+      "🚀", "🛸", "🎉", "🎊", "🎈", "🎁", "🏆", "🥇", "🎯", "🎲", "👑", "💎", 
+      "💡", "🔑", "🔒", "🔓", "🔔", "📣", "🚨", "⚠️", "⛔", "✅", "❌", "❓"
+    ]
+  },
+  {
+    id: "activities",
+    name: "Food & Activities",
+    icon: "☕",
+    emojis: [
+      "☕", "🍵", "🧋", "🍻", "🥂", "🍷", "🍕", "🍔", "🍟", "🌮", "🍣", "🍩", 
+      "🍫", "🍿", "🥑", "🍎", "🍓", "🎂", "🏋️", "🏃", "🧘", "🚴", "🏊", "⚽", 
+      "🏀", "🎮", "🎧", "🎬", "🚗", "✈️", "🏖️", "⛺"
+    ]
+  }
 ];
 
 interface SecretChatModalProps {
@@ -108,11 +163,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
+  // Mobile Tap-to-Action Menu state
+  const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
+
   // Copy message state
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Quick Emoji Picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activeEmojiTab, setActiveEmojiTab] = useState<string>("smileys");
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -320,9 +379,16 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   const handleInsertEmoji = (emoji: string) => {
     setInputText((prev) => prev + emoji);
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
+    setTimeout(() => inputRef.current?.focus(), 10);
+  };
+
+  const handleBackspaceEmoji = () => {
+    setInputText((prev) => {
+      const chars = Array.from(prev);
+      chars.pop();
+      return chars.join("");
+    });
+    setTimeout(() => inputRef.current?.focus(), 10);
   };
 
   const handleCopyMessage = (id: string, text: string) => {
@@ -900,6 +966,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         {/* Message Feed */}
         <div 
           ref={chatFeedRef}
+          onClick={() => setActiveActionMenuId(null)}
           className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-slate-50/60 dark:bg-transparent light:bg-slate-50/60 overscroll-contain touch-pan-y transition-colors"
         >
           {!selectedFriend ? (
@@ -946,29 +1013,18 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
               const isEditing = editingId === msg._id;
               const isCopied = copiedId === msg._id;
+              const isMenuOpen = activeActionMenuId === msg._id;
 
               return (
                 <div
                   key={msg._id}
-                  className={`flex flex-col group ${isMe ? "items-end" : "items-start"}`}
+                  className={`flex flex-col relative ${isMe ? "items-end" : "items-start"}`}
                 >
-                  {/* Sender & Timestamp */}
-                  <div className="flex items-center gap-1.5 mb-1 px-1 text-[9px] font-mono text-slate-500 dark:text-slate-400 light:text-slate-500">
-                    <span className={`font-bold ${isMe ? "text-teal-600 dark:text-teal-400 light:text-teal-600" : "text-indigo-600 dark:text-indigo-400 light:text-indigo-600"}`}>
-                      {msg.sender}
-                    </span>
-                    <span>•</span>
-                    <span>
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    {msg.isEdited && <span className="text-[8px] text-slate-500 dark:text-slate-500 light:text-slate-500">(edited)</span>}
-                  </div>
-
                   {/* Quoted Message Preview if Reply */}
                   {msg.replyTo && (
                     <div
-                      className={`mb-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] border-l-2 bg-slate-100 dark:bg-white/[0.03] light:bg-slate-100 border-teal-500 max-w-[90%] sm:max-w-md ${
-                        isMe ? "text-right" : "text-left"
+                      className={`mb-1 px-3 py-1.5 rounded-xl text-[10px] border-l-2 bg-slate-100 dark:bg-white/[0.03] light:bg-slate-100 border-teal-500 max-w-[85%] sm:max-w-md ${
+                        isMe ? "text-right mr-1" : "text-left ml-1"
                       }`}
                     >
                       <span className="text-[8px] font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400 light:text-teal-600 font-mono block">
@@ -980,116 +1036,155 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     </div>
                   )}
 
-                  {/* Message Bubble + Actions */}
-                  <div className="flex items-center gap-1 max-w-[92%] sm:max-w-[85%]">
-                    {/* Actions for other sender (Reply + Copy) */}
-                    {!isMe && !msg.isDeleted && (
-                      <div className="flex items-center gap-0.5 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-all flex-shrink-0">
+                  {/* Inline Edit Form */}
+                  {isEditing ? (
+                    <div className="bg-slate-100 dark:bg-[#121226] light:bg-slate-100 border border-teal-500/40 p-2.5 sm:p-3 rounded-2xl space-y-2 w-full max-w-md shadow-lg my-1">
+                      <input
+                        type="text"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full bg-white dark:bg-white/10 light:bg-white border border-slate-300 dark:border-white/15 light:border-slate-300 rounded-xl px-3 py-2 text-base sm:text-xs text-slate-900 dark:text-white light:text-slate-900 outline-none focus:border-teal-500 placeholder-slate-400"
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-1.5">
                         <button
-                          onClick={() => setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text })}
-                          className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 light:hover:bg-slate-200 text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 light:hover:text-teal-600 transition-all cursor-pointer min-w-[26px] min-h-[26px] flex items-center justify-center"
-                          title="Reply"
+                          type="button"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditText("");
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-white/5 light:bg-slate-200 text-[10px] text-slate-600 dark:text-slate-400 light:text-slate-600 hover:bg-slate-300 dark:hover:bg-white/10 cursor-pointer"
                         >
-                          <Reply size={13} />
+                          Cancel
                         </button>
                         <button
-                          onClick={() => handleCopyMessage(msg._id, msg.text)}
-                          className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 light:hover:bg-slate-200 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 light:hover:text-indigo-600 transition-all cursor-pointer min-w-[26px] min-h-[26px] flex items-center justify-center"
-                          title="Copy Message"
+                          type="button"
+                          onClick={() => handleSaveEdit(msg._id)}
+                          className="px-3 py-1 rounded-lg bg-teal-600 text-[10px] text-white font-bold hover:bg-teal-500 cursor-pointer shadow-sm"
                         >
-                          {isCopied ? <CheckCheck size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                          Save
                         </button>
                       </div>
-                    )}
-
-                    {msg.isDeleted ? (
-                      /* Deleted Message Bubble (WhatsApp Style) */
+                    </div>
+                  ) : msg.isDeleted ? (
+                    /* Deleted Message Bubble */
+                    <div
+                      className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words relative transition-all border border-slate-200 dark:border-white/5 light:border-slate-200 bg-slate-100 dark:bg-white/[0.02] light:bg-slate-100 text-slate-500 dark:text-slate-400 light:text-slate-500 italic flex items-center gap-1.5 ${
+                        isMe ? "rounded-tr-xs" : "rounded-tl-xs"
+                      }`}
+                    >
+                      <Ban size={12} className="text-slate-400 flex-shrink-0" />
+                      <span>This message was deleted</span>
+                    </div>
+                  ) : (
+                    /* Clean Modern Message Bubble (Tap to open action sheet) */
+                    <div className="relative group max-w-[85%] sm:max-w-[75%]">
                       <div
-                        className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs leading-relaxed break-words relative transition-all border border-slate-200 dark:border-white/5 light:border-slate-200 bg-slate-100 dark:bg-white/[0.02] light:bg-slate-100 text-slate-500 dark:text-slate-400 light:text-slate-500 italic flex items-center gap-1.5 ${
-                          isMe ? "rounded-br-none" : "rounded-bl-none"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveActionMenuId(isMenuOpen ? null : msg._id);
+                        }}
+                        className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words transition-all cursor-pointer select-none relative shadow-sm hover:brightness-105 active:scale-[0.99] ${
+                          isMenuOpen ? "ring-2 ring-teal-400/60 shadow-md" : ""
+                        } ${
+                          isMe
+                            ? "bg-teal-600 dark:bg-teal-600 text-white rounded-tr-xs"
+                            : "bg-slate-200/90 dark:bg-[#1a1a32] light:bg-slate-200/90 text-slate-900 dark:text-slate-100 border border-slate-300/80 dark:border-white/10 rounded-tl-xs"
                         }`}
                       >
-                        <Ban size={12} className="text-slate-400 flex-shrink-0" />
-                        <span>This message was deleted</span>
+                        {/* Text and Inline Timestamp */}
+                        <span className="whitespace-pre-wrap">{msg.text}</span>
+                        <span className="text-[9px] font-mono ml-2.5 inline-flex items-center gap-1 float-right mt-1 select-none">
+                          <span className="text-white/70 dark:text-slate-300">
+                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          {msg.isEdited && <span className="text-[8px] text-white/60">(edited)</span>}
+                          {isMe && (
+                            <span className="inline-flex items-center ml-0.5" title={msg.isRead ? "Read" : msg.isDelivered ? "Delivered" : "Sent"}>
+                              {msg.isRead ? (
+                                <CheckCheck size={13} className="text-[#38bdf8] dark:text-[#38bdf8] drop-shadow-[0_0_3px_#0284c7] stroke-[2.5]" />
+                              ) : msg.isDelivered ? (
+                                <CheckCheck size={13} className="text-white/50 dark:text-white/50 stroke-[1.8]" />
+                              ) : (
+                                <Check size={13} className="text-white/50 dark:text-white/50 stroke-[1.8]" />
+                              )}
+                            </span>
+                          )}
+                        </span>
                       </div>
-                    ) : isEditing ? (
-                      /* Inline Edit Form */
-                      <div className="bg-slate-100 dark:bg-[#121226] light:bg-slate-100 border border-teal-500/40 p-2.5 sm:p-3 rounded-2xl space-y-2 w-full min-w-[240px] sm:min-w-[260px] shadow-lg">
-                        <input
-                          type="text"
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          className="w-full bg-white dark:bg-white/10 light:bg-white border border-slate-300 dark:border-white/15 light:border-slate-300 rounded-xl px-3 py-2 text-base sm:text-xs text-slate-900 dark:text-white light:text-slate-900 outline-none focus:border-teal-500 placeholder-slate-400"
-                          autoFocus
-                        />
-                        <div className="flex justify-end gap-1.5">
+
+                      {/* Tap / Long-press Action Sheet (WhatsApp style floating toolbar) */}
+                      {isMenuOpen && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className={`absolute ${
+                            isMe ? "right-0" : "left-0"
+                          } -top-11 z-40 flex items-center gap-0.5 p-1 bg-slate-900/95 dark:bg-[#0c0c1e]/95 light:bg-slate-900/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap`}
+                        >
                           <button
+                            type="button"
                             onClick={() => {
-                              setEditingId(null);
-                              setEditText("");
+                              setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text });
+                              setActiveActionMenuId(null);
                             }}
-                            className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-white/5 light:bg-slate-200 text-[10px] text-slate-600 dark:text-slate-400 light:text-slate-600 hover:bg-slate-300 dark:hover:bg-white/10 cursor-pointer"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-white hover:bg-white/15 transition-colors cursor-pointer"
                           >
-                            Cancel
+                            <Reply size={13} className="text-teal-400" />
+                            <span>Reply</span>
                           </button>
+
                           <button
-                            onClick={() => handleSaveEdit(msg._id)}
-                            className="px-3 py-1 rounded-lg bg-teal-600 text-[10px] text-white font-bold hover:bg-teal-500 cursor-pointer shadow-sm"
+                            type="button"
+                            onClick={() => {
+                              handleCopyMessage(msg._id, msg.text);
+                              setActiveActionMenuId(null);
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-white hover:bg-white/15 transition-colors cursor-pointer"
                           >
-                            Save
+                            {isCopied ? <CheckCheck size={13} className="text-emerald-400" /> : <Copy size={13} className="text-indigo-400" />}
+                            <span>{isCopied ? "Copied" : "Copy"}</span>
+                          </button>
+
+                          {isMe && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(msg._id);
+                                setEditText(msg.text);
+                                setActiveActionMenuId(null);
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-white hover:bg-white/15 transition-colors cursor-pointer"
+                            >
+                              <Pencil size={13} className="text-amber-400" />
+                              <span>Edit</span>
+                            </button>
+                          )}
+
+                          {isMe && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleDelete(msg._id);
+                                setActiveActionMenuId(null);
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-red-400 hover:bg-red-500/25 transition-colors cursor-pointer"
+                            >
+                              <Trash2 size={13} />
+                              <span>Delete</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setActiveActionMenuId(null)}
+                            className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-0.5 cursor-pointer"
+                          >
+                            <X size={13} />
                           </button>
                         </div>
-                      </div>
-                    ) : (
-                      /* Normal Message Bubble */
-                      <div
-                        className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs leading-relaxed break-words relative transition-all ${
-                          isMe
-                            ? "bg-teal-600 text-white rounded-br-none shadow-md shadow-teal-500/20 font-medium"
-                            : "bg-slate-200/90 dark:bg-[#1a1a32] light:bg-slate-200/90 text-slate-900 dark:text-slate-100 light:text-slate-900 border border-slate-300/80 dark:border-white/10 light:border-slate-300/80 rounded-bl-none shadow-sm font-medium"
-                        }`}
-                      >
-                        <p className="whitespace-pre-wrap">{msg.text}</p>
-                      </div>
-                    )}
-
-                    {/* Actions for current sender (Reply + Copy + Edit + Delete) */}
-                    {isMe && !isEditing && !msg.isDeleted && (
-                      <div className="flex items-center gap-0.5 opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-all flex-shrink-0">
-                        <button
-                          onClick={() => setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text })}
-                          className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 light:hover:bg-slate-200 text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 light:hover:text-teal-600 transition-all cursor-pointer min-w-[26px] min-h-[26px] flex items-center justify-center"
-                          title="Reply"
-                        >
-                          <Reply size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleCopyMessage(msg._id, msg.text)}
-                          className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 light:hover:bg-slate-200 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 light:hover:text-indigo-600 transition-all cursor-pointer min-w-[26px] min-h-[26px] flex items-center justify-center"
-                          title="Copy Message"
-                        >
-                          {isCopied ? <CheckCheck size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingId(msg._id);
-                            setEditText(msg.text);
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 light:hover:bg-slate-200 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 light:hover:text-indigo-600 transition-all cursor-pointer min-w-[26px] min-h-[26px] flex items-center justify-center"
-                          title="Edit"
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(msg._id)}
-                          className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 light:hover:bg-slate-200 text-slate-500 hover:text-red-500 transition-all cursor-pointer min-w-[26px] min-h-[26px] flex items-center justify-center"
-                          title="Delete for Everyone"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -1133,28 +1228,78 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
         )}
 
-        {/* Quick Emoji Picker Popover */}
+        {/* Modern Categorized WhatsApp-Style Emoji Picker */}
         {showEmojiPicker && (
-          <div className="px-3 sm:px-5 py-2.5 bg-slate-100 dark:bg-[#101024] light:bg-slate-100 border-t border-slate-200 dark:border-white/10 light:border-slate-200 flex-shrink-0 animate-in fade-in slide-in-from-bottom-2 duration-150 transition-colors">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400 light:text-slate-600 uppercase tracking-wider font-mono">
-                Quick Emojis
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowEmojiPicker(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs p-0.5 cursor-pointer"
-              >
-                ✕
-              </button>
+          <div 
+            className="px-3 py-2.5 bg-slate-100 dark:bg-[#101024] light:bg-slate-100 border-t border-slate-200 dark:border-white/10 light:border-slate-200 flex-shrink-0 animate-in fade-in slide-in-from-bottom-2 duration-150 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Category Bar + Backspace + Close */}
+            <div className="flex items-center justify-between gap-1 mb-2 pb-1.5 border-b border-slate-200 dark:border-white/10">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                {EMOJI_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      setActiveEmojiTab(cat.id);
+                    }}
+                    onClick={() => setActiveEmojiTab(cat.id)}
+                    className={`px-2 py-1 rounded-lg text-sm sm:text-base transition-all cursor-pointer select-none ${
+                      activeEmojiTab === cat.id
+                        ? "bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold scale-110 shadow-sm"
+                        : "opacity-60 hover:opacity-100 hover:bg-slate-200 dark:hover:bg-white/5"
+                    }`}
+                    title={cat.name}
+                  >
+                    {cat.icon}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Backspace Button */}
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    handleBackspaceEmoji();
+                  }}
+                  onClick={handleBackspaceEmoji}
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Backspace"
+                >
+                  <Delete size={15} />
+                </button>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Close"
+                >
+                  <X size={15} />
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-10 gap-1 max-h-28 overflow-y-auto">
-              {EMOJI_LIST.map((emoji, idx) => (
+
+            {/* Emojis Grid (Categorized & Scrollable) */}
+            <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 sm:gap-1.5 max-h-36 sm:max-h-48 overflow-y-auto pr-1">
+              {(EMOJI_CATEGORIES.find((c) => c.id === activeEmojiTab)?.emojis || []).map((emoji, idx) => (
                 <button
                   key={idx}
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    handleInsertEmoji(emoji);
+                  }}
                   onClick={() => handleInsertEmoji(emoji)}
-                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 light:hover:bg-slate-200 text-base sm:text-lg transition-transform hover:scale-125 cursor-pointer"
+                  className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl hover:bg-slate-200 dark:hover:bg-white/10 light:hover:bg-slate-200 text-lg sm:text-xl transition-transform hover:scale-125 active:scale-95 cursor-pointer select-none"
                 >
                   {emoji}
                 </button>
@@ -1165,13 +1310,17 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
         {/* Input Bar */}
         <form 
-          onSubmit={handleSend} 
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
+          }} 
           className="p-2.5 sm:p-3.5 bg-slate-50 dark:bg-[#0d0d1c] light:bg-slate-50 border-t border-slate-200 dark:border-white/10 light:border-slate-200 flex-shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))] transition-colors"
         >
           <div className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-white/[0.05] light:bg-white border border-slate-300 dark:border-white/15 light:border-slate-300 focus-within:border-teal-500 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 transition-all shadow-sm">
             {/* Emoji Button */}
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               className={`p-1.5 rounded-lg transition-all cursor-pointer flex-shrink-0 ${
                 showEmojiPicker
@@ -1188,15 +1337,32 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               type="text"
               value={inputText}
               onChange={handleInputChange}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
               placeholder={selectedFriend ? `Message ${selectedFriend.partnerName} securely...` : "Add or accept a friend above to message..."}
               disabled={!selectedFriend}
               className="w-full bg-transparent text-base sm:text-xs text-slate-900 dark:text-white light:text-slate-900 placeholder:text-slate-400 dark:placeholder:text-slate-500 light:placeholder:text-slate-400 outline-none py-1 font-sans font-medium disabled:opacity-50"
             />
 
             <button
-              type="submit"
+              type="button"
               onMouseDown={(e) => e.preventDefault()}
-              disabled={!inputText.trim() || !selectedFriend || sending}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              disabled={!inputText.trim() || !selectedFriend}
               className="p-2 sm:p-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer flex-shrink-0 shadow-md shadow-teal-500/20 min-w-[36px] min-h-[36px] flex items-center justify-center"
               title="Send Message"
             >

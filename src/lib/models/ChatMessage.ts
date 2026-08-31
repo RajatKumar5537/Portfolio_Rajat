@@ -49,6 +49,10 @@ const ChatMessageSchema = new Schema(
       sender: { type: String, default: null },
       text: { type: String, default: null },
     },
+    isDelivered: {
+      type: Boolean,
+      default: false,
+    },
     isRead: {
       type: Boolean,
       default: false,

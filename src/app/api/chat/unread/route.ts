@@ -20,9 +20,20 @@ export async function GET() {
 
     // 1. Count unread messages strictly addressed to current user
     const unreadMessagesCount = await ChatMessage.countDocuments({
-      recipientId: currentUserId,
-      isRead: false,
-      $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
+      $and: [
+        {
+          $or: [
+            { recipientId: currentUserId },
+            { recipientId: currentUserEmail },
+          ],
+        },
+        { isRead: false },
+        { isDeleted: { $ne: true } },
+        { clearedFor: { $nin: [currentUserId, currentUserEmail] } },
+        {
+          $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
+        },
+      ],
     });
 
     // 2. Count pending incoming connection requests waiting for approval
@@ -31,7 +42,20 @@ export async function GET() {
       status: "pending",
     });
 
-    return NextResponse.json({ unreadCount: unreadMessagesCount + pendingRequestsCount });
+    // 3. Mark incoming messages addressed to current user as delivered (double grey tick)
+    await ChatMessage.updateMany(
+      {
+        $or: [{ recipientId: currentUserId }, { recipientId: currentUserEmail }],
+        isDelivered: { $ne: true },
+      },
+      { $set: { isDelivered: true } }
+    );
+
+    return NextResponse.json({ 
+      unreadCount: unreadMessagesCount + pendingRequestsCount,
+      unreadMessagesCount,
+      pendingRequestsCount
+    });
   } catch (error: any) {
     console.error("GET Chat Unread Error:", error);
     return NextResponse.json({ unreadCount: 0 });

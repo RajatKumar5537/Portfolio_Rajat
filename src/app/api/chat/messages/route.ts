@@ -132,23 +132,46 @@ export async function GET(req: Request) {
       .sort({ createdAt: 1 })
       .lean();
 
-    // Mark messages directed to current user as read
-    if (shouldMarkRead && messages.length > 0) {
-      await ChatMessage.updateMany(
-        {
-          ...query,
-          $or: [
-            { recipientId: currentUserId },
-            { recipientId: currentUserEmail },
-          ],
-          isRead: false,
-        },
-        { $set: { isRead: true } }
-      );
+    if (messages.length > 0) {
+      if (shouldMarkRead) {
+        await ChatMessage.updateMany(
+          {
+            $and: [
+              query,
+              {
+                $or: [
+                  { recipientId: currentUserId },
+                  { recipientId: currentUserEmail },
+                ],
+              },
+            ],
+          },
+          { $set: { isRead: true, isDelivered: true } }
+        );
+      } else {
+        await ChatMessage.updateMany(
+          {
+            $and: [
+              query,
+              {
+                $or: [
+                  { recipientId: currentUserId },
+                  { recipientId: currentUserEmail },
+                ],
+              },
+              { isDelivered: false },
+            ],
+          },
+          { $set: { isDelivered: true } }
+        );
+      }
     }
 
-    // Decrypt messages
     const decryptedList = messages.map((msg: any) => {
+      const isDirectedToMe = msg.recipientId === currentUserId || msg.recipientId === currentUserEmail;
+      const isMsgRead = (shouldMarkRead && isDirectedToMe) ? true : (msg.isRead || false);
+      const isMsgDelivered = isDirectedToMe ? true : (msg.isDelivered || false);
+
       if (msg.isDeleted) {
         return {
           _id: msg._id ? msg._id.toString() : "",
@@ -157,7 +180,8 @@ export async function GET(req: Request) {
           sender: msg.sender,
           text: "This message was deleted",
           replyTo: null,
-          isRead: msg.isRead,
+          isRead: isMsgRead,
+          isDelivered: isMsgDelivered,
           isEdited: false,
           isDeleted: true,
           retentionHours: msg.retentionHours || 24,
@@ -178,7 +202,8 @@ export async function GET(req: Request) {
         sender: msg.sender,
         text: plainText,
         replyTo: msg.replyTo || null,
-        isRead: msg.isRead,
+        isRead: isMsgRead,
+        isDelivered: isMsgDelivered,
         isEdited: msg.isEdited || false,
         isDeleted: false,
         retentionHours: msg.retentionHours || 24,
@@ -200,41 +225,49 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { sender, recipientId, text, replyTo, retentionHours } = await req.json();
+
+    if (!recipientId || !text || !text.trim()) {
+      return NextResponse.json({ error: "Recipient and message text are required" }, { status: 400 });
+    }
+
     await dbConnect();
     const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
     const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
     const currentUserEmail = session.user.email.toLowerCase().trim();
+    const displayName = sender || currentUser?.name || session.user.name || "Anonymous";
 
-    const { sender, recipientId, text, replyTo, retentionHours = 24 } = await req.json();
-
-    if (!recipientId || !recipientId.trim()) {
-      return NextResponse.json({ error: "Recipient is required for private 1-on-1 messaging" }, { status: 400 });
+    let targetRecipientId = recipientId;
+    const recipientUser = await User.findOne({
+      $or: [{ _id: mongoose.isValidObjectId(recipientId) ? recipientId : null }, { email: recipientId.toLowerCase().trim() }],
+    });
+    if (recipientUser) {
+      targetRecipientId = recipientUser._id.toString();
     }
 
-    if (!text || !text.trim()) {
-      return NextResponse.json({ error: "Message text is required" }, { status: 400 });
+    const connection: any = await ChatConnection.findOne({
+      $or: [
+        { requesterId: currentUserId, recipientId: targetRecipientId },
+        { requesterId: targetRecipientId, recipientId: currentUserId },
+        { requesterEmail: currentUserEmail, recipientEmail: recipientUser?.email || recipientId },
+        { requesterEmail: recipientUser?.email || recipientId, recipientEmail: currentUserEmail },
+      ],
+      status: "accepted",
+    });
+
+    if (!connection) {
+      return NextResponse.json(
+        { error: "You can only message connected friends. Send a friend request first." },
+        { status: 403 }
+      );
     }
 
-    let targetRecipientId = recipientId.trim();
-    if (targetRecipientId.includes("@")) {
-      const targetUser = await User.findOne({ email: targetRecipientId.toLowerCase() });
-      if (targetUser) {
-        targetRecipientId = targetUser._id.toString();
-      }
-    }
+    const roomId = connection.roomId || [currentUserId, targetRecipientId].sort().join("_");
+    const participants = [currentUserId, targetRecipientId];
 
-    // Derive deterministic 1-on-1 roomId
-    const roomId = [currentUserId, targetRecipientId].sort().join(":");
-    const participants = [currentUserId, targetRecipientId, currentUserEmail];
-
-    // Encrypt the message text with AES-256-GCM
     const encrypted = encryptMessage(text.trim());
 
-    // Messages persist in DB up to 24h (max retention), each user views according to their setting
-    const hours = 24;
-    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
-
-    const displayName = sender && sender.trim() ? sender.trim() : session.user.name || currentUserEmail.split("@")[0] || "User";
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const newMsg = await ChatMessage.create({
       senderId: currentUserId,
@@ -253,6 +286,7 @@ export async function POST(req: Request) {
       } : null,
       retentionHours: retentionHours || 24,
       expiresAt,
+      isDelivered: false,
       isRead: false,
       isEdited: false,
       isDeleted: false,
@@ -266,6 +300,7 @@ export async function POST(req: Request) {
       text: text.trim(),
       replyTo: newMsg.replyTo || null,
       isRead: false,
+      isDelivered: false,
       isEdited: false,
       isDeleted: false,
       retentionHours: newMsg.retentionHours,
