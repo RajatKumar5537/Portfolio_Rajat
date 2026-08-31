@@ -70,7 +70,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden bg-background">
+    <div className="relative min-h-screen flex items-center justify-center p-4 overflow-x-hidden bg-background">
       <div className="cyber-grid"></div>
 
       {/* Symmetrical Header Actions: Back on Left, Theme Toggle on Right */}

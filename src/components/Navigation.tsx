@@ -20,6 +20,19 @@ export default function Navigation() {
   const [stopwatchSeconds, setStopwatchSeconds] = useState(0);
   const globalTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Safeguard: Ensure any dangling modal scroll locks on body or html are safely cleared on page navigation
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("position");
+      document.body.style.removeProperty("top");
+      document.body.style.removeProperty("width");
+      document.body.style.removeProperty("height");
+      document.body.style.removeProperty("touch-action");
+      document.documentElement.style.removeProperty("overflow");
+    }
+  }, [pathname]);
+
   useEffect(() => {
     const checkStopwatch = () => {
       const active = localStorage.getItem("study_stopwatch_is_active") === "true";

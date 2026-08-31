@@ -12,21 +12,29 @@ export async function GET() {
     }
 
     await dbConnect();
-    const threshold = new Date(Date.now() - 8000); // active in the last 8 seconds
+    // Return presences from the last 7 days so lastSeenAt timestamp is available when offline
+    const weekThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    const activePresences = await ChatPresence.find({
-      lastSeenAt: { $gt: threshold },
+    const presences = await ChatPresence.find({
+      lastSeenAt: { $gt: weekThreshold },
     }).lean();
 
     const currentUserId = (session.user as any).id || session.user.email;
+    const currentUserEmail = session.user.email?.toLowerCase().trim();
 
-    const activeUsers = activePresences.map((p: any) => ({
-      userId: p.userId,
-      userName: p.userName,
-      isTyping: !!p.isTyping,
-      isMe: p.userId === currentUserId,
-      lastSeenAt: p.lastSeenAt,
-    }));
+    const activeUsers = presences.map((p: any) => {
+      const lastSeenDate = p.lastSeenAt ? new Date(p.lastSeenAt) : null;
+      const isOnline = lastSeenDate ? (Date.now() - lastSeenDate.getTime()) < 8000 : false;
+
+      return {
+        userId: p.userId,
+        userName: p.userName,
+        isTyping: isOnline && !!p.isTyping,
+        isOnline: isOnline,
+        isMe: p.userId === currentUserId || (currentUserEmail && p.userId.toLowerCase() === currentUserEmail),
+        lastSeenAt: lastSeenDate ? lastSeenDate.toISOString() : null,
+      };
+    });
 
     return NextResponse.json({ activeUsers });
   } catch (error: any) {

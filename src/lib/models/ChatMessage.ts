@@ -87,6 +87,10 @@ const ChatMessageSchema = new Schema(
   }
 );
 
+ChatMessageSchema.index({ roomId: 1, createdAt: 1 });
+ChatMessageSchema.index({ senderId: 1, recipientId: 1, createdAt: 1 });
+ChatMessageSchema.index({ recipientId: 1, isRead: 1 });
+
 // Delete existing model in memory to allow updated schema in Next.js dev/prod
 if (models.ChatMessage) {
   delete (models as any).ChatMessage;

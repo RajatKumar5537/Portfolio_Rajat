@@ -23,6 +23,16 @@ export default function LandingPage() {
       setTheme(savedTheme);
       document.documentElement.classList.toggle("light", savedTheme === "light");
     }
+    // Clean up any dangling scroll locks from modals
+    if (typeof document !== "undefined") {
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("position");
+      document.body.style.removeProperty("top");
+      document.body.style.removeProperty("width");
+      document.body.style.removeProperty("height");
+      document.body.style.removeProperty("touch-action");
+      document.documentElement.style.removeProperty("overflow");
+    }
   }, []);
 
   const toggleTheme = () => {
@@ -44,7 +54,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col justify-between overflow-hidden bg-background">
+    <div className="relative min-h-screen flex flex-col justify-between overflow-x-hidden bg-background">
       <div className="cyber-grid"></div>
 
       {/* Header */}

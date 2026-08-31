@@ -237,9 +237,19 @@ export default function WellnessPage() {
     fetchWellnessLogs();
     fetchUnreadChatCount();
 
-    // Poll unread chat messages count every 5 seconds for dynamic color shifts
-    const chatInterval = setInterval(fetchUnreadChatCount, 5000);
-    return () => clearInterval(chatInterval);
+    // Poll unread chat messages count every 2.5 seconds for instant badge updates
+    const chatInterval = setInterval(fetchUnreadChatCount, 2500);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchUnreadChatCount();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(chatInterval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   const fetchUnreadChatCount = async () => {
