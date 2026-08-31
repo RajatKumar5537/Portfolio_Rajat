@@ -194,29 +194,55 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Visual Viewport tracking for mobile keyboard
+  // Visual Viewport tracking for mobile keyboard with background body locking
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const [viewportTop, setViewportTop] = useState<number>(0);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !isOpen) return;
+    if (!isOpen || typeof window === "undefined") return;
 
-    const updateViewportHeight = () => {
+    // Lock body scroll so iOS Safari cannot pull the background page
+    const originalOverflow = document.body.style.overflow;
+    const originalPosition = document.body.style.position;
+    const originalTop = document.body.style.top;
+    const originalWidth = document.body.style.width;
+    const originalHeight = document.body.style.height;
+    const scrollY = window.scrollY;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    document.body.style.height = "100%";
+
+    const updateViewport = () => {
       if (window.visualViewport) {
         setViewportHeight(window.visualViewport.height);
+        setViewportTop(window.visualViewport.offsetTop || 0);
       } else {
         setViewportHeight(window.innerHeight);
+        setViewportTop(0);
+      }
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
       }
     };
 
-    updateViewportHeight();
-    window.visualViewport?.addEventListener("resize", updateViewportHeight);
-    window.visualViewport?.addEventListener("scroll", updateViewportHeight);
-    window.addEventListener("resize", updateViewportHeight);
+    updateViewport();
+    window.visualViewport?.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("scroll", updateViewport);
+    window.addEventListener("scroll", updateViewport);
 
     return () => {
-      window.visualViewport?.removeEventListener("resize", updateViewportHeight);
-      window.visualViewport?.removeEventListener("scroll", updateViewportHeight);
-      window.removeEventListener("resize", updateViewportHeight);
+      document.body.style.overflow = originalOverflow;
+      document.body.style.position = originalPosition;
+      document.body.style.top = originalTop;
+      document.body.style.width = originalWidth;
+      document.body.style.height = originalHeight;
+      window.scrollTo(0, scrollY);
+      window.visualViewport?.removeEventListener("resize", updateViewport);
+      window.visualViewport?.removeEventListener("scroll", updateViewport);
+      window.removeEventListener("scroll", updateViewport);
     };
   }, [isOpen]);
 
@@ -874,8 +900,18 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden"
-      style={viewportHeight && typeof window !== "undefined" && window.innerWidth < 640 ? { height: `${viewportHeight}px`, top: 0, bottom: "auto", position: "fixed" } : undefined}
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-950/95 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden"
+      style={
+        viewportHeight && typeof window !== "undefined" && window.innerWidth < 640
+          ? {
+              height: `${viewportHeight}px`,
+              top: `${viewportTop}px`,
+              left: 0,
+              right: 0,
+              position: "fixed",
+            }
+          : undefined
+      }
     >
       <div 
         className="w-full sm:max-w-2xl bg-white dark:bg-[#0c121d]/90 dark:backdrop-blur-2xl border-0 sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl shadow-2xl dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col h-full sm:h-[640px] sm:max-h-[90vh] relative font-sans transition-colors"
@@ -1273,16 +1309,16 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <p className="text-xs font-mono">Decrypting communications with {selectedFriend.partnerName}...</p>
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8 border border-dashed border-slate-300 dark:border-white/10 rounded-2xl bg-white/70 dark:bg-white/[0.04] dark:backdrop-blur-md">
-              <div className="p-3 rounded-full bg-teal-500/15 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400">
-                <Sparkles size={24} />
+            <div className="flex flex-col items-center justify-center min-h-[140px] my-auto text-center space-y-2 p-4 sm:p-6 border border-dashed border-slate-300 dark:border-white/10 rounded-2xl bg-white/70 dark:bg-white/[0.04] dark:backdrop-blur-md">
+              <div className="p-2.5 rounded-full bg-teal-500/15 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400">
+                <Sparkles size={20} />
               </div>
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 font-mono">
                   Conversation with {selectedFriend.partnerName}
                 </h4>
-                <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 max-w-sm">
-                  Only you and {selectedFriend.partnerName} can access this conversation. Messages are encrypted with AES-256 and self-destruct in {retentionHours} hours.
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 max-w-sm">
+                  Messages are encrypted with AES-256 and self-destruct in {retentionHours} hours.
                 </p>
               </div>
             </div>
