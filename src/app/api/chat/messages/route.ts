@@ -235,12 +235,34 @@ export async function GET(req: Request) {
         authTag: msg.authTag,
       });
 
+      let messageText = plainText;
+      let mediaType: "image" | "video" | null = null;
+      let mediaData: string | null = null;
+      let mediaName: string | null = null;
+
+      try {
+        if (plainText.startsWith("{") && plainText.endsWith("}")) {
+          const parsed = JSON.parse(plainText);
+          if (parsed && typeof parsed === "object") {
+            messageText = parsed.text || "";
+            mediaType = parsed.mediaType || null;
+            mediaData = parsed.mediaData || null;
+            mediaName = parsed.mediaName || null;
+          }
+        }
+      } catch (_) {
+        messageText = plainText;
+      }
+
       return {
         _id: msg._id ? msg._id.toString() : "",
         senderId: msg.senderId,
         recipientId: msg.recipientId,
         sender: msg.sender,
-        text: plainText,
+        text: messageText,
+        mediaType,
+        mediaData,
+        mediaName,
         replyTo: msg.replyTo || null,
         isRead: isMsgRead,
         isDelivered: isMsgDelivered,
@@ -267,10 +289,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sender, recipientId, text, replyTo, retentionHours } = await req.json();
+    const { sender, recipientId, text, mediaType, mediaData, mediaName, replyTo, retentionHours } = await req.json();
 
-    if (!recipientId || !text || !text.trim()) {
-      return NextResponse.json({ error: "Recipient and message text are required" }, { status: 400 });
+    if (!recipientId || (!text?.trim() && !mediaData)) {
+      return NextResponse.json({ error: "Recipient and message text or media are required" }, { status: 400 });
     }
 
     await dbConnect();
@@ -307,7 +329,13 @@ export async function POST(req: Request) {
     const roomId = connection.roomId || [currentUserId, targetRecipientId].sort().join(":");
     const participants = [currentUserId, targetRecipientId, currentUserEmail, recipientUser?.email || recipientId].filter(Boolean);
 
-    const encrypted = encryptMessage(text.trim());
+    const payloadObj = {
+      text: text ? text.trim() : "",
+      mediaType: mediaType || null,
+      mediaData: mediaData || null,
+      mediaName: mediaName || null,
+    };
+    const encrypted = encryptMessage(JSON.stringify(payloadObj));
 
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -339,10 +367,15 @@ export async function POST(req: Request) {
       senderId: newMsg.senderId,
       recipientId: newMsg.recipientId,
       sender: newMsg.sender,
-      text: text.trim(),
+      text: text ? text.trim() : "",
+      mediaType: mediaType || null,
+      mediaData: mediaData || null,
+      mediaName: mediaName || null,
       replyTo: newMsg.replyTo || null,
       isRead: false,
       isDelivered: false,
+      deliveredAt: null,
+      readAt: null,
       isEdited: false,
       isDeleted: false,
       retentionHours: newMsg.retentionHours,

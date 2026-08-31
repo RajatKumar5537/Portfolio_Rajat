@@ -5,7 +5,8 @@ import { useSession } from "next-auth/react";
 import { 
   X, Send, Reply, Pencil, Trash2, Shield, User, 
   Sparkles, RefreshCw, Check, Ban, Smile, Copy, CheckCheck,
-  Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete, Info
+  Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete, Info,
+  Paperclip, Image as ImageIcon, Film, Download, Loader2
 } from "lucide-react";
 
 interface ReplyToData {
@@ -20,6 +21,9 @@ interface MessageItem {
   recipientId: string;
   sender: string;
   text: string;
+  mediaType?: "image" | "video" | null;
+  mediaData?: string | null;
+  mediaName?: string | null;
   replyTo?: ReplyToData | null;
   isRead: boolean;
   isDelivered?: boolean;
@@ -174,6 +178,21 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   // Message Info Modal state
   const [selectedInfoMsg, setSelectedInfoMsg] = useState<MessageItem | null>(null);
+
+  // Photo & Video Sharing state
+  const [stagedMedia, setStagedMedia] = useState<{
+    type: "image" | "video";
+    dataUrl: string;
+    name: string;
+  } | null>(null);
+  const [isCompressingMedia, setIsCompressingMedia] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [lightboxMedia, setLightboxMedia] = useState<{
+    type: "image" | "video";
+    url: string;
+    name?: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Universal Gesture Swipe for Laptop (Mouse / Trackpad) and Mobile (Touch)
   const [swipingId, setSwipingId] = useState<string | null>(null);
@@ -568,6 +587,100 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     (u) => !u.isMe && (selectedFriend?.partnerId === u.userId || selectedFriend?.partnerName === u.userName)
   );
 
+  const compressImage = (file: File): Promise<{ dataUrl: string; name: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxDimension = 1280;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve({ dataUrl: e.target?.result as string, name: file.name });
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          resolve({ dataUrl: compressedDataUrl, name: file.name });
+        };
+        img.onerror = () => reject(new Error("Failed to load image"));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    e.target.value = "";
+    setMediaError(null);
+
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      setMediaError("Only image and video files are supported.");
+      return;
+    }
+
+    if (isVideo && file.size > 15 * 1024 * 1024) {
+      setMediaError("Video exceeds 15MB limit. Please select a shorter video.");
+      return;
+    }
+
+    setIsCompressingMedia(true);
+    try {
+      if (isImage) {
+        const compressed = await compressImage(file);
+        setStagedMedia({
+          type: "image",
+          dataUrl: compressed.dataUrl,
+          name: compressed.name,
+        });
+      } else {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setStagedMedia({
+            type: "video",
+            dataUrl: ev.target?.result as string,
+            name: file.name,
+          });
+          setIsCompressingMedia(false);
+        };
+        reader.onerror = () => {
+          setMediaError("Failed to read video file");
+          setIsCompressingMedia(false);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    } catch (err: any) {
+      setMediaError(err.message || "Failed to process media file");
+    } finally {
+      setIsCompressingMedia(false);
+      focusInput();
+    }
+  };
+
   const focusInput = () => {
     if (inputRef.current) {
       inputRef.current.focus({ preventScroll: true });
@@ -583,7 +696,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     if (e) {
       e.preventDefault();
     }
-    if (!inputText.trim() || !selectedFriend || sending) {
+    if ((!inputText.trim() && !stagedMedia) || !selectedFriend || sending) {
       focusInput();
       return;
     }
@@ -591,11 +704,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     const currentPartner = selectedFriend;
     const textToSend = inputText.trim();
     const replyToSend = replyingTo;
+    const mediaToSend = stagedMedia;
 
     setInputText("");
     setReplyingTo(null);
+    setStagedMedia(null);
+    setSending(true);
 
-    // Immediately keep input focused so mobile keyboard never hides
     focusInput();
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -609,6 +724,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           sender: currentSender,
           recipientId: currentPartner.partnerId,
           text: textToSend,
+          mediaType: mediaToSend?.type || null,
+          mediaData: mediaToSend?.dataUrl || null,
+          mediaName: mediaToSend?.name || null,
           replyTo: replyToSend,
           retentionHours,
         }),
@@ -624,6 +742,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     } catch (err) {
       console.error("Error sending 1-on-1 message:", err);
     } finally {
+      setSending(false);
       focusInput();
     }
   };
@@ -1229,8 +1348,40 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                             : "bg-slate-200/90 dark:bg-[#1a1a32] light:bg-slate-200/90 text-slate-900 dark:text-slate-100 border border-slate-300/80 dark:border-white/10 rounded-tl-xs"
                         }`}
                       >
+                        {/* Media Display (Photo / Video) */}
+                        {msg.mediaType === "image" && msg.mediaData && (
+                          <div className="mb-1 rounded-xl overflow-hidden cursor-pointer group/media relative shadow-sm">
+                            <img
+                              src={msg.mediaData}
+                              alt={msg.mediaName || "Photo"}
+                              className="max-h-60 sm:max-h-72 w-auto max-w-full rounded-xl object-cover hover:scale-[1.01] transition-transform duration-200"
+                              loading="lazy"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxMedia({
+                                  type: "image",
+                                  url: msg.mediaData!,
+                                  name: msg.mediaName || "photo.jpg",
+                                });
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        {msg.mediaType === "video" && msg.mediaData && (
+                          <div className="mb-1 rounded-xl overflow-hidden max-w-xs bg-black/90 shadow-sm">
+                            <video
+                              src={msg.mediaData}
+                              controls
+                              playsInline
+                              preload="metadata"
+                              className="max-h-60 sm:max-h-72 w-full rounded-xl object-contain"
+                            />
+                          </div>
+                        )}
+
                         {/* Text and Inline Timestamp */}
-                        <span className="whitespace-pre-wrap">{msg.text}</span>
+                        {msg.text && <span className="whitespace-pre-wrap">{msg.text}</span>}
                         <span className="text-[9px] font-mono ml-2.5 inline-flex items-center gap-1 float-right mt-1 select-none">
                           <span className="text-white/70 dark:text-slate-300">
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -1460,11 +1611,75 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
         )}
 
+        {/* Staged Media Preview Bar */}
+        {stagedMedia && (
+          <div className="p-2 sm:p-2.5 mx-2.5 sm:mx-3.5 mb-1 bg-slate-100 dark:bg-white/[0.06] light:bg-slate-100 border border-teal-500/30 rounded-xl flex items-center justify-between gap-2 shadow-sm animate-in fade-in duration-150">
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              {stagedMedia.type === "image" ? (
+                <img
+                  src={stagedMedia.dataUrl}
+                  alt="Preview"
+                  className="w-11 h-11 rounded-lg object-cover flex-shrink-0 border border-teal-500/40"
+                />
+              ) : (
+                <div className="w-11 h-11 rounded-lg bg-black/60 flex items-center justify-center text-teal-400 flex-shrink-0 border border-teal-500/40">
+                  <Film size={22} />
+                </div>
+              )}
+              <div className="overflow-hidden">
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px] sm:max-w-xs">
+                  {stagedMedia.name}
+                </p>
+                <span className="text-[10px] text-teal-600 dark:text-teal-400 font-mono">
+                  {stagedMedia.type === "image" ? "Photo attached (Add caption & send)" : "Video clip attached (Add caption & send)"}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStagedMedia(null)}
+              className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              title="Remove attachment"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* Media Processing / Upload Error */}
+        {mediaError && (
+          <div className="mx-3.5 mb-1 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-xs text-red-500 flex items-center justify-between">
+            <span>{mediaError}</span>
+            <button type="button" onClick={() => setMediaError(null)} className="text-red-400 hover:text-red-300">
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
         {/* Input Bar (Div container to prevent form submit keyboard dismiss) */}
         <div 
           className="p-2.5 sm:p-3.5 bg-slate-50 dark:bg-[#0d0d1c] light:bg-slate-50 border-t border-slate-200 dark:border-white/10 light:border-slate-200 flex-shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))] transition-colors"
         >
           <div className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-white/[0.05] light:bg-white border border-slate-300 dark:border-white/15 light:border-slate-300 focus-within:border-teal-500 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 transition-all shadow-sm">
+            {/* Attachment Button (Photo / Video) */}
+            <button
+              type="button"
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isCompressingMedia}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer flex-shrink-0"
+              title="Attach Photo or Video"
+            >
+              {isCompressingMedia ? <Loader2 size={17} className="animate-spin text-teal-500" /> : <Paperclip size={17} />}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
             {/* Emoji Button */}
             <button
               type="button"
@@ -1503,7 +1718,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="sentences"
-              placeholder={selectedFriend ? `Message ${selectedFriend.partnerName} securely...` : "Add or accept a friend above to message..."}
+              placeholder={
+                stagedMedia
+                  ? "Add a caption..."
+                  : selectedFriend
+                  ? `Message ${selectedFriend.partnerName} securely...`
+                  : "Add or accept a friend above to message..."
+              }
               disabled={!selectedFriend}
               className="w-full bg-transparent text-base sm:text-xs text-slate-900 dark:text-white light:text-slate-900 placeholder:text-slate-400 dark:placeholder:text-slate-500 light:placeholder:text-slate-400 outline-none py-1 font-sans font-medium disabled:opacity-50"
             />
@@ -1522,7 +1743,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 handleSend();
               }}
               className={`p-2 sm:p-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white transition-all flex-shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center select-none ${
-                !inputText.trim() || !selectedFriend
+                (!inputText.trim() && !stagedMedia) || !selectedFriend
                   ? "opacity-35 cursor-not-allowed"
                   : "opacity-100 cursor-pointer shadow-md shadow-teal-500/25 active:scale-95"
               }`}
@@ -1604,6 +1825,54 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Full-Screen Lightbox Modal for Images & Videos */}
+        {lightboxMedia && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-150"
+            onClick={() => setLightboxMedia(null)}
+          >
+            <div 
+              className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute -top-11 right-0 flex items-center gap-2">
+                <a
+                  href={lightboxMedia.url}
+                  download={lightboxMedia.name || "media_attachment"}
+                  className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
+                  title="Download Media"
+                >
+                  <Download size={18} />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setLightboxMedia(null)}
+                  className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
+                  title="Close Lightbox"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {lightboxMedia.type === "image" ? (
+                <img
+                  src={lightboxMedia.url}
+                  alt={lightboxMedia.name || "Full Image"}
+                  className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl"
+                />
+              ) : (
+                <video
+                  src={lightboxMedia.url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl bg-black"
+                />
+              )}
             </div>
           </div>
         )}
