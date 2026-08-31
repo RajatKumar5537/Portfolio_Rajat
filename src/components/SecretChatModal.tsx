@@ -194,6 +194,38 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Visual Viewport tracking for mobile keyboard
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !isOpen) return;
+
+    const updateViewportHeight = () => {
+      if (window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+      } else {
+        setViewportHeight(window.innerHeight);
+      }
+    };
+
+    updateViewportHeight();
+    window.visualViewport?.addEventListener("resize", updateViewportHeight);
+    window.visualViewport?.addEventListener("scroll", updateViewportHeight);
+    window.addEventListener("resize", updateViewportHeight);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", updateViewportHeight);
+      window.visualViewport?.removeEventListener("scroll", updateViewportHeight);
+      window.removeEventListener("resize", updateViewportHeight);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (viewportHeight && chatFeedRef.current) {
+      chatFeedRef.current.scrollTop = chatFeedRef.current.scrollHeight;
+    }
+  }, [viewportHeight]);
+
   // Universal Gesture Swipe for Laptop (Mouse / Trackpad) and Mobile (Touch)
   const [swipingId, setSwipingId] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<number>(0);
@@ -822,9 +854,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden"
+      style={viewportHeight && typeof window !== "undefined" && window.innerWidth < 640 ? { height: `${viewportHeight}px`, top: 0, bottom: "auto", position: "fixed" } : undefined}
+    >
       <div 
-        className="w-full sm:max-w-2xl bg-white dark:bg-[#090913] light:bg-white border-0 sm:border border-slate-200 dark:border-white/10 light:border-slate-200 sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-[640px] sm:max-h-[90vh] relative font-sans transition-colors"
+        className="w-full sm:max-w-2xl bg-white dark:bg-[#090913] border-0 sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-full sm:h-[640px] sm:max-h-[90vh] relative font-sans transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header (Zero-Knowledge 1-on-1 Tunnel) */}
@@ -1345,7 +1380,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         } ${
                           isMe
                             ? "bg-teal-600 dark:bg-teal-600 text-white rounded-tr-xs"
-                            : "bg-slate-200/90 dark:bg-[#1a1a32] light:bg-slate-200/90 text-slate-900 dark:text-slate-100 border border-slate-300/80 dark:border-white/10 rounded-tl-xs"
+                            : "bg-slate-200 dark:bg-[#1a1a32] text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-white/10 rounded-tl-xs"
                         }`}
                       >
                         {/* Media Display (Photo / Video) */}
@@ -1381,12 +1416,20 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         )}
 
                         {/* Text and Inline Timestamp */}
-                        {msg.text && <span className="whitespace-pre-wrap">{msg.text}</span>}
+                        {msg.text && (
+                          <span className={`whitespace-pre-wrap font-medium ${isMe ? "text-white" : "text-slate-900 dark:text-slate-100"}`}>
+                            {msg.text}
+                          </span>
+                        )}
                         <span className="text-[9px] font-mono ml-2.5 inline-flex items-center gap-1 float-right mt-1 select-none">
-                          <span className="text-white/70 dark:text-slate-300">
+                          <span className={isMe ? "text-white/80" : "text-slate-600 dark:text-slate-400 font-medium"}>
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </span>
-                          {msg.isEdited && <span className="text-[8px] text-white/60">(edited)</span>}
+                          {msg.isEdited && (
+                            <span className={isMe ? "text-[8px] text-white/70" : "text-[8px] text-slate-500 dark:text-slate-400"}>
+                              (edited)
+                            </span>
+                          )}
                           {isMe && (
                             <span className="inline-flex items-center ml-0.5" title={msg.isRead ? "Read" : msg.isDelivered ? "Delivered" : "Sent"}>
                               {msg.isRead ? (
