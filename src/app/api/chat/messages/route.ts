@@ -167,11 +167,18 @@ export async function GET(req: Request) {
                 $or: [
                   { recipientId: currentUserId },
                   { recipientId: currentUserEmail },
+                  ...(currentUser ? [{ recipientId: currentUser._id.toString() }] : []),
                 ],
               },
             ],
           },
-          { $set: { isRead: true, isDelivered: true } }
+          { 
+            $set: { 
+              isRead: true, 
+              isDelivered: true,
+              readAt: new Date()
+            } 
+          }
         );
       } else {
         await ChatMessage.updateMany(
@@ -182,12 +189,18 @@ export async function GET(req: Request) {
                 $or: [
                   { recipientId: currentUserId },
                   { recipientId: currentUserEmail },
+                  ...(currentUser ? [{ recipientId: currentUser._id.toString() }] : []),
                 ],
               },
               { isDelivered: false },
             ],
           },
-          { $set: { isDelivered: true } }
+          { 
+            $set: { 
+              isDelivered: true,
+              deliveredAt: new Date()
+            } 
+          }
         );
       }
     }
@@ -207,6 +220,8 @@ export async function GET(req: Request) {
           replyTo: null,
           isRead: isMsgRead,
           isDelivered: isMsgDelivered,
+          deliveredAt: msg.deliveredAt || (isMsgDelivered ? (msg.updatedAt || msg.createdAt) : null),
+          readAt: msg.readAt || (isMsgRead ? (msg.updatedAt || msg.createdAt) : null),
           isEdited: false,
           isDeleted: true,
           retentionHours: msg.retentionHours || 24,
@@ -229,6 +244,8 @@ export async function GET(req: Request) {
         replyTo: msg.replyTo || null,
         isRead: isMsgRead,
         isDelivered: isMsgDelivered,
+        deliveredAt: msg.deliveredAt || (isMsgDelivered ? (msg.updatedAt || msg.createdAt) : null),
+        readAt: msg.readAt || (isMsgRead ? (msg.updatedAt || msg.createdAt) : null),
         isEdited: msg.isEdited || false,
         isDeleted: false,
         retentionHours: msg.retentionHours || 24,

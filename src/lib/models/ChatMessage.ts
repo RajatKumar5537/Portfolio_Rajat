@@ -53,9 +53,17 @@ const ChatMessageSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    deliveredAt: {
+      type: Date,
+      default: null,
+    },
     isRead: {
       type: Boolean,
       default: false,
+    },
+    readAt: {
+      type: Date,
+      default: null,
     },
     isEdited: {
       type: Boolean,

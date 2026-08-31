@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { 
   X, Send, Reply, Pencil, Trash2, Shield, User, 
   Sparkles, RefreshCw, Check, Ban, Smile, Copy, CheckCheck,
-  Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete
+  Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete, Info
 } from "lucide-react";
 
 interface ReplyToData {
@@ -23,6 +23,8 @@ interface MessageItem {
   replyTo?: ReplyToData | null;
   isRead: boolean;
   isDelivered?: boolean;
+  deliveredAt?: string | null;
+  readAt?: string | null;
   isEdited: boolean;
   isDeleted?: boolean;
   retentionHours: number;
@@ -169,6 +171,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   // Copy message state
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Message Info Modal state
+  const [selectedInfoMsg, setSelectedInfoMsg] = useState<MessageItem | null>(null);
 
   // Quick Emoji Picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -1150,6 +1155,21 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                             <button
                               type="button"
                               onClick={() => {
+                                setSelectedInfoMsg(msg);
+                                setActiveActionMenuId(null);
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-white hover:bg-white/15 transition-colors cursor-pointer"
+                              title="Message Info"
+                            >
+                              <Info size={13} className="text-sky-400" />
+                              <span>Info</span>
+                            </button>
+                          )}
+
+                          {isMe && (
+                            <button
+                              type="button"
+                              onClick={() => {
                                 setEditingId(msg._id);
                                 setEditText(msg.text);
                                 setActiveActionMenuId(null);
@@ -1371,6 +1391,81 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             </button>
           </div>
         </form>
+        {/* Message Info Modal */}
+        {selectedInfoMsg && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in"
+            onClick={() => setSelectedInfoMsg(null)}
+          >
+            <div 
+              className="w-full max-w-sm bg-white dark:bg-[#121226] border border-slate-200 dark:border-white/15 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Info size={16} className="text-teal-500" />
+                  Message Info
+                </h3>
+                <button 
+                  type="button" 
+                  onClick={() => setSelectedInfoMsg(null)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 cursor-pointer"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Message Preview */}
+              <div className="bg-slate-100 dark:bg-white/[0.04] p-3 rounded-xl text-xs text-slate-800 dark:text-slate-200 font-medium whitespace-pre-wrap break-words">
+                &quot;{selectedInfoMsg.text}&quot;
+              </div>
+
+              {/* Timestamps */}
+              <div className="space-y-3 text-xs">
+                {/* Read */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <CheckCheck size={16} className="text-[#38bdf8] drop-shadow-[0_0_2px_#0284c7]" />
+                    <span className="font-bold">Read</span>
+                  </div>
+                  <span className="font-mono text-slate-500 dark:text-slate-400 text-[11px]">
+                    {selectedInfoMsg.isRead && selectedInfoMsg.readAt
+                      ? new Date(selectedInfoMsg.readAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                      : selectedInfoMsg.isRead 
+                      ? "Read" 
+                      : "Not read yet"}
+                  </span>
+                </div>
+
+                {/* Delivered */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <CheckCheck size={16} className="text-slate-400 dark:text-slate-400" />
+                    <span className="font-bold">Delivered</span>
+                  </div>
+                  <span className="font-mono text-slate-500 dark:text-slate-400 text-[11px]">
+                    {selectedInfoMsg.isDelivered && selectedInfoMsg.deliveredAt
+                      ? new Date(selectedInfoMsg.deliveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                      : selectedInfoMsg.isDelivered 
+                      ? "Delivered" 
+                      : "Sending / Waiting..."}
+                  </span>
+                </div>
+
+                {/* Sent */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                    <Check size={16} className="text-slate-400 dark:text-slate-400" />
+                    <span className="font-bold">Sent</span>
+                  </div>
+                  <span className="font-mono text-slate-500 dark:text-slate-400 text-[11px]">
+                    {new Date(selectedInfoMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
