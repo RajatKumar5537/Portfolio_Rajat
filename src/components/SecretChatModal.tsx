@@ -594,7 +594,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          const maxDimension = 1280;
+          const maxDimension = 2048; // Full HD / 2K Resolution
           let width = img.width;
           let height = img.height;
 
@@ -616,7 +616,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             return;
           }
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.88);
           resolve({ dataUrl: compressedDataUrl, name: file.name });
         };
         img.onerror = () => reject(new Error("Failed to load image"));
