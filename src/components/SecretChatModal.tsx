@@ -191,6 +191,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     type: "image" | "video";
     url: string;
     name?: string;
+    msgId?: string;
+    isMe?: boolean;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -299,13 +301,28 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>, msg: MessageItem) => {
     if (swipingId === msg._id && isDraggingRef.current) {
-      if (swipeOffset > 35) {
-        // Swiped Right -> Instant Reply
-        setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text });
-        focusInput();
-      } else if (swipeOffset < -35) {
-        // Swiped Left -> Toggle Actions Toolbar
-        setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
+      const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
+
+      if (isMe) {
+        // Current user (Sent bubble on the right):
+        // Swiping Left (< -35px) -> Instant Reply
+        // Swiping Right (> 35px) -> Toggle Actions Toolbar
+        if (swipeOffset < -35) {
+          setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
+          focusInput();
+        } else if (swipeOffset > 35) {
+          setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
+        }
+      } else {
+        // Friend's message (Received bubble on the left):
+        // Swiping Right (> 35px) -> Instant Reply
+        // Swiping Left (< -35px) -> Toggle Actions Toolbar
+        if (swipeOffset > 35) {
+          setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
+          focusInput();
+        } else if (swipeOffset < -35) {
+          setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
+        }
       }
     }
 
@@ -856,7 +873,21 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       });
 
       if (res.ok) {
-        setMessages((prev) => prev.map((m) => (m._id === id ? { ...m, isDeleted: true, text: "This message was deleted", replyTo: null } : m)));
+        setMessages((prev) =>
+          prev.map((m) =>
+            m._id === id
+              ? {
+                  ...m,
+                  isDeleted: true,
+                  text: "This message was deleted",
+                  mediaType: null,
+                  mediaData: null,
+                  mediaName: null,
+                  replyTo: null,
+                }
+              : m
+          )
+        );
       }
     } catch (err) {
       console.error("Error deleting message:", err);
@@ -1399,30 +1430,59 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       onPointerUp={(e) => handlePointerUp(e, msg)}
                       onPointerCancel={handlePointerCancel}
                     >
-                      {/* Swipe Right Visual Hint (Reply ↩️) */}
-                      {swipingId === msg._id && swipeOffset > 15 && (
-                        <div 
-                          className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-teal-500/25 text-teal-600 dark:text-teal-400 border border-teal-500/40 pointer-events-none transition-transform shadow-lg"
-                          style={{
-                            transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + swipeOffset / 45)})`,
-                            opacity: Math.min(1, swipeOffset / 30),
-                          }}
-                        >
-                          <Reply size={14} className="stroke-[2.5]" />
-                        </div>
-                      )}
-
-                      {/* Swipe Left Visual Hint (Quick Actions ⚙️) */}
-                      {swipingId === msg._id && swipeOffset < -15 && (
-                        <div 
-                          className="absolute -right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-indigo-500/25 text-indigo-500 dark:text-indigo-400 border border-indigo-500/40 pointer-events-none transition-transform shadow-lg"
-                          style={{
-                            transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + Math.abs(swipeOffset) / 45)})`,
-                            opacity: Math.min(1, Math.abs(swipeOffset) / 30),
-                          }}
-                        >
-                          <Info size={14} className="stroke-[2.5]" />
-                        </div>
+                      {/* Direction-Aware Swipe Visual Hints */}
+                      {isMe ? (
+                        /* Current User (Bubble on Right): Swiping Left (Reply ↩️) / Right (Actions ⚙️) */
+                        <>
+                          {swipingId === msg._id && swipeOffset < -15 && (
+                            <div 
+                              className="absolute -right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-teal-500/25 text-teal-600 dark:text-teal-400 border border-teal-500/40 pointer-events-none transition-transform shadow-lg"
+                              style={{
+                                transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + Math.abs(swipeOffset) / 45)})`,
+                                opacity: Math.min(1, Math.abs(swipeOffset) / 30),
+                              }}
+                            >
+                              <Reply size={14} className="stroke-[2.5]" />
+                            </div>
+                          )}
+                          {swipingId === msg._id && swipeOffset > 15 && (
+                            <div 
+                              className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-indigo-500/25 text-indigo-500 dark:text-indigo-400 border border-indigo-500/40 pointer-events-none transition-transform shadow-lg"
+                              style={{
+                                transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + swipeOffset / 45)})`,
+                                opacity: Math.min(1, swipeOffset / 30),
+                              }}
+                            >
+                              <Info size={14} className="stroke-[2.5]" />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        /* Friend's Message (Bubble on Left): Swiping Right (Reply ↩️) / Left (Actions ⚙️) */
+                        <>
+                          {swipingId === msg._id && swipeOffset > 15 && (
+                            <div 
+                              className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-teal-500/25 text-teal-600 dark:text-teal-400 border border-teal-500/40 pointer-events-none transition-transform shadow-lg"
+                              style={{
+                                transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + swipeOffset / 45)})`,
+                                opacity: Math.min(1, swipeOffset / 30),
+                              }}
+                            >
+                              <Reply size={14} className="stroke-[2.5]" />
+                            </div>
+                          )}
+                          {swipingId === msg._id && swipeOffset < -15 && (
+                            <div 
+                              className="absolute -right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-indigo-500/25 text-indigo-500 dark:text-indigo-400 border border-indigo-500/40 pointer-events-none transition-transform shadow-lg"
+                              style={{
+                                transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + Math.abs(swipeOffset) / 45)})`,
+                                opacity: Math.min(1, Math.abs(swipeOffset) / 30),
+                              }}
+                            >
+                              <Info size={14} className="stroke-[2.5]" />
+                            </div>
+                          )}
+                        </>
                       )}
 
                       <div
@@ -1457,6 +1517,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                                   type: "image",
                                   url: msg.mediaData!,
                                   name: msg.mediaName || "photo.jpg",
+                                  msgId: msg._id,
+                                  isMe: isMe,
                                 });
                               }}
                             />
@@ -1504,35 +1566,35 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         </span>
                       </div>
 
-                      {/* Tap / Long-press Action Sheet (WhatsApp style floating toolbar) */}
+                      {/* Tap / Long-press Action Sheet (WhatsApp style floating toolbar with Crisp Theme Support) */}
                       {isMenuOpen && (
                         <div
                           onClick={(e) => e.stopPropagation()}
                           className={`absolute ${
                             isMe ? "right-0" : "left-0"
-                          } -top-11 z-40 flex items-center gap-0.5 p-1 bg-slate-900/95 dark:bg-[#0c0c1e]/95 light:bg-slate-900/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap`}
+                          } -top-11 z-40 flex items-center gap-0.5 p-1 bg-white/95 dark:bg-[#111927]/95 backdrop-blur-md border border-slate-300/80 dark:border-white/20 rounded-2xl shadow-xl dark:shadow-2xl animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap`}
                         >
                           <button
                             type="button"
                             onClick={() => {
-                              setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text });
+                              setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
                               setActiveActionMenuId(null);
                             }}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-white hover:bg-white/15 transition-colors cursor-pointer"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/15 transition-colors cursor-pointer"
                           >
-                            <Reply size={13} className="text-teal-400" />
+                            <Reply size={13} className="text-teal-600 dark:text-teal-400" />
                             <span>Reply</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => {
-                              handleCopyMessage(msg._id, msg.text);
+                              handleCopyMessage(msg._id, msg.text || msg.mediaName || "Media attachment");
                               setActiveActionMenuId(null);
                             }}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-white hover:bg-white/15 transition-colors cursor-pointer"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/15 transition-colors cursor-pointer"
                           >
-                            {isCopied ? <CheckCheck size={13} className="text-emerald-400" /> : <Copy size={13} className="text-indigo-400" />}
+                            {isCopied ? <CheckCheck size={13} className="text-emerald-600 dark:text-emerald-400" /> : <Copy size={13} className="text-indigo-600 dark:text-indigo-400" />}
                             <span>{isCopied ? "Copied" : "Copy"}</span>
                           </button>
 
@@ -1543,15 +1605,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                                 setSelectedInfoMsg(msg);
                                 setActiveActionMenuId(null);
                               }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-white hover:bg-white/15 transition-colors cursor-pointer"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/15 transition-colors cursor-pointer"
                               title="Message Info"
                             >
-                              <Info size={13} className="text-sky-400" />
+                              <Info size={13} className="text-sky-600 dark:text-sky-400" />
                               <span>Info</span>
                             </button>
                           )}
 
-                          {isMe && (
+                          {isMe && !msg.mediaType && (
                             <button
                               type="button"
                               onClick={() => {
@@ -1559,9 +1621,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                                 setEditText(msg.text);
                                 setActiveActionMenuId(null);
                               }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-white hover:bg-white/15 transition-colors cursor-pointer"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/15 transition-colors cursor-pointer"
                             >
-                              <Pencil size={13} className="text-amber-400" />
+                              <Pencil size={13} className="text-amber-600 dark:text-amber-400" />
                               <span>Edit</span>
                             </button>
                           )}
@@ -1573,7 +1635,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                                 handleDelete(msg._id);
                                 setActiveActionMenuId(null);
                               }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-red-400 hover:bg-red-500/25 transition-colors cursor-pointer"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/25 transition-colors cursor-pointer"
                             >
                               <Trash2 size={13} />
                               <span>Delete</span>
@@ -1583,7 +1645,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                           <button
                             type="button"
                             onClick={() => setActiveActionMenuId(null)}
-                            className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-0.5 cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors ml-0.5 cursor-pointer"
                           >
                             <X size={13} />
                           </button>
@@ -1943,6 +2005,20 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               onClick={(e) => e.stopPropagation()}
             >
               <div className="absolute -top-11 right-0 flex items-center gap-2">
+                {lightboxMedia.isMe && lightboxMedia.msgId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDelete(lightboxMedia.msgId!);
+                      setLightboxMedia(null);
+                    }}
+                    className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/35 text-red-400 hover:text-red-300 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                    title="Delete Photo/Video"
+                  >
+                    <Trash2 size={16} />
+                    <span className="hidden sm:inline">Delete</span>
+                  </button>
+                )}
                 <a
                   href={lightboxMedia.url}
                   download={lightboxMedia.name || "media_attachment"}
