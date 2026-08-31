@@ -513,6 +513,14 @@ export default function LearningPage() {
   const daysElapsed = Math.floor(elapsed / (1000 * 60 * 60 * 24));
   const totalDays = Math.floor(totalGoalTime / (1000 * 60 * 60 * 24));
 
+  // Countdown calculations
+  const remainingDays = Math.floor(remaining / (1000 * 60 * 60 * 24));
+  const remainingHours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
+  const remainingMins = Math.floor((remaining / (1000 * 60)) % 60);
+  const remainingSecs = Math.floor((remaining / 1000) % 60);
+
+  const padZero = (num: number) => String(num).padStart(2, "0");
+
   const milestoneCount = milestones.length || 1;
   const milestoneStepMs = totalGoalTime / milestoneCount;
   const dynamicMilestones = milestones.map((tpl, idx) => {
@@ -745,28 +753,28 @@ export default function LearningPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Side Progress ring and session timer */}
-            <div className="space-y-8 lg:col-span-1">
+            <div className="space-y-8 lg:col-span-5">
               {/* Radial Progress & Goals */}
-              <div className="glass-card card-glow-indigo p-6 rounded-2xl border border-white/5 flex flex-col items-center relative">
+              <div className="glass-card card-glow-indigo p-6 rounded-2xl border border-slate-200 dark:border-white/5 relative">
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 transition-all cursor-pointer"
+                  className="absolute top-4 right-4 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all cursor-pointer z-10"
                 >
                   <Settings size={16} />
                 </button>
 
                 {showSettings && (
-                  <form onSubmit={handleSaveGoalSettings} className="w-full bg-[#070711] border border-white/5 rounded-xl p-4 mt-8 space-y-3">
-                    <h4 className="text-[10px] uppercase tracking-widest font-black text-indigo-400">Configure Goal</h4>
+                  <form onSubmit={handleSaveGoalSettings} className="w-full bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl p-4 mt-8 space-y-3">
+                    <h4 className="text-[10px] uppercase tracking-widest font-black text-indigo-600 dark:text-indigo-400">Configure Goal</h4>
                     <div className="space-y-1">
                       <label className="text-[9px] uppercase font-bold text-slate-500">Start Date</label>
                       <input
                         type="date"
                         value={inputStartDate}
                         onChange={(e) => setInputStartDate(e.target.value)}
-                        className="w-full bg-white/[0.02] border border-white/5 rounded-lg p-1.5 text-xs text-slate-300 outline-none"
+                        className="w-full bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-lg p-1.5 text-xs text-slate-800 dark:text-slate-300 outline-none"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -776,7 +784,7 @@ export default function LearningPage() {
                           type="number"
                           value={inputDuration}
                           onChange={(e) => setInputDuration(parseInt(e.target.value) || 1)}
-                          className="w-full bg-white/[0.02] border border-white/5 rounded-lg p-1.5 text-xs text-slate-300 outline-none"
+                          className="w-full bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-lg p-1.5 text-xs text-slate-800 dark:text-slate-300 outline-none"
                         />
                       </div>
                       <div className="space-y-1">
@@ -784,79 +792,108 @@ export default function LearningPage() {
                         <select
                           value={inputDurationUnit}
                           onChange={(e) => setInputDurationUnit(e.target.value as "months" | "days")}
-                          className="w-full bg-white/[0.02] border border-white/5 rounded-lg p-1.5 text-xs text-slate-300 outline-none"
+                          className="w-full bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-lg p-1.5 text-xs text-slate-800 dark:text-slate-300 outline-none"
                         >
                           <option value="months">Months</option>
                           <option value="days">Days</option>
                         </select>
                       </div>
                     </div>
-                    <button type="submit" className="w-full bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-widest py-1.5 rounded-lg">
+                    <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-widest py-1.5 rounded-lg cursor-pointer transition-all">
                       Save Configurations
                     </button>
                   </form>
                 )}
 
                 {!showSettings && (
-                  <>
-                    <div className="relative w-40 h-40 flex items-center justify-center my-6">
-                      <svg className="transform -rotate-90 w-full h-full" viewBox="0 0 160 160">
-                        {/* Track circle — uses CSS variable so it's visible in both themes */}
-                        <circle
-                          className="fill-none"
-                          style={{ stroke: "var(--ring-track)" }}
-                          strokeWidth="8"
-                          cx="80"
-                          cy="80"
-                          r={radius}
-                        />
-                        <circle
-                          className="stroke-indigo-500 fill-none transition-all duration-1000"
-                          strokeWidth="8"
-                          strokeLinecap="round"
-                          strokeDasharray={strokeDash}
-                          strokeDashoffset={strokeOffset}
-                          cx="80"
-                          cy="80"
-                          r={radius}
-                        />
-                      </svg>
-                      <div className="absolute text-center">
-                        <span className="text-2xl font-black font-mono text-slate-100">{percentProgress.toFixed(1)}%</span>
-                        <p className="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5">COMPLETED</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
+                    {/* Left: Progress Circle */}
+                    <div className="sm:col-span-5 flex flex-col items-center justify-center">
+                      <div className="relative w-40 h-40 flex items-center justify-center">
+                        <svg className="transform -rotate-90 w-full h-full" viewBox="0 0 160 160">
+                          {/* Track circle — uses CSS variable so it's visible in both themes */}
+                          <circle
+                            className="fill-none"
+                            style={{ stroke: "var(--ring-track)" }}
+                            strokeWidth="8"
+                            cx="80"
+                            cy="80"
+                            r={radius}
+                          />
+                          <circle
+                            className="stroke-indigo-500 fill-none transition-all duration-1000"
+                            strokeWidth="8"
+                            strokeLinecap="round"
+                            strokeDasharray={strokeDash}
+                            strokeDashoffset={strokeOffset}
+                            cx="80"
+                            cy="80"
+                            r={radius}
+                          />
+                        </svg>
+                        <div className="absolute text-center">
+                          <span className="text-2xl font-black font-mono text-slate-900 dark:text-slate-100">{percentProgress.toFixed(1)}%</span>
+                          <p className="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5 font-bold">COMPLETED</p>
+                          <p className="text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-0.5 font-mono font-bold">
+                            {daysElapsed}/{totalDays} DAYS
+                          </p>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="text-center font-mono text-xs text-slate-400">
-                      {daysElapsed}/{totalDays} DAYS PASSED
-                    </div>
-                  </>
-                )}
-              </div>
+                    {/* Right: Countdown & Session Timer */}
+                    <div className="sm:col-span-7 space-y-4">
+                      {/* Countdown Timer */}
+                      <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full">
+                        <div className="flex flex-col items-center bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl py-2.5 px-1 text-center min-w-0">
+                          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-slate-100">{padZero(remainingDays)}</span>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">DAYS</span>
+                        </div>
+                        <div className="flex flex-col items-center bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl py-2.5 px-1 text-center min-w-0">
+                          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-slate-100">{padZero(remainingHours)}</span>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">HOURS</span>
+                        </div>
+                        <div className="flex flex-col items-center bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl py-2.5 px-1 text-center min-w-0">
+                          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-slate-100">{padZero(remainingMins)}</span>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">MINS</span>
+                        </div>
+                        <div className="flex flex-col items-center bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl py-2.5 px-1 text-center min-w-0">
+                          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-slate-100">{padZero(remainingSecs)}</span>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">SECS</span>
+                        </div>
+                      </div>
 
-              {/* Session timer card */}
-              <div className={`glass-card card-glow-teal p-6 rounded-2xl border ${isSessionActive ? "border-teal-500/25 bg-teal-950/5" : "border-white/5"} text-center`}>
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Study Stopwatch</h3>
-                <div className="text-3xl font-black font-mono text-slate-100 mb-6 tracking-wider">
-                  {formatStopwatch(sessionSeconds)}
-                </div>
-                <button
-                  onClick={handleToggleSession}
-                  style={{ color: "#ffffff" }}
-                  className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest cursor-pointer transition-all flex items-center justify-center gap-2 ${
-                    isSessionActive
-                      ? "bg-red-600 hover:bg-red-500 text-white"
-                      : "bg-teal-600 hover:bg-teal-500 text-white"
-                  }`}
-                >
-                  <Play size={12} className={isSessionActive ? "hidden" : "block"} />
-                  <span>{isSessionActive ? "Stop & Save Session" : "Start Session Timer"}</span>
-                </button>
+                      {/* Track Session Stopwatch (embedded) */}
+                      <div className={`p-4 rounded-xl border transition-all ${
+                        isSessionActive
+                          ? "border-teal-500/25 bg-teal-950/10 dark:bg-teal-950/20"
+                          : "border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-[#070711]"
+                      } text-center`}>
+                        <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">TRACK SESSION</h3>
+                        <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-slate-100 mb-3 tracking-wider">
+                          {formatStopwatch(sessionSeconds)}
+                        </div>
+                        <button
+                          onClick={handleToggleSession}
+                          style={{ color: "#ffffff" }}
+                          className={`w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest cursor-pointer transition-all flex items-center justify-center gap-2 ${
+                            isSessionActive
+                              ? "bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/20"
+                              : "bg-teal-600 hover:bg-teal-500 text-white shadow-lg shadow-teal-500/20"
+                          }`}
+                        >
+                          <Play size={12} className={isSessionActive ? "hidden" : "block"} />
+                          <span>{isSessionActive ? "Stop & Save Session" : "Start Study Timer"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Right Side tabs roadmap/logs */}
-            <div ref={logsRef} className="lg:col-span-2 space-y-6">
+            <div ref={logsRef} className="lg:col-span-7 space-y-6">
               {/* Tab Selector */}
               <div className="flex border-b border-white/5 justify-between items-center pr-2">
                 <div className="flex">
