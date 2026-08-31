@@ -33,7 +33,7 @@ export async function GET(req: Request) {
       query.participants = currentUserId;
     }
 
-    const messages = await ChatMessage.find(query)
+    const messages: any[] = await ChatMessage.find(query)
       .sort({ createdAt: 1 })
       .lean();
 

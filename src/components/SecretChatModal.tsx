@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { 
   X, Send, Reply, Pencil, Trash2, Shield, User, 
   Sparkles, RefreshCw, Check, Ban, Smile, Copy, CheckCheck,
-  Users, ChevronDown, UserCheck, UserPlus, Bell, Lock
+  Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock
 } from "lucide-react";
 
 interface ReplyToData {
@@ -28,7 +28,7 @@ interface MessageItem {
   createdAt: string;
 }
 
-interface AcceptedPartner {
+interface AcceptedFriend {
   connectionId: string;
   partnerId: string;
   partnerName: string;
@@ -80,15 +80,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const [isEditingName, setIsEditingName] = useState(false);
   const currentSender = customName.trim() || accountName;
 
-  // Connections state (Request / Accept model)
-  const [acceptedPartners, setAcceptedPartners] = useState<AcceptedPartner[]>([]);
+  // Connections state (Friend Request / Accept model)
+  const [acceptedFriends, setAcceptedFriends] = useState<AcceptedFriend[]>([]);
   const [pendingIncoming, setPendingIncoming] = useState<PendingIncomingRequest[]>([]);
   const [pendingOutgoing, setPendingOutgoing] = useState<PendingOutgoingRequest[]>([]);
-  const [selectedPartner, setSelectedPartner] = useState<AcceptedPartner | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<AcceptedFriend | null>(null);
   
   // UI Panels
-  const [showPartnerPicker, setShowPartnerPicker] = useState(false);
-  const [showAddPartnerForm, setShowAddPartnerForm] = useState(false);
+  const [showFriendPicker, setShowFriendPicker] = useState(false);
+  const [showAddFriendForm, setShowAddFriendForm] = useState(false);
   const [requestEmailInput, setRequestEmailInput] = useState("");
   const [requestStatusMsg, setRequestStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -128,21 +128,21 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       const res = await fetch("/api/chat/connections");
       if (res.ok) {
         const data = await res.json();
-        const accepted: AcceptedPartner[] = data.accepted || [];
+        const accepted: AcceptedFriend[] = data.accepted || [];
         const incoming: PendingIncomingRequest[] = data.pendingIncoming || [];
         const outgoing: PendingOutgoingRequest[] = data.pendingOutgoing || [];
 
-        setAcceptedPartners(accepted);
+        setAcceptedFriends(accepted);
         setPendingIncoming(incoming);
         setPendingOutgoing(outgoing);
 
-        // Default select the first accepted partner if none selected or if selection invalid
+        // Default select the first accepted friend if none selected
         if (accepted.length > 0) {
-          if (!selectedPartner || !accepted.some((p) => p.partnerId === selectedPartner.partnerId)) {
-            setSelectedPartner(accepted[0]);
+          if (!selectedFriend || !accepted.some((p) => p.partnerId === selectedFriend.partnerId)) {
+            setSelectedFriend(accepted[0]);
           }
         } else {
-          setSelectedPartner(null);
+          setSelectedFriend(null);
         }
       }
     } catch (err) {
@@ -150,15 +150,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   };
 
-  // Fetch messages for active 1-on-1 partner
+  // Fetch messages for active 1-on-1 friend
   const fetchMessages = async (markRead = true) => {
-    if (!selectedPartner) {
+    if (!selectedFriend) {
       setLoading(false);
       return;
     }
 
     try {
-      const res = await fetch(`/api/chat/messages?recipientId=${encodeURIComponent(selectedPartner.partnerId)}&markRead=${markRead}`);
+      const res = await fetch(`/api/chat/messages?recipientId=${encodeURIComponent(selectedFriend.partnerId)}&markRead=${markRead}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -219,7 +219,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
       messageInterval = setInterval(() => {
         fetchConnections();
-        if (selectedPartner) fetchMessages(true);
+        if (selectedFriend) fetchMessages(true);
       }, pollFreq);
 
       presenceInterval = setInterval(() => {
@@ -232,7 +232,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         fetchConnections();
-        if (selectedPartner) fetchMessages(true);
+        if (selectedFriend) fetchMessages(true);
         syncPresence(false);
       }
       startIntervals();
@@ -253,15 +253,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, currentSender, selectedPartner]);
+  }, [isOpen, currentSender, selectedFriend]);
 
-  // When selected partner changes, reload messages
+  // When selected friend changes, reload messages
   useEffect(() => {
-    if (isOpen && selectedPartner) {
+    if (isOpen && selectedFriend) {
       setLoading(true);
       fetchMessages(true);
     }
-  }, [selectedPartner, isOpen]);
+  }, [selectedFriend, isOpen]);
 
   // Scroll to bottom on load
   useEffect(() => {
@@ -319,6 +319,31 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   };
 
+  // Remove / Cancel connection (Cancel pending request or Unfriend)
+  const handleRemoveConnection = async (connectionId: string, nameOrEmail: string, isPending = false) => {
+    const promptMsg = isPending
+      ? `Cancel your pending chat request to ${nameOrEmail}?`
+      : `Remove ${nameOrEmail} from your connected friends and delete 1-on-1 chat history?`;
+
+    if (!confirm(promptMsg)) return;
+
+    try {
+      const res = await fetch(`/api/chat/connections?connectionId=${connectionId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        await fetchConnections();
+        if (selectedFriend?.connectionId === connectionId) {
+          setSelectedFriend(null);
+          setMessages([]);
+        }
+      }
+    } catch (err) {
+      console.error("Error removing connection:", err);
+    }
+  };
+
   // Send new connection request by exact email
   const handleSendConnectionRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -336,15 +361,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
       const data = await res.json();
       if (res.ok) {
-        setRequestStatusMsg({ type: "success", text: data.message || "Connection request sent!" });
+        setRequestStatusMsg({ type: "success", text: data.message || "Friend request sent!" });
         setRequestEmailInput("");
         await fetchConnections();
         setTimeout(() => {
-          setShowAddPartnerForm(false);
+          setShowAddFriendForm(false);
           setRequestStatusMsg(null);
         }, 2000);
       } else {
-        setRequestStatusMsg({ type: "error", text: data.error || "Failed to send connection request." });
+        setRequestStatusMsg({ type: "error", text: data.error || "Failed to send request." });
       }
     } catch (err) {
       setRequestStatusMsg({ type: "error", text: "Network error sending request." });
@@ -355,15 +380,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   if (!isOpen) return null;
 
-  // Check if active partner is online or typing
-  const partnerPresence = activeUsers.find(
-    (u) => !u.isMe && (selectedPartner?.partnerId === u.userId || selectedPartner?.partnerName === u.userName)
+  // Check if active friend is online or typing
+  const friendPresence = activeUsers.find(
+    (u) => !u.isMe && (selectedFriend?.partnerId === u.userId || selectedFriend?.partnerName === u.userName)
   );
 
   // Send 1-on-1 message handler
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || !selectedPartner || sending) return;
+    if (!inputText.trim() || !selectedFriend || sending) return;
 
     const textToSend = inputText.trim();
     const replyToSend = replyingTo;
@@ -381,7 +406,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sender: currentSender,
-          recipientId: selectedPartner.partnerId,
+          recipientId: selectedFriend.partnerId,
           text: textToSend,
           replyTo: replyToSend,
           retentionHours,
@@ -442,11 +467,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   // Clear 1-on-1 conversation
   const handleClearAll = async () => {
-    if (!selectedPartner) return;
-    if (!confirm(`Wipe the entire conversation history between you and ${selectedPartner.partnerName} permanently?`)) return;
+    if (!selectedFriend) return;
+    if (!confirm(`Wipe the entire conversation history with ${selectedFriend.partnerName} permanently?`)) return;
 
     try {
-      const res = await fetch(`/api/chat/messages?clearAll=true&recipientId=${encodeURIComponent(selectedPartner.partnerId)}`, {
+      const res = await fetch(`/api/chat/messages?clearAll=true&recipientId=${encodeURIComponent(selectedFriend.partnerId)}`, {
         method: "DELETE",
       });
 
@@ -470,27 +495,27 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             {/* Avatar & Online Presence */}
             <div className="relative flex-shrink-0">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-teal-500/15 dark:bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-600 dark:text-teal-400 font-bold text-xs sm:text-sm">
-                {selectedPartner ? selectedPartner.partnerName.slice(0, 2).toUpperCase() : <Lock size={16} />}
+                {selectedFriend ? selectedFriend.partnerName.slice(0, 2).toUpperCase() : <Lock size={16} />}
               </div>
-              {partnerPresence && (
+              {friendPresence && (
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#0d0d1c] light:border-white shadow-sm"></span>
               )}
             </div>
 
-            {/* Partner Info / Switcher */}
+            {/* Friend Info / Switcher */}
             <div className="min-w-0">
               <button
                 type="button"
                 onClick={() => {
-                  setShowPartnerPicker(!showPartnerPicker);
-                  setShowAddPartnerForm(false);
+                  setShowFriendPicker(!showFriendPicker);
+                  setShowAddFriendForm(false);
                 }}
                 className="text-left flex items-center gap-1.5 group cursor-pointer"
               >
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 light:text-slate-900 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                  {selectedPartner ? selectedPartner.partnerName : "Private Channel"}
+                  {selectedFriend ? selectedFriend.partnerName : "Private Channel"}
                 </h3>
-                {acceptedPartners.length > 1 && (
+                {acceptedFriends.length > 1 && (
                   <ChevronDown size={14} className="text-slate-400 group-hover:text-teal-500 transition-transform" />
                 )}
                 <span className="text-[8px] sm:text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-mono font-normal flex-shrink-0">
@@ -500,23 +525,23 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
               {/* Status Subtitle */}
               <p className="text-[9px] sm:text-[10px] tracking-wide truncate mt-0.5">
-                {partnerPresence?.isTyping ? (
+                {friendPresence?.isTyping ? (
                   <span className="text-teal-600 dark:text-teal-400 font-bold flex items-center gap-1 animate-pulse">
-                    <span className="truncate">✍️ {selectedPartner?.partnerName} is typing</span>
+                    <span className="truncate">✍️ {selectedFriend?.partnerName} is typing</span>
                     <span className="inline-flex gap-0.5 flex-shrink-0">
                       <span className="w-1 h-1 bg-teal-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
                       <span className="w-1 h-1 bg-teal-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                       <span className="w-1 h-1 bg-teal-500 rounded-full animate-bounce"></span>
                     </span>
                   </span>
-                ) : partnerPresence ? (
+                ) : friendPresence ? (
                   <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping flex-shrink-0"></span>
                     Online
                   </span>
                 ) : (
                   <span className="text-slate-500 dark:text-slate-400 light:text-slate-500 truncate block">
-                    {selectedPartner ? `1-on-1 with ${selectedPartner.partnerName}` : "Send connection request to begin"} • {retentionHours}h
+                    {selectedFriend ? `1-on-1 with ${selectedFriend.partnerName}` : "Send connection request to begin"} • {retentionHours}h
                   </span>
                 )}
               </p>
@@ -524,23 +549,23 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Add / Connect Partner Button */}
+            {/* Add / Connect Friend Button */}
             <button
               type="button"
               onClick={() => {
-                setShowAddPartnerForm(!showAddPartnerForm);
-                setShowPartnerPicker(false);
+                setShowAddFriendForm(!showAddFriendForm);
+                setShowFriendPicker(false);
                 setRequestStatusMsg(null);
               }}
               className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs ${
-                showAddPartnerForm
+                showAddFriendForm
                   ? "bg-teal-600 text-white font-bold"
                   : "bg-slate-200/70 dark:bg-white/5 light:bg-slate-200/70 text-slate-600 dark:text-slate-400 light:text-slate-600 hover:text-teal-600"
               }`}
-              title="Connect with Partner (Send Request)"
+              title="Connect with Friend (Send Request)"
             >
               <UserPlus size={14} />
-              <span className="hidden sm:inline text-[10px]">Add Partner</span>
+              <span className="hidden sm:inline text-[10px]">Add Friend</span>
             </button>
 
             {/* Auto-delete toggle */}
@@ -566,13 +591,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             </div>
 
             {/* Clear Conversation Button */}
-            {selectedPartner && (
+            {selectedFriend && (
               <button
                 type="button"
                 onClick={handleClearAll}
                 disabled={messages.length === 0}
                 className="p-2 sm:p-1.5 rounded-xl bg-slate-200/70 dark:bg-white/5 light:bg-slate-200/70 hover:bg-red-500/20 text-slate-600 dark:text-slate-400 light:text-slate-600 hover:text-red-500 border border-slate-300 dark:border-white/5 light:border-slate-300 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
-                title="Wipe conversation with this partner"
+                title="Wipe conversation with this friend"
               >
                 <Trash2 size={15} />
               </button>
@@ -589,7 +614,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
         </div>
 
-        {/* Incoming Connection Request Banner (Accept / Decline) */}
+        {/* Incoming Friend Request Banner (Accept / Decline) */}
         {pendingIncoming.length > 0 && (
           <div className="p-3 bg-amber-500/10 border-b border-amber-500/25 flex-shrink-0 space-y-2 animate-in fade-in duration-150">
             {pendingIncoming.map((req) => (
@@ -597,7 +622,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 light:text-amber-700 font-medium truncate">
                   <Bell size={14} className="text-amber-500 flex-shrink-0 animate-bounce" />
                   <span className="truncate">
-                    <strong>{req.requesterName}</strong> wants to connect for private 1-on-1 chat.
+                    <strong>{req.requesterName}</strong> sent you a friend request to chat privately.
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto">
@@ -623,25 +648,25 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
         )}
 
-        {/* Send Connection Request Modal / Form */}
-        {showAddPartnerForm && (
+        {/* Send Friend Request Modal / Form */}
+        {showAddFriendForm && (
           <div className="p-4 bg-slate-100 dark:bg-[#0e0e22] light:bg-slate-100 border-b border-slate-200 dark:border-white/10 light:border-slate-200 flex-shrink-0 animate-in fade-in slide-in-from-top-2 duration-150 shadow-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider font-mono flex items-center gap-1.5">
                 <UserPlus size={13} className="text-teal-500" />
-                Connect with Chat Partner
+                Connect with a Friend
               </span>
               <button
                 type="button"
-                onClick={() => setShowAddPartnerForm(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs p-1"
+                onClick={() => setShowAddFriendForm(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs p-1 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <p className="text-xs text-slate-500 mb-3">
-              Enter the exact email address of the person you want to chat with. They will receive a private request and must accept it before the channel opens.
+              Enter the exact email address of the friend you want to chat with. They will receive a private request and must accept it before the channel opens.
             </p>
 
             <form onSubmit={handleSendConnectionRequest} className="space-y-2.5">
@@ -650,7 +675,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   type="email"
                   value={requestEmailInput}
                   onChange={(e) => setRequestEmailInput(e.target.value)}
-                  placeholder="Enter partner email (e.g. partner@example.com)..."
+                  placeholder="Enter friend's email (e.g. friend@example.com)..."
                   className="w-full bg-white dark:bg-white/10 light:bg-white border border-slate-300 dark:border-white/20 light:border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-500"
                   autoFocus
                 />
@@ -676,14 +701,24 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               )}
             </form>
 
-            {/* Pending Outgoing Requests List */}
+            {/* Pending Outgoing Requests with Cancel Option */}
             {pendingOutgoing.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 space-y-1">
+              <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 space-y-1.5">
                 <span className="text-[9px] uppercase tracking-wider text-slate-400 font-mono">Pending Sent Requests:</span>
                 {pendingOutgoing.map((out) => (
-                  <div key={out.connectionId} className="flex items-center justify-between text-xs text-slate-500 py-1">
-                    <span>⏳ Request sent to {out.recipientName || out.recipientEmail}</span>
-                    <span className="text-[10px] text-amber-500 font-mono">Waiting for acceptance</span>
+                  <div key={out.connectionId} className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-white/5 px-2.5 py-1.5 rounded-lg">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span>⏳ Request sent to <strong>{out.recipientName || out.recipientEmail}</strong></span>
+                      <span className="text-[9px] text-amber-500 font-mono hidden sm:inline">(Waiting for acceptance)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveConnection(out.connectionId, out.recipientName || out.recipientEmail, true)}
+                      className="px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[10px] font-bold transition-colors cursor-pointer flex-shrink-0 ml-2"
+                      title="Cancel this request"
+                    >
+                      Cancel Request
+                    </button>
                   </div>
                 ))}
               </div>
@@ -691,51 +726,68 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
         )}
 
-        {/* Accepted Partners Switcher Panel */}
-        {showPartnerPicker && (
+        {/* Connected Friends Switcher Panel with Remove / Unfriend Option */}
+        {showFriendPicker && (
           <div className="p-3.5 bg-slate-100 dark:bg-[#0e0e22] light:bg-slate-100 border-b border-slate-200 dark:border-white/10 light:border-slate-200 flex-shrink-0 animate-in fade-in slide-in-from-top-2 duration-150 shadow-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider font-mono flex items-center gap-1.5">
                 <Users size={12} className="text-teal-500" />
-                Your Connected Partners
+                Your Connected Friends
               </span>
               <button
                 type="button"
-                onClick={() => setShowPartnerPicker(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs p-1"
+                onClick={() => setShowFriendPicker(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs p-1 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-1.5 max-h-36 overflow-y-auto">
-              {acceptedPartners.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No connected partners yet. Click &quot;Add Partner&quot; to send a request.</p>
+              {acceptedFriends.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No connected friends yet. Click &quot;Add Friend&quot; to send a request.</p>
               ) : (
-                acceptedPartners.map((p) => {
-                  const isSelected = selectedPartner?.partnerId === p.partnerId;
+                acceptedFriends.map((p) => {
+                  const isSelected = selectedFriend?.partnerId === p.partnerId;
                   return (
-                    <button
+                    <div
                       key={p.partnerId}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPartner(p);
-                        setShowPartnerPicker(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all ${
                         isSelected
                           ? "bg-teal-600 text-white font-bold shadow-md shadow-teal-500/20"
                           : "bg-white dark:bg-white/5 light:bg-white text-slate-800 dark:text-slate-200 light:text-slate-800 hover:bg-slate-200 dark:hover:bg-white/10"
                       }`}
                     >
-                      <div className="flex items-center gap-2 truncate">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFriend(p);
+                          setShowFriendPicker(false);
+                        }}
+                        className="flex items-center gap-2 truncate flex-1 text-left cursor-pointer"
+                      >
                         <div className="w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 font-bold text-[10px] flex items-center justify-center flex-shrink-0">
                           {p.partnerName.slice(0, 2).toUpperCase()}
                         </div>
                         <span className="truncate">{p.partnerName}</span>
-                      </div>
-                      {isSelected && <UserCheck size={14} className="flex-shrink-0" />}
-                    </button>
+                        {isSelected && <UserCheck size={14} className="flex-shrink-0 ml-1" />}
+                      </button>
+
+                      {/* Remove / Unfriend Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveConnection(p.connectionId, p.partnerName, false);
+                        }}
+                        className={`p-1 rounded-lg transition-colors cursor-pointer ml-2 flex-shrink-0 ${
+                          isSelected ? "hover:bg-red-500/30 text-white/80 hover:text-white" : "hover:bg-red-500/10 text-slate-400 hover:text-red-500"
+                        }`}
+                        title={`Remove ${p.partnerName} and delete chat`}
+                      >
+                        <UserMinus size={14} />
+                      </button>
+                    </div>
                   );
                 })
               )}
@@ -785,13 +837,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
           <div className="flex items-center gap-1 text-[9px] text-slate-500 dark:text-slate-500 light:text-slate-500 font-mono flex-shrink-0">
             <span>Tunnel:</span>
-            <span className="text-teal-600 dark:text-teal-400 light:text-teal-600 font-bold">{selectedPartner ? selectedPartner.partnerName : "None"}</span>
+            <span className="text-teal-600 dark:text-teal-400 light:text-teal-600 font-bold">{selectedFriend ? selectedFriend.partnerName : "None"}</span>
           </div>
         </div>
 
         {/* Message Feed */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 bg-slate-50/60 dark:bg-transparent light:bg-slate-50/60 overscroll-contain transition-colors">
-          {!selectedPartner ? (
+          {!selectedFriend ? (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8">
               <div className="p-3.5 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400">
                 <Shield size={32} />
@@ -799,22 +851,22 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <div>
                 <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Zero-Knowledge Private Chat</h4>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                  To begin chatting with someone, enter their exact email address to send a private request. They must accept before any messages can be sent or seen.
+                  To begin chatting with someone, enter their exact email address to send a friend request. They must accept before any messages can be sent or seen.
                 </p>
                 <button
                   type="button"
-                  onClick={() => setShowAddPartnerForm(true)}
+                  onClick={() => setShowAddFriendForm(true)}
                   className="mt-4 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <UserPlus size={14} />
-                  Send Chat Request
+                  Send Friend Request
                 </button>
               </div>
             </div>
           ) : loading ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-2">
               <RefreshCw size={20} className="animate-spin text-teal-600 dark:text-teal-400" />
-              <p className="text-xs font-mono">Decrypting communications with {selectedPartner.partnerName}...</p>
+              <p className="text-xs font-mono">Decrypting communications with {selectedFriend.partnerName}...</p>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8 border border-dashed border-slate-300 dark:border-white/5 light:border-slate-300 rounded-2xl bg-white/50 dark:bg-white/[0.01] light:bg-white/50">
@@ -823,10 +875,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               </div>
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-300 light:text-slate-800 font-mono">
-                  1-on-1 Tunnel with {selectedPartner.partnerName}
+                  1-on-1 Tunnel with {selectedFriend.partnerName}
                 </h4>
                 <p className="text-[10px] text-slate-500 dark:text-slate-500 light:text-slate-500 mt-1 max-w-sm">
-                  Only you and {selectedPartner.partnerName} can access this conversation. Messages are encrypted with AES-256 and self-destruct in {retentionHours} hours.
+                  Only you and {selectedFriend.partnerName} can access this conversation. Messages are encrypted with AES-256 and self-destruct in {retentionHours} hours.
                 </p>
               </div>
             </div>
@@ -985,9 +1037,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           )}
 
           {/* Live Typing Indicator */}
-          {partnerPresence?.isTyping && (
+          {friendPresence?.isTyping && (
             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 light:text-slate-600 bg-slate-200/60 dark:bg-white/[0.02] light:bg-slate-200/60 border border-slate-300 dark:border-white/5 light:border-slate-300 rounded-2xl px-3.5 py-1.5 w-fit animate-in fade-in duration-150">
-              <span className="font-bold text-teal-600 dark:text-teal-400 light:text-teal-600 font-mono text-[10px]">{selectedPartner?.partnerName}</span>
+              <span className="font-bold text-teal-600 dark:text-teal-400 light:text-teal-600 font-mono text-[10px]">{selectedFriend?.partnerName}</span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400 light:text-slate-500 italic">is typing</span>
               <span className="inline-flex gap-1 items-center ml-0.5">
                 <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -1077,14 +1129,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               type="text"
               value={inputText}
               onChange={handleInputChange}
-              placeholder={selectedPartner ? `Message ${selectedPartner.partnerName} securely...` : "Add or accept a chat partner above to message..."}
-              disabled={!selectedPartner}
+              placeholder={selectedFriend ? `Message ${selectedFriend.partnerName} securely...` : "Add or accept a friend above to message..."}
+              disabled={!selectedFriend}
               className="w-full bg-transparent text-base sm:text-xs text-slate-900 dark:text-white light:text-slate-900 placeholder:text-slate-400 dark:placeholder:text-slate-500 light:placeholder:text-slate-400 outline-none py-1 font-sans font-medium disabled:opacity-50"
             />
 
             <button
               type="submit"
-              disabled={!inputText.trim() || !selectedPartner || sending}
+              disabled={!inputText.trim() || !selectedFriend || sending}
               className="p-2 sm:p-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer flex-shrink-0 shadow-md shadow-teal-500/20 min-w-[36px] min-h-[36px] flex items-center justify-center"
               title="Send Message"
             >

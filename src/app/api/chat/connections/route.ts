@@ -19,7 +19,7 @@ export async function GET() {
     await dbConnect();
 
     // Fetch all connections involving current user
-    const connections = await ChatConnection.find({
+    const connections: any[] = await ChatConnection.find({
       $or: [
         { requesterId: currentUserId },
         { recipientId: currentUserId },
@@ -39,7 +39,7 @@ export async function GET() {
         const partnerId = isRequester ? conn.recipientId : conn.requesterId;
         const partnerName = isRequester ? conn.recipientName : conn.requesterName;
         accepted.push({
-          connectionId: conn._id.toString(),
+          connectionId: conn._id ? conn._id.toString() : "",
           partnerId,
           partnerName,
           roomId: conn.roomId,
@@ -47,14 +47,14 @@ export async function GET() {
       } else if (conn.status === "pending") {
         if (isRequester) {
           pendingOutgoing.push({
-            connectionId: conn._id.toString(),
+            connectionId: conn._id ? conn._id.toString() : "",
             recipientEmail: conn.recipientEmail,
             recipientName: conn.recipientName,
             createdAt: conn.createdAt,
           });
         } else {
           pendingIncoming.push({
-            connectionId: conn._id.toString(),
+            connectionId: conn._id ? conn._id.toString() : "",
             requesterId: conn.requesterId,
             requesterName: conn.requesterName,
             requesterEmail: conn.requesterEmail,
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
 
     const { email } = await req.json();
     if (!email || !email.trim()) {
-      return NextResponse.json({ error: "Partner email address is required" }, { status: 400 });
+      return NextResponse.json({ error: "Friend email address is required" }, { status: 400 });
     }
 
     const targetEmail = email.trim().toLowerCase();
@@ -93,13 +93,13 @@ export async function POST(req: Request) {
     const currentUserName = session.user.name || currentUserEmail?.split("@")[0] || "User";
 
     if (targetEmail === currentUserEmail) {
-      return NextResponse.json({ error: "You cannot send a connection request to yourself" }, { status: 400 });
+      return NextResponse.json({ error: "You cannot send a friend request to yourself" }, { status: 400 });
     }
 
     await dbConnect();
 
     // Look up target user by exact email
-    const targetUser = await User.findOne({ email: targetEmail });
+    const targetUser: any = await User.findOne({ email: targetEmail });
     if (!targetUser) {
       return NextResponse.json(
         { error: "No user found with this exact email address. Please ensure the email is registered." },
@@ -114,22 +114,22 @@ export async function POST(req: Request) {
     const roomId = [currentUserId, targetUserId].sort().join(":");
 
     // Check existing connection
-    const existing = await ChatConnection.findOne({
+    const existing: any = await ChatConnection.findOne({
       roomId,
     });
 
     if (existing) {
       if (existing.status === "accepted") {
-        return NextResponse.json({ error: "You are already connected with this partner" }, { status: 400 });
+        return NextResponse.json({ error: "You are already connected with this friend" }, { status: 400 });
       }
       if (existing.status === "pending") {
         if (existing.requesterId === currentUserId) {
-          return NextResponse.json({ error: "Connection request is already pending acceptance by this partner" }, { status: 400 });
+          return NextResponse.json({ error: "Friend request is already pending acceptance" }, { status: 400 });
         } else {
           // If the other user had sent a request, auto-accept!
           existing.status = "accepted";
           await existing.save();
-          return NextResponse.json({ success: true, message: "Connection accepted! You can now chat securely.", autoAccepted: true });
+          return NextResponse.json({ success: true, message: "Friend request accepted! You can now chat securely.", autoAccepted: true });
         }
       }
       // If declined, update to pending again
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
       existing.recipientName = targetUserName;
       existing.recipientEmail = targetEmail;
       await existing.save();
-      return NextResponse.json({ success: true, message: "Connection request sent successfully!" });
+      return NextResponse.json({ success: true, message: "Friend request sent successfully!" });
     }
 
     // Create new pending connection
@@ -156,10 +156,10 @@ export async function POST(req: Request) {
       roomId,
     });
 
-    return NextResponse.json({ success: true, message: "Connection request sent! Waiting for partner to accept." });
+    return NextResponse.json({ success: true, message: "Friend request sent! Waiting for acceptance." });
   } catch (error: any) {
     console.error("POST Chat Connection Error:", error);
-    return NextResponse.json({ error: "Failed to send connection request" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to send friend request" }, { status: 500 });
   }
 }
 
@@ -180,7 +180,7 @@ export async function PUT(req: Request) {
 
     await dbConnect();
 
-    const connection = await ChatConnection.findById(connectionId);
+    const connection: any = await ChatConnection.findById(connectionId);
     if (!connection) {
       return NextResponse.json({ error: "Connection request not found" }, { status: 404 });
     }
@@ -197,7 +197,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({
       success: true,
       status: connection.status,
-      message: action === "accept" ? "Connection accepted! Channel is now active." : "Connection request declined.",
+      message: action === "accept" ? "Friend request accepted! Channel is now active." : "Friend request declined.",
     });
   } catch (error: any) {
     console.error("PUT Chat Connection Error:", error);
@@ -222,7 +222,7 @@ export async function DELETE(req: Request) {
 
     await dbConnect();
 
-    const connection = await ChatConnection.findById(connectionId);
+    const connection: any = await ChatConnection.findById(connectionId);
     if (!connection) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
