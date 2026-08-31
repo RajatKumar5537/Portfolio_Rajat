@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { 
   X, Send, Reply, Pencil, Trash2, Shield, User, 
@@ -85,6 +85,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const [pendingIncoming, setPendingIncoming] = useState<PendingIncomingRequest[]>([]);
   const [pendingOutgoing, setPendingOutgoing] = useState<PendingOutgoingRequest[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<AcceptedFriend | null>(null);
+  const selectedFriendRef = useRef<AcceptedFriend | null>(null);
+  selectedFriendRef.current = selectedFriend;
   
   // UI Panels
   const [showFriendPicker, setShowFriendPicker] = useState(false);
@@ -122,43 +124,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
   };
 
-  // Fetch approved connections and pending requests
-  const fetchConnections = async () => {
-    try {
-      const res = await fetch("/api/chat/connections");
-      if (res.ok) {
-        const data = await res.json();
-        const accepted: AcceptedFriend[] = data.accepted || [];
-        const incoming: PendingIncomingRequest[] = data.pendingIncoming || [];
-        const outgoing: PendingOutgoingRequest[] = data.pendingOutgoing || [];
-
-        setAcceptedFriends(accepted);
-        setPendingIncoming(incoming);
-        setPendingOutgoing(outgoing);
-
-        // Default select the first accepted friend if none selected
-        if (accepted.length > 0) {
-          if (!selectedFriend || !accepted.some((p) => p.partnerId === selectedFriend.partnerId)) {
-            setSelectedFriend(accepted[0]);
-          }
-        } else {
-          setSelectedFriend(null);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching connections:", err);
-    }
-  };
-
-  // Fetch messages for active 1-on-1 friend
-  const fetchMessages = async (markRead = true) => {
-    if (!selectedFriend) {
-      setLoading(false);
-      return;
-    }
+  // Fetch 1-on-1 messages for a specific partner ID
+  const fetchMessagesForPartner = useCallback(async (partnerId: string, markRead = true) => {
+    if (!partnerId) return;
 
     try {
-      const res = await fetch(`/api/chat/messages?recipientId=${encodeURIComponent(selectedFriend.partnerId)}&markRead=${markRead}`);
+      const res = await fetch(`/api/chat/messages?recipientId=${encodeURIComponent(partnerId)}&markRead=${markRead}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -173,10 +144,37 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     } finally {
       setLoading(false);
     }
-  };
+  }, [onMessagesRead]);
+
+  // Fetch approved connections and pending requests
+  const fetchConnections = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chat/connections");
+      if (res.ok) {
+        const data = await res.json();
+        const accepted: AcceptedFriend[] = data.accepted || [];
+        const incoming: PendingIncomingRequest[] = data.pendingIncoming || [];
+        const outgoing: PendingOutgoingRequest[] = data.pendingOutgoing || [];
+
+        setAcceptedFriends(accepted);
+        setPendingIncoming(incoming);
+        setPendingOutgoing(outgoing);
+
+        setSelectedFriend((prev) => {
+          if (accepted.length === 0) return null;
+          if (prev && accepted.some((p) => p.partnerId === prev.partnerId)) {
+            return prev;
+          }
+          return accepted[0];
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching connections:", err);
+    }
+  }, []);
 
   // Sync presence heartbeat & fetch active users
-  const syncPresence = async (isTypingState = false) => {
+  const syncPresence = useCallback(async (isTypingState = false) => {
     try {
       await fetch("/api/chat/presence", {
         method: "POST",
@@ -197,9 +195,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     } catch (err) {
       console.error("Error syncing presence:", err);
     }
-  };
+  }, [currentSender]);
 
-  // Adaptive Heartbeat Loop
+  // Initial load
   useEffect(() => {
     if (!isOpen) return;
 
@@ -208,23 +206,31 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
     let messageInterval: NodeJS.Timeout;
     let presenceInterval: NodeJS.Timeout;
+    let connectionInterval: NodeJS.Timeout;
 
     const startIntervals = () => {
       const isVisible = typeof document !== "undefined" && document.visibilityState === "visible";
-      const pollFreq = isVisible ? 2000 : 8000;
+      const msgFreq = isVisible ? 2000 : 8000;
       const presFreq = isVisible ? 2500 : 8000;
+      const connFreq = isVisible ? 6000 : 15000;
 
       clearInterval(messageInterval);
       clearInterval(presenceInterval);
+      clearInterval(connectionInterval);
 
       messageInterval = setInterval(() => {
-        fetchConnections();
-        if (selectedFriend) fetchMessages(true);
-      }, pollFreq);
+        if (selectedFriendRef.current) {
+          fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+        }
+      }, msgFreq);
 
       presenceInterval = setInterval(() => {
         syncPresence(false);
       }, presFreq);
+
+      connectionInterval = setInterval(() => {
+        fetchConnections();
+      }, connFreq);
     };
 
     startIntervals();
@@ -232,7 +238,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         fetchConnections();
-        if (selectedFriend) fetchMessages(true);
+        if (selectedFriendRef.current) {
+          fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+        }
         syncPresence(false);
       }
       startIntervals();
@@ -250,20 +258,21 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     return () => {
       clearInterval(messageInterval);
       clearInterval(presenceInterval);
+      clearInterval(connectionInterval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, currentSender, selectedFriend]);
+  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, onClose]);
 
   // When selected friend changes, reload messages
   useEffect(() => {
     if (isOpen && selectedFriend) {
       setLoading(true);
-      fetchMessages(true);
+      fetchMessagesForPartner(selectedFriend.partnerId, true);
     }
-  }, [selectedFriend, isOpen]);
+  }, [selectedFriend, isOpen, fetchMessagesForPartner]);
 
-  // Scroll to bottom on load
+  // Scroll to bottom on message change
   useEffect(() => {
     if (isOpen && messages.length > 0) {
       scrollToBottom();
@@ -301,7 +310,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  // Respond to incoming connection request (Accept / Decline)
+  // Respond to incoming friend request (Accept / Decline)
   const handleRespondRequest = async (connectionId: string, action: "accept" | "decline") => {
     try {
       const res = await fetch("/api/chat/connections", {
@@ -390,6 +399,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     if (e) e.preventDefault();
     if (!inputText.trim() || !selectedFriend || sending) return;
 
+    const currentPartner = selectedFriend;
     const textToSend = inputText.trim();
     const replyToSend = replyingTo;
 
@@ -406,7 +416,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sender: currentSender,
-          recipientId: selectedFriend.partnerId,
+          recipientId: currentPartner.partnerId,
           text: textToSend,
           replyTo: replyToSend,
           retentionHours,
@@ -418,6 +428,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         setMessages((prev) => [...prev, newMsg]);
         setTimeout(() => scrollToBottom(), 50);
         if (onMessagesRead) onMessagesRead();
+        // Immediately trigger sync
+        fetchMessagesForPartner(currentPartner.partnerId, true);
       }
     } catch (err) {
       console.error("Error sending 1-on-1 message:", err);

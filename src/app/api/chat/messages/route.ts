@@ -2,35 +2,84 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
+import User from "@/lib/models/User";
 import ChatMessage from "@/lib/models/ChatMessage";
 import { encryptMessage, decryptMessage } from "@/lib/crypto";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const currentUserId = (session.user as any).id || session.user.email;
-    const { searchParams } = new URL(req.url);
-    const recipientId = searchParams.get("recipientId");
-    const shouldMarkRead = searchParams.get("markRead") !== "false";
-
     await dbConnect();
+    const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
+    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+    const currentUserEmail = session.user.email.toLowerCase().trim();
+
+    const { searchParams } = new URL(req.url);
+    const rawRecipientId = searchParams.get("recipientId");
+    const shouldMarkRead = searchParams.get("markRead") !== "false";
     const now = new Date();
 
-    let query: any = {
-      $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
-    };
+    let query: any = {};
 
-    if (recipientId && recipientId.trim()) {
-      // Strict 1-on-1 private room query
-      const targetRoomId = [currentUserId, recipientId.trim()].sort().join(":");
-      query.roomId = targetRoomId;
+    if (rawRecipientId && rawRecipientId.trim()) {
+      let targetRecipientId = rawRecipientId.trim();
+      let targetRecipientEmail = "";
+
+      if (targetRecipientId.includes("@")) {
+        targetRecipientEmail = targetRecipientId.toLowerCase();
+        const targetUser = await User.findOne({ email: targetRecipientEmail });
+        if (targetUser) {
+          targetRecipientId = targetUser._id.toString();
+        }
+      } else {
+        const targetUser = await User.findById(targetRecipientId);
+        if (targetUser) {
+          targetRecipientEmail = targetUser.email.toLowerCase();
+        }
+      }
+
+      const targetRoomId = [currentUserId, targetRecipientId].sort().join(":");
+
+      query = {
+        $and: [
+          {
+            $or: [
+              { roomId: targetRoomId },
+              { participants: { $all: [currentUserId, targetRecipientId] } },
+              { $and: [{ senderId: currentUserId }, { recipientId: targetRecipientId }] },
+              { $and: [{ senderId: targetRecipientId }, { recipientId: currentUserId }] },
+              ...(targetRecipientEmail ? [
+                { participants: { $all: [currentUserEmail, targetRecipientEmail] } },
+                { $and: [{ senderId: currentUserId }, { recipientId: targetRecipientEmail }] },
+                { $and: [{ senderId: targetRecipientId }, { recipientId: currentUserEmail }] },
+              ] : [])
+            ],
+          },
+          {
+            $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
+          },
+        ],
+      };
     } else {
-      // Return messages where current user is a participant
-      query.participants = currentUserId;
+      query = {
+        $and: [
+          {
+            $or: [
+              { participants: currentUserId },
+              { participants: currentUserEmail },
+              { senderId: currentUserId },
+              { recipientId: currentUserId },
+            ],
+          },
+          {
+            $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
+          },
+        ],
+      };
     }
 
     const messages: any[] = await ChatMessage.find(query)
@@ -42,7 +91,10 @@ export async function GET(req: Request) {
       await ChatMessage.updateMany(
         {
           ...query,
-          recipientId: currentUserId,
+          $or: [
+            { recipientId: currentUserId },
+            { recipientId: currentUserEmail },
+          ],
           isRead: false,
         },
         { $set: { isRead: true } }
@@ -53,7 +105,7 @@ export async function GET(req: Request) {
     const decryptedList = messages.map((msg: any) => {
       if (msg.isDeleted) {
         return {
-          _id: msg._id.toString(),
+          _id: msg._id ? msg._id.toString() : "",
           senderId: msg.senderId,
           recipientId: msg.recipientId,
           sender: msg.sender,
@@ -74,7 +126,7 @@ export async function GET(req: Request) {
       });
 
       return {
-        _id: msg._id.toString(),
+        _id: msg._id ? msg._id.toString() : "",
         senderId: msg.senderId,
         recipientId: msg.recipientId,
         sender: msg.sender,
@@ -98,11 +150,15 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const currentUserId = (session.user as any).id || session.user.email;
+    await dbConnect();
+    const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
+    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+    const currentUserEmail = session.user.email.toLowerCase().trim();
+
     const { sender, recipientId, text, replyTo, retentionHours = 24 } = await req.json();
 
     if (!recipientId || !recipientId.trim()) {
@@ -113,12 +169,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Message text is required" }, { status: 400 });
     }
 
-    await dbConnect();
+    let targetRecipientId = recipientId.trim();
+    if (targetRecipientId.includes("@")) {
+      const targetUser = await User.findOne({ email: targetRecipientId.toLowerCase() });
+      if (targetUser) {
+        targetRecipientId = targetUser._id.toString();
+      }
+    }
 
     // Derive deterministic 1-on-1 roomId
-    const targetRecipientId = recipientId.trim();
     const roomId = [currentUserId, targetRecipientId].sort().join(":");
-    const participants = [currentUserId, targetRecipientId];
+    const participants = [currentUserId, targetRecipientId, currentUserEmail];
 
     // Encrypt the message text with AES-256-GCM
     const encrypted = encryptMessage(text.trim());
@@ -127,7 +188,7 @@ export async function POST(req: Request) {
     const hours = retentionHours === 12 ? 12 : 24;
     const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
-    const displayName = sender && sender.trim() ? sender.trim() : session.user.name || session.user.email?.split("@")[0] || "User";
+    const displayName = sender && sender.trim() ? sender.trim() : session.user.name || currentUserEmail.split("@")[0] || "User";
 
     const newMsg = await ChatMessage.create({
       senderId: currentUserId,
@@ -172,18 +233,19 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const currentUserId = (session.user as any).id || session.user.email;
+    await dbConnect();
+    const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
+    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+
     const { id, text } = await req.json();
 
     if (!id || !text || !text.trim()) {
       return NextResponse.json({ error: "Message ID and text are required" }, { status: 400 });
     }
-
-    await dbConnect();
 
     // Verify current user is the sender
     const existing = await ChatMessage.findById(id);
@@ -191,7 +253,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    if (existing.senderId !== currentUserId) {
+    if (existing.senderId !== currentUserId && existing.senderId !== session.user.email) {
       return NextResponse.json({ error: "You can only edit messages you sent" }, { status: 403 });
     }
 
@@ -226,25 +288,35 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const currentUserId = (session.user as any).id || session.user.email;
+    await dbConnect();
+    const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
+    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+
     const { searchParams } = new URL(req.url);
     const clearAll = searchParams.get("clearAll") === "true";
     const recipientId = searchParams.get("recipientId");
     const id = searchParams.get("id");
 
-    await dbConnect();
-
     // Clear whole 1-on-1 room conversation
     if (clearAll) {
       let filter: any = {};
       if (recipientId && recipientId.trim()) {
-        filter.roomId = [currentUserId, recipientId.trim()].sort().join(":");
+        const targetRecipientId = recipientId.trim();
+        const targetRoomId = [currentUserId, targetRecipientId].sort().join(":");
+        filter = {
+          $or: [
+            { roomId: targetRoomId },
+            { participants: { $all: [currentUserId, targetRecipientId] } },
+          ],
+        };
       } else {
-        filter.participants = currentUserId;
+        filter = {
+          $or: [{ participants: currentUserId }, { participants: session.user.email }],
+        };
       }
 
       await ChatMessage.deleteMany(filter);
@@ -261,7 +333,7 @@ export async function DELETE(req: Request) {
     }
 
     // Verify user is in participants
-    if (!existing.participants.includes(currentUserId)) {
+    if (!existing.participants.includes(currentUserId) && !existing.participants.includes(session.user.email)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
