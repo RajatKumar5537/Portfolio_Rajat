@@ -622,7 +622,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 light:text-amber-700 font-medium truncate">
                   <Bell size={14} className="text-amber-500 flex-shrink-0 animate-bounce" />
                   <span className="truncate">
-                    <strong>{req.requesterName}</strong> sent you a friend request to chat privately.
+                    <strong>{req.requesterName}</strong> sent you a friend request.
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto">
