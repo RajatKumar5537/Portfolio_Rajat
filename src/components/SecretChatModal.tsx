@@ -1725,23 +1725,23 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         >
           <div className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-[#202c33] border border-slate-300 dark:border-white/10 focus-within:border-teal-600 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 transition-all shadow-sm">
             {/* Attachment Button (Photo / Video) */}
-            <button
-              type="button"
-              onPointerDown={(e) => e.preventDefault()}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isCompressingMedia}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer flex-shrink-0"
+            <label
+              htmlFor="chat-media-file-input"
+              className={`p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer flex-shrink-0 flex items-center justify-center ${
+                isCompressingMedia ? "pointer-events-none opacity-60" : ""
+              }`}
               title="Attach Photo or Video"
             >
               {isCompressingMedia ? <Loader2 size={17} className="animate-spin text-teal-600 dark:text-teal-400" /> : <Paperclip size={17} />}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
+              <input
+                id="chat-media-file-input"
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </label>
 
             {/* Emoji Button */}
             <button
