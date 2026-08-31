@@ -34,9 +34,15 @@ export async function GET(req: Request) {
         if (targetUser) {
           targetRecipientId = targetUser._id.toString();
         }
-      } else {
+      } else if (mongoose.isValidObjectId(targetRecipientId)) {
         const targetUser = await User.findById(targetRecipientId);
         if (targetUser) {
+          targetRecipientEmail = targetUser.email.toLowerCase();
+        }
+      } else {
+        const targetUser = await User.findOne({ email: targetRecipientId.toLowerCase() });
+        if (targetUser) {
+          targetRecipientId = targetUser._id.toString();
           targetRecipientEmail = targetUser.email.toLowerCase();
         }
       }
@@ -45,22 +51,26 @@ export async function GET(req: Request) {
     // Lookup connection settings (user-specific retention & clear timestamp)
     let myRetentionHours = 24;
     let myClearedAt: Date | null = null;
+    let connRoomId: string | null = null;
 
     if (targetRecipientId) {
-      const targetRoomId = [currentUserId, targetRecipientId].sort().join(":");
       const conn: any = await ChatConnection.findOne({
         $or: [
-          { roomId: targetRoomId },
+          { roomId: [currentUserId, targetRecipientId].sort().join(":") },
+          { roomId: [currentUserId, targetRecipientId].sort().join("_") },
           { $and: [{ requesterId: currentUserId }, { recipientId: targetRecipientId }] },
           { $and: [{ requesterId: targetRecipientId }, { recipientId: currentUserId }] },
           ...(targetRecipientEmail ? [
             { $and: [{ requesterEmail: currentUserEmail }, { recipientEmail: targetRecipientEmail }] },
             { $and: [{ requesterEmail: targetRecipientEmail }, { recipientEmail: currentUserEmail }] },
+            { $and: [{ requesterId: currentUserId }, { recipientEmail: targetRecipientEmail }] },
+            { $and: [{ requesterId: targetRecipientId }, { recipientEmail: currentUserEmail }] },
           ] : []),
         ],
       });
 
       if (conn) {
+        connRoomId = conn.roomId;
         const isRequester = conn.requesterId === currentUserId || conn.requesterEmail === currentUserEmail;
         myRetentionHours = isRequester ? (conn.requesterRetentionHours || 24) : (conn.recipientRetentionHours || 24);
         myClearedAt = isRequester ? conn.requesterClearedAt : conn.recipientClearedAt;
@@ -68,27 +78,39 @@ export async function GET(req: Request) {
     }
 
     // Calculate user's retention cutoff date
-    const retentionCutoff = new Date(Date.now() - myRetentionHours * 60 * 60 * 1000);
-    const effectiveEarliestDate = myClearedAt && myClearedAt > retentionCutoff ? myClearedAt : retentionCutoff;
+    const retentionCutoff = new Date(Date.now() - (myRetentionHours || 24) * 60 * 60 * 1000);
+    const effectiveEarliestDate = myClearedAt && new Date(myClearedAt) > retentionCutoff ? new Date(myClearedAt) : retentionCutoff;
+
+    const userSelfIds = [currentUserId, currentUserEmail].filter(Boolean);
+    const userTargetIds = [targetRecipientId, targetRecipientEmail, rawRecipientId].filter(Boolean);
 
     let query: any = {};
 
     if (targetRecipientId) {
-      const targetRoomId = [currentUserId, targetRecipientId].sort().join(":");
+      const possibleRoomIds = [
+        ...(connRoomId ? [connRoomId] : []),
+        [currentUserId, targetRecipientId].sort().join(":"),
+        [currentUserId, targetRecipientId].sort().join("_"),
+        ...(targetRecipientEmail ? [
+          [currentUserEmail, targetRecipientEmail].sort().join(":"),
+          [currentUserEmail, targetRecipientEmail].sort().join("_"),
+          [currentUserId, targetRecipientEmail].sort().join(":"),
+          [currentUserId, targetRecipientEmail].sort().join("_"),
+        ] : []),
+      ];
 
       query = {
         $and: [
           {
             $or: [
-              { roomId: targetRoomId },
+              { roomId: { $in: possibleRoomIds } },
+              { $and: [{ senderId: { $in: userSelfIds } }, { recipientId: { $in: userTargetIds } }] },
+              { $and: [{ senderId: { $in: userTargetIds } }, { recipientId: { $in: userSelfIds } }] },
               { participants: { $all: [currentUserId, targetRecipientId] } },
-              { $and: [{ senderId: currentUserId }, { recipientId: targetRecipientId }] },
-              { $and: [{ senderId: targetRecipientId }, { recipientId: currentUserId }] },
               ...(targetRecipientEmail ? [
                 { participants: { $all: [currentUserEmail, targetRecipientEmail] } },
-                { $and: [{ senderId: currentUserId }, { recipientId: targetRecipientEmail }] },
-                { $and: [{ senderId: targetRecipientId }, { recipientId: currentUserEmail }] },
-              ] : [])
+                { participants: { $all: [currentUserId, targetRecipientEmail] } },
+              ] : []),
             ],
           },
           // Filter out messages cleared by current user
@@ -100,7 +122,7 @@ export async function GET(req: Request) {
             createdAt: { $gt: effectiveEarliestDate },
           },
           {
-            $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
+            $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }, { expiresAt: { $exists: false } }],
           },
         ],
       };
@@ -113,6 +135,8 @@ export async function GET(req: Request) {
               { participants: currentUserEmail },
               { senderId: currentUserId },
               { recipientId: currentUserId },
+              { senderId: currentUserEmail },
+              { recipientId: currentUserEmail },
             ],
           },
           {
@@ -122,7 +146,7 @@ export async function GET(req: Request) {
             createdAt: { $gt: effectiveEarliestDate },
           },
           {
-            $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
+            $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }, { expiresAt: { $exists: false } }],
           },
         ],
       };
@@ -262,8 +286,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const roomId = connection.roomId || [currentUserId, targetRecipientId].sort().join("_");
-    const participants = [currentUserId, targetRecipientId];
+    const roomId = connection.roomId || [currentUserId, targetRecipientId].sort().join(":");
+    const participants = [currentUserId, targetRecipientId, currentUserEmail, recipientUser?.email || recipientId].filter(Boolean);
 
     const encrypted = encryptMessage(text.trim());
 
