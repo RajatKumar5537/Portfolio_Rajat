@@ -116,12 +116,22 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const chatFeedRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll helper
+  // Auto-scroll helper that strictly scrolls only the chat container, never the window/body
   const scrollToBottom = (smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
+    if (chatFeedRef.current) {
+      if (smooth) {
+        chatFeedRef.current.scrollTo({
+          top: chatFeedRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      } else {
+        chatFeedRef.current.scrollTop = chatFeedRef.current.scrollHeight;
+      }
+    }
   };
 
   // Fetch 1-on-1 messages for a specific partner ID
@@ -248,6 +258,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
+    // Lock body scrolling when modal is active
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
@@ -259,14 +275,19 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       clearInterval(messageInterval);
       clearInterval(presenceInterval);
       clearInterval(connectionInterval);
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, onClose]);
 
-  // When selected friend changes, reload messages
+  // When selected friend changes, reload messages and retention
   useEffect(() => {
     if (isOpen && selectedFriend) {
+      if (selectedFriend.retentionHours) {
+        setRetentionHours(selectedFriend.retentionHours as 12 | 24);
+      }
       setLoading(true);
       fetchMessagesForPartner(selectedFriend.partnerId, true);
     }
@@ -394,9 +415,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     (u) => !u.isMe && (selectedFriend?.partnerId === u.userId || selectedFriend?.partnerName === u.userName)
   );
 
-  // Send 1-on-1 message handler
+  // Send 1-on-1 message handler with keyboard focus persistence
   const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+    if (e) {
+      e.preventDefault();
+    }
     if (!inputText.trim() || !selectedFriend || sending) return;
 
     const currentPartner = selectedFriend;
@@ -405,7 +428,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
     setInputText("");
     setReplyingTo(null);
-    setSending(true);
+
+    // Immediately keep input focused so keyboard never hides
+    inputRef.current?.focus();
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     syncPresence(false);
@@ -426,15 +451,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       if (res.ok) {
         const newMsg = await res.json();
         setMessages((prev) => [...prev, newMsg]);
-        setTimeout(() => scrollToBottom(), 50);
+        setTimeout(() => scrollToBottom(true), 30);
         if (onMessagesRead) onMessagesRead();
-        // Immediately trigger sync
         fetchMessagesForPartner(currentPartner.partnerId, true);
       }
     } catch (err) {
       console.error("Error sending 1-on-1 message:", err);
     } finally {
-      setSending(false);
+      // Re-assert focus
+      setTimeout(() => inputRef.current?.focus(), 10);
     }
   };
 
@@ -477,10 +502,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   };
 
-  // Clear 1-on-1 conversation
+  // Clear 1-on-1 conversation for current user only
   const handleClearAll = async () => {
     if (!selectedFriend) return;
-    if (!confirm(`Wipe the entire conversation history with ${selectedFriend.partnerName} permanently?`)) return;
+    if (!confirm(`Clear conversation with ${selectedFriend.partnerName} for you? (Your friend will still keep their chat history)`)) return;
 
     try {
       const res = await fetch(`/api/chat/messages?clearAll=true&recipientId=${encodeURIComponent(selectedFriend.partnerId)}`, {
@@ -491,7 +516,24 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         setMessages([]);
       }
     } catch (err) {
-      console.error("Error clearing 1-on-1 conversation:", err);
+      console.error("Error clearing conversation:", err);
+    }
+  };
+
+  // Update per-user disappearing messages retention (12h or 24h)
+  const handleUpdateRetention = async (hours: 12 | 24) => {
+    setRetentionHours(hours);
+    if (!selectedFriend) return;
+
+    try {
+      await fetch("/api/chat/connections", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId: selectedFriend.connectionId, retentionHours: hours }),
+      });
+      fetchMessagesForPartner(selectedFriend.partnerId, true);
+    } catch (err) {
+      console.error("Error updating retention:", err);
     }
   };
 
@@ -580,36 +622,38 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <span className="hidden sm:inline text-[10px]">Add Friend</span>
             </button>
 
-            {/* Auto-delete toggle */}
+            {/* Per-user disappearing messages toggle */}
             <div className="flex items-center bg-slate-200/70 dark:bg-white/5 light:bg-slate-200/70 border border-slate-300 dark:border-white/10 light:border-slate-300 rounded-xl p-0.5 sm:p-1 text-[8px] sm:text-[9px] font-mono">
               <button
                 type="button"
-                onClick={() => setRetentionHours(12)}
+                onClick={() => handleUpdateRetention(12)}
                 className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
                   retentionHours === 12 ? "bg-teal-600 text-white font-bold" : "text-slate-600 dark:text-slate-400 light:text-slate-600 hover:text-slate-900 dark:hover:text-slate-200"
                 }`}
+                title="Disappear messages older than 12 hours for your view"
               >
                 12h
               </button>
               <button
                 type="button"
-                onClick={() => setRetentionHours(24)}
+                onClick={() => handleUpdateRetention(24)}
                 className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
                   retentionHours === 24 ? "bg-teal-600 text-white font-bold" : "text-slate-600 dark:text-slate-400 light:text-slate-600 hover:text-slate-900 dark:hover:text-slate-200"
                 }`}
+                title="Disappear messages older than 24 hours for your view"
               >
                 24h
               </button>
             </div>
 
-            {/* Clear Conversation Button */}
+            {/* Clear Conversation for Me Button */}
             {selectedFriend && (
               <button
                 type="button"
                 onClick={handleClearAll}
                 disabled={messages.length === 0}
                 className="p-2 sm:p-1.5 rounded-xl bg-slate-200/70 dark:bg-white/5 light:bg-slate-200/70 hover:bg-red-500/20 text-slate-600 dark:text-slate-400 light:text-slate-600 hover:text-red-500 border border-slate-300 dark:border-white/5 light:border-slate-300 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
-                title="Wipe conversation with this friend"
+                title="Clear conversation for you"
               >
                 <Trash2 size={15} />
               </button>
@@ -854,7 +898,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         </div>
 
         {/* Message Feed */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 bg-slate-50/60 dark:bg-transparent light:bg-slate-50/60 overscroll-contain transition-colors">
+        <div 
+          ref={chatFeedRef}
+          className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-slate-50/60 dark:bg-transparent light:bg-slate-50/60 overscroll-contain touch-pan-y transition-colors"
+        >
           {!selectedFriend ? (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8">
               <div className="p-3.5 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400">
@@ -1148,6 +1195,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
             <button
               type="submit"
+              onMouseDown={(e) => e.preventDefault()}
               disabled={!inputText.trim() || !selectedFriend || sending}
               className="p-2 sm:p-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer flex-shrink-0 shadow-md shadow-teal-500/20 min-w-[36px] min-h-[36px] flex items-center justify-center"
               title="Send Message"

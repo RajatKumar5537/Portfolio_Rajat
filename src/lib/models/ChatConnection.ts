@@ -44,6 +44,22 @@ const ChatConnectionSchema = new Schema(
       required: true,
       index: true,
     },
+    requesterRetentionHours: {
+      type: Number,
+      default: 24,
+    },
+    recipientRetentionHours: {
+      type: Number,
+      default: 24,
+    },
+    requesterClearedAt: {
+      type: Date,
+      default: null,
+    },
+    recipientClearedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -53,6 +69,10 @@ const ChatConnectionSchema = new Schema(
 // Compound index to ensure uniqueness for a pair
 ChatConnectionSchema.index({ requesterId: 1, recipientId: 1 }, { unique: true });
 
-const ChatConnection = models.ChatConnection || model("ChatConnection", ChatConnectionSchema);
+if (models.ChatConnection) {
+  delete (models as any).ChatConnection;
+}
+
+const ChatConnection = model("ChatConnection", ChatConnectionSchema);
 
 export default ChatConnection;

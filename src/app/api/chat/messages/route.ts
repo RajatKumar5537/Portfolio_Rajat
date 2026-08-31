@@ -4,6 +4,7 @@ import { authOptions } from "../../auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import ChatMessage from "@/lib/models/ChatMessage";
+import ChatConnection from "@/lib/models/ChatConnection";
 import { encryptMessage, decryptMessage } from "@/lib/crypto";
 
 export async function GET(req: Request) {
@@ -23,12 +24,10 @@ export async function GET(req: Request) {
     const shouldMarkRead = searchParams.get("markRead") !== "false";
     const now = new Date();
 
-    let query: any = {};
+    let targetRecipientId = rawRecipientId?.trim() || "";
+    let targetRecipientEmail = "";
 
-    if (rawRecipientId && rawRecipientId.trim()) {
-      let targetRecipientId = rawRecipientId.trim();
-      let targetRecipientEmail = "";
-
+    if (targetRecipientId) {
       if (targetRecipientId.includes("@")) {
         targetRecipientEmail = targetRecipientId.toLowerCase();
         const targetUser = await User.findOne({ email: targetRecipientEmail });
@@ -41,7 +40,40 @@ export async function GET(req: Request) {
           targetRecipientEmail = targetUser.email.toLowerCase();
         }
       }
+    }
 
+    // Lookup connection settings (user-specific retention & clear timestamp)
+    let myRetentionHours = 24;
+    let myClearedAt: Date | null = null;
+
+    if (targetRecipientId) {
+      const targetRoomId = [currentUserId, targetRecipientId].sort().join(":");
+      const conn: any = await ChatConnection.findOne({
+        $or: [
+          { roomId: targetRoomId },
+          { $and: [{ requesterId: currentUserId }, { recipientId: targetRecipientId }] },
+          { $and: [{ requesterId: targetRecipientId }, { recipientId: currentUserId }] },
+          ...(targetRecipientEmail ? [
+            { $and: [{ requesterEmail: currentUserEmail }, { recipientEmail: targetRecipientEmail }] },
+            { $and: [{ requesterEmail: targetRecipientEmail }, { recipientEmail: currentUserEmail }] },
+          ] : []),
+        ],
+      });
+
+      if (conn) {
+        const isRequester = conn.requesterId === currentUserId || conn.requesterEmail === currentUserEmail;
+        myRetentionHours = isRequester ? (conn.requesterRetentionHours || 24) : (conn.recipientRetentionHours || 24);
+        myClearedAt = isRequester ? conn.requesterClearedAt : conn.recipientClearedAt;
+      }
+    }
+
+    // Calculate user's retention cutoff date
+    const retentionCutoff = new Date(Date.now() - myRetentionHours * 60 * 60 * 1000);
+    const effectiveEarliestDate = myClearedAt && myClearedAt > retentionCutoff ? myClearedAt : retentionCutoff;
+
+    let query: any = {};
+
+    if (targetRecipientId) {
       const targetRoomId = [currentUserId, targetRecipientId].sort().join(":");
 
       query = {
@@ -59,6 +91,14 @@ export async function GET(req: Request) {
               ] : [])
             ],
           },
+          // Filter out messages cleared by current user
+          {
+            clearedFor: { $nin: [currentUserId, currentUserEmail] },
+          },
+          // Filter by user's personal retention & clear cutoff
+          {
+            createdAt: { $gt: effectiveEarliestDate },
+          },
           {
             $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
           },
@@ -74,6 +114,12 @@ export async function GET(req: Request) {
               { senderId: currentUserId },
               { recipientId: currentUserId },
             ],
+          },
+          {
+            clearedFor: { $nin: [currentUserId, currentUserEmail] },
+          },
+          {
+            createdAt: { $gt: effectiveEarliestDate },
           },
           {
             $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }],
@@ -184,8 +230,8 @@ export async function POST(req: Request) {
     // Encrypt the message text with AES-256-GCM
     const encrypted = encryptMessage(text.trim());
 
-    // Calculate expiration date
-    const hours = retentionHours === 12 ? 12 : 24;
+    // Messages persist in DB up to 24h (max retention), each user views according to their setting
+    const hours = 24;
     const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
     const displayName = sender && sender.trim() ? sender.trim() : session.user.name || currentUserEmail.split("@")[0] || "User";
@@ -195,6 +241,7 @@ export async function POST(req: Request) {
       recipientId: targetRecipientId,
       roomId,
       participants,
+      clearedFor: [],
       sender: displayName,
       content: encrypted.content,
       iv: encrypted.iv,
@@ -204,7 +251,7 @@ export async function POST(req: Request) {
         sender: replyTo.sender,
         text: replyTo.text,
       } : null,
-      retentionHours: hours,
+      retentionHours: retentionHours || 24,
       expiresAt,
       isRead: false,
       isEdited: false,
@@ -295,34 +342,77 @@ export async function DELETE(req: Request) {
     await dbConnect();
     const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
     const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+    const currentUserEmail = session.user.email.toLowerCase().trim();
 
     const { searchParams } = new URL(req.url);
     const clearAll = searchParams.get("clearAll") === "true";
     const recipientId = searchParams.get("recipientId");
     const id = searchParams.get("id");
 
-    // Clear whole 1-on-1 room conversation
+    // "Clear Conversation" -> Only clears for the requesting user! (Other friend keeps conversation intact)
     if (clearAll) {
-      let filter: any = {};
-      if (recipientId && recipientId.trim()) {
-        const targetRecipientId = recipientId.trim();
-        const targetRoomId = [currentUserId, targetRecipientId].sort().join(":");
-        filter = {
-          $or: [
-            { roomId: targetRoomId },
-            { participants: { $all: [currentUserId, targetRecipientId] } },
-          ],
-        };
-      } else {
-        filter = {
-          $or: [{ participants: currentUserId }, { participants: session.user.email }],
-        };
+      let targetRecipientId = recipientId?.trim() || "";
+      let targetRecipientEmail = "";
+
+      if (targetRecipientId) {
+        if (targetRecipientId.includes("@")) {
+          targetRecipientEmail = targetRecipientId.toLowerCase();
+          const targetUser = await User.findOne({ email: targetRecipientEmail });
+          if (targetUser) {
+            targetRecipientId = targetUser._id.toString();
+          }
+        } else {
+          const targetUser = await User.findById(targetRecipientId);
+          if (targetUser) {
+            targetRecipientEmail = targetUser.email.toLowerCase();
+          }
+        }
       }
 
-      await ChatMessage.deleteMany(filter);
-      return NextResponse.json({ success: true, message: "1-on-1 conversation history wiped" });
+      const targetRoomId = targetRecipientId ? [currentUserId, targetRecipientId].sort().join(":") : "";
+
+      const roomFilter = targetRoomId
+        ? {
+            $or: [
+              { roomId: targetRoomId },
+              { participants: { $all: [currentUserId, targetRecipientId] } },
+              ...(targetRecipientEmail ? [{ participants: { $all: [currentUserEmail, targetRecipientEmail] } }] : []),
+            ],
+          }
+        : {
+            $or: [{ participants: currentUserId }, { participants: currentUserEmail }],
+          };
+
+      // Add current user to clearedFor on all room messages (so only current user's view is cleared)
+      await ChatMessage.updateMany(roomFilter, {
+        $addToSet: { clearedFor: { $each: [currentUserId, currentUserEmail] } },
+      });
+
+      // Update connection cleared timestamp
+      if (targetRecipientId) {
+        const now = new Date();
+        const conn: any = await ChatConnection.findOne({
+          $or: [
+            { roomId: targetRoomId },
+            { $and: [{ requesterId: currentUserId }, { recipientId: targetRecipientId }] },
+            { $and: [{ requesterId: targetRecipientId }, { recipientId: currentUserId }] },
+          ],
+        });
+
+        if (conn) {
+          if (conn.requesterId === currentUserId || conn.requesterEmail === currentUserEmail) {
+            conn.requesterClearedAt = now;
+          } else {
+            conn.recipientClearedAt = now;
+          }
+          await conn.save();
+        }
+      }
+
+      return NextResponse.json({ success: true, message: "Conversation cleared for your view only." });
     }
 
+    // Individual message "Delete for Everyone"
     if (!id) {
       return NextResponse.json({ error: "Message ID or clearAll=true is required" }, { status: 400 });
     }
@@ -332,12 +422,12 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    // Verify user is in participants
-    if (!existing.participants.includes(currentUserId) && !existing.participants.includes(session.user.email)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    // Verify user is sender or participant
+    if (existing.senderId !== currentUserId && existing.senderId !== currentUserEmail) {
+      return NextResponse.json({ error: "Unauthorized to delete this message for everyone" }, { status: 403 });
     }
 
-    // Wipe sensitive payload and mark as deleted
+    // Wipe sensitive payload and mark as deleted for everyone (WhatsApp style)
     existing.content = "";
     existing.iv = "";
     existing.authTag = "";
@@ -345,7 +435,7 @@ export async function DELETE(req: Request) {
     existing.isDeleted = true;
     await existing.save();
 
-    return NextResponse.json({ success: true, message: "Message marked as deleted" });
+    return NextResponse.json({ success: true, message: "Message deleted for everyone" });
   } catch (error: any) {
     console.error("DELETE Chat Message Error:", error);
     return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });

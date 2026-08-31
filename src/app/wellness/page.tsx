@@ -59,8 +59,8 @@ export default function WellnessPage() {
   // Stealth Secret Chat States
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const notesClickCountRef = useRef(0);
-  const notesClickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const headerClickCountRef = useRef(0);
+  const headerClickTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Workout Builder State
   const [exercisesList, setExercisesList] = useState<ExerciseItem[]>([]);
@@ -254,17 +254,17 @@ export default function WellnessPage() {
     }
   };
 
-  // Stealth triple click listener for "Workout Details / Notes" label
-  const handleNotesLabelClick = () => {
-    notesClickCountRef.current += 1;
-    if (notesClickTimerRef.current) clearTimeout(notesClickTimerRef.current);
+  // Stealth triple click listener for "Wellness tracker / Exercise sessions" header
+  const handleHeaderTitleClick = () => {
+    headerClickCountRef.current += 1;
+    if (headerClickTimerRef.current) clearTimeout(headerClickTimerRef.current);
 
-    if (notesClickCountRef.current >= 3) {
-      notesClickCountRef.current = 0;
+    if (headerClickCountRef.current >= 3) {
+      headerClickCountRef.current = 0;
       setIsChatOpen(true);
     } else {
-      notesClickTimerRef.current = setTimeout(() => {
-        notesClickCountRef.current = 0;
+      headerClickTimerRef.current = setTimeout(() => {
+        headerClickCountRef.current = 0;
       }, 1500);
     }
   };
@@ -593,9 +593,25 @@ export default function WellnessPage() {
         <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-grow">
           {/* Header & Filters */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            <div>
-              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Wellness tracker</h2>
-              <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Exercise sessions & sleep diagnostics console</p>
+            <div
+              onClick={handleHeaderTitleClick}
+              className="cursor-pointer select-none group transition-all"
+              title="Wellness Console"
+            >
+              <h2 className={`page-heading text-xl font-black uppercase tracking-widest transition-colors duration-300 ${
+                unreadChatCount > 0
+                  ? "text-amber-500 dark:text-amber-400 font-black animate-pulse"
+                  : "text-slate-900 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400"
+              }`}>
+                Wellness tracker
+              </h2>
+              <p className={`page-subheading text-xs uppercase tracking-wider mt-0.5 transition-colors duration-300 ${
+                unreadChatCount > 0
+                  ? "text-amber-600 dark:text-amber-300 font-bold"
+                  : "text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300"
+              }`}>
+                Exercise sessions & sleep diagnostics console
+              </p>
             </div>
 
             {/* Premium Theme-Responsive Month/Year/Date selection bar with iPhone visibility fix */}
@@ -1022,22 +1038,9 @@ export default function WellnessPage() {
 
                       {/* Workout Details Notes */}
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label
-                            onClick={handleNotesLabelClick}
-                            className={`text-[9px] uppercase font-bold tracking-widest cursor-pointer select-none transition-all duration-300 py-1 px-1 inline-block ${
-                              unreadChatCount > 0
-                                ? "text-amber-400 font-black animate-pulse"
-                                : "text-teal-400 hover:text-teal-300"
-                            }`}
-                            title="Workout Details / Notes"
-                          >
-                            Workout Details / Notes
-                          </label>
-                          {unreadChatCount > 0 && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                          )}
-                        </div>
+                        <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">
+                          Workout Details / Notes
+                        </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3 pt-2 text-slate-600">
                             <FileText size={14} />

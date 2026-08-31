@@ -22,6 +22,11 @@ const ChatMessageSchema = new Schema(
       required: true,
       index: true,
     },
+    clearedFor: {
+      type: [String],
+      default: [],
+      index: true,
+    },
     sender: {
       type: String,
       required: [true, "Sender is required"],
@@ -59,11 +64,10 @@ const ChatMessageSchema = new Schema(
     retentionHours: {
       type: Number,
       default: 24,
-      enum: [12, 24, 0],
     },
     expiresAt: {
       type: Date,
-      index: { expires: 0 }, // TTL index automatically cleans up expired messages in MongoDB
+      index: { expires: 0 },
     },
   },
   {
@@ -71,7 +75,11 @@ const ChatMessageSchema = new Schema(
   }
 );
 
-// Prevent re-compiling model in Next.js HMR
-const ChatMessage = models.ChatMessage || model("ChatMessage", ChatMessageSchema);
+// Delete existing model in memory to allow updated schema in Next.js dev/prod
+if (models.ChatMessage) {
+  delete (models as any).ChatMessage;
+}
+
+const ChatMessage = model("ChatMessage", ChatMessageSchema);
 
 export default ChatMessage;
