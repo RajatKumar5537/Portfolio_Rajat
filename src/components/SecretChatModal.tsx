@@ -175,56 +175,85 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   // Message Info Modal state
   const [selectedInfoMsg, setSelectedInfoMsg] = useState<MessageItem | null>(null);
 
-  // Swipe-to-Reply & Swipe-for-Actions gesture state
+  // Universal Gesture Swipe for Laptop (Mouse / Trackpad) and Mobile (Touch)
   const [swipingId, setSwipingId] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<number>(0);
-  const touchStartXRef = useRef<number>(0);
-  const touchStartYRef = useRef<number>(0);
-  const isHorizontalSwipeRef = useRef<boolean>(false);
+  const pointerStartXRef = useRef<number>(0);
+  const pointerStartYRef = useRef<number>(0);
+  const isDraggingRef = useRef<boolean>(false);
+  const activePointerIdRef = useRef<number | null>(null);
 
-  const handleBubbleTouchStart = (e: React.TouchEvent, msgId: string) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    touchStartYRef.current = e.touches[0].clientY;
-    isHorizontalSwipeRef.current = false;
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, msgId: string) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    pointerStartXRef.current = e.clientX;
+    pointerStartYRef.current = e.clientY;
+    isDraggingRef.current = false;
+    activePointerIdRef.current = e.pointerId;
     setSwipingId(msgId);
     setSwipeOffset(0);
   };
 
-  const handleBubbleTouchMove = (e: React.TouchEvent) => {
-    if (!swipingId) return;
-    const deltaX = e.touches[0].clientX - touchStartXRef.current;
-    const deltaY = e.touches[0].clientY - touchStartYRef.current;
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!swipingId || activePointerIdRef.current !== e.pointerId) return;
 
-    // Distinguish between horizontal swipe vs vertical scroll
-    if (!isHorizontalSwipeRef.current) {
-      if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
-        isHorizontalSwipeRef.current = true;
-      } else if (Math.abs(deltaY) > 8) {
+    const deltaX = e.clientX - pointerStartXRef.current;
+    const deltaY = e.clientY - pointerStartYRef.current;
+
+    // Detect horizontal drag intent
+    if (!isDraggingRef.current) {
+      if (Math.abs(deltaX) > 5 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        isDraggingRef.current = true;
+        try {
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        } catch (_) {}
+      } else if (Math.abs(deltaY) > 6) {
         return; // Natural vertical scroll
       }
     }
 
-    if (isHorizontalSwipeRef.current) {
-      // Apply elastic damping
-      const damped = deltaX > 0 ? Math.min(75, deltaX * 0.75) : Math.max(-75, deltaX * 0.75);
+    if (isDraggingRef.current) {
+      e.preventDefault();
+      // Elastic damping
+      const damped = deltaX > 0 ? Math.min(80, deltaX * 0.8) : Math.max(-80, deltaX * 0.8);
       setSwipeOffset(damped);
     }
   };
 
-  const handleBubbleTouchEnd = (msg: MessageItem) => {
-    if (swipingId === msg._id && isHorizontalSwipeRef.current) {
-      if (swipeOffset > 40) {
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>, msg: MessageItem) => {
+    if (swipingId === msg._id && isDraggingRef.current) {
+      if (swipeOffset > 35) {
         // Swiped Right -> Instant Reply
         setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text });
-        inputRef.current?.focus();
-      } else if (swipeOffset < -40) {
+        focusInput();
+      } else if (swipeOffset < -35) {
         // Swiped Left -> Toggle Actions Toolbar
         setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
       }
     }
+
+    try {
+      if (activePointerIdRef.current !== null) {
+        (e.currentTarget as HTMLElement).releasePointerCapture(activePointerIdRef.current);
+      }
+    } catch (_) {}
+
+    activePointerIdRef.current = null;
+    isDraggingRef.current = false;
     setSwipingId(null);
     setSwipeOffset(0);
-    isHorizontalSwipeRef.current = false;
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      if (activePointerIdRef.current !== null) {
+        (e.currentTarget as HTMLElement).releasePointerCapture(activePointerIdRef.current);
+      }
+    } catch (_) {}
+    activePointerIdRef.current = null;
+    isDraggingRef.current = false;
+    setSwipingId(null);
+    setSwipeOffset(0);
   };
 
   // Quick Emoji Picker state
@@ -539,12 +568,25 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     (u) => !u.isMe && (selectedFriend?.partnerId === u.userId || selectedFriend?.partnerName === u.userName)
   );
 
+  const focusInput = () => {
+    if (inputRef.current) {
+      inputRef.current.focus({ preventScroll: true });
+      requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 10);
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50);
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 120);
+    }
+  };
+
   // Send 1-on-1 message handler with keyboard focus persistence
   const handleSend = async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
     }
-    if (!inputText.trim() || !selectedFriend || sending) return;
+    if (!inputText.trim() || !selectedFriend || sending) {
+      focusInput();
+      return;
+    }
 
     const currentPartner = selectedFriend;
     const textToSend = inputText.trim();
@@ -553,8 +595,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     setInputText("");
     setReplyingTo(null);
 
-    // Immediately keep input focused so keyboard never hides
-    inputRef.current?.focus();
+    // Immediately keep input focused so mobile keyboard never hides
+    focusInput();
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     syncPresence(false);
@@ -582,8 +624,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     } catch (err) {
       console.error("Error sending 1-on-1 message:", err);
     } finally {
-      // Re-assert focus
-      setTimeout(() => inputRef.current?.focus(), 10);
+      focusInput();
     }
   };
 
@@ -1137,10 +1178,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   ) : (
                     /* Clean Modern Message Bubble (Tap to open action sheet or Swipe Right to Reply / Left for Actions) */
                     <div 
-                      className="relative group max-w-[85%] sm:max-w-[75%]"
-                      onTouchStart={(e) => handleBubbleTouchStart(e, msg._id)}
-                      onTouchMove={handleBubbleTouchMove}
-                      onTouchEnd={() => handleBubbleTouchEnd(msg)}
+                      className="relative group max-w-[85%] sm:max-w-[75%] touch-pan-y select-none"
+                      onPointerDown={(e) => handlePointerDown(e, msg._id)}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={(e) => handlePointerUp(e, msg)}
+                      onPointerCancel={handlePointerCancel}
                     >
                       {/* Swipe Right Visual Hint (Reply ↩️) */}
                       {swipingId === msg._id && swipeOffset > 15 && (
@@ -1171,7 +1213,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       <div
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!isHorizontalSwipeRef.current) {
+                          if (!isDraggingRef.current) {
                             setActiveActionMenuId(isMenuOpen ? null : msg._id);
                           }
                         }}
@@ -1418,20 +1460,25 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
         )}
 
-        {/* Input Bar */}
-        <form 
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }} 
+        {/* Input Bar (Div container to prevent form submit keyboard dismiss) */}
+        <div 
           className="p-2.5 sm:p-3.5 bg-slate-50 dark:bg-[#0d0d1c] light:bg-slate-50 border-t border-slate-200 dark:border-white/10 light:border-slate-200 flex-shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))] transition-colors"
         >
           <div className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-white/[0.05] light:bg-white border border-slate-300 dark:border-white/15 light:border-slate-300 focus-within:border-teal-500 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 transition-all shadow-sm">
             {/* Emoji Button */}
             <button
               type="button"
+              onPointerDown={(e) => e.preventDefault()}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                setShowEmojiPicker(!showEmojiPicker);
+                focusInput();
+              }}
+              onClick={() => {
+                setShowEmojiPicker(!showEmojiPicker);
+                focusInput();
+              }}
               className={`p-1.5 rounded-lg transition-all cursor-pointer flex-shrink-0 ${
                 showEmojiPicker
                   ? "bg-teal-500/20 text-teal-600 dark:text-teal-400"
@@ -1463,23 +1510,28 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
             <button
               type="button"
+              onPointerDown={(e) => e.preventDefault()}
               onMouseDown={(e) => e.preventDefault()}
               onTouchStart={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
+              onTouchEnd={(e) => e.preventDefault()}
               onClick={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              disabled={!inputText.trim() || !selectedFriend}
-              className="p-2 sm:p-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer flex-shrink-0 shadow-md shadow-teal-500/20 min-w-[36px] min-h-[36px] flex items-center justify-center"
+              className={`p-2 sm:p-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white transition-all flex-shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center select-none ${
+                !inputText.trim() || !selectedFriend
+                  ? "opacity-35 cursor-not-allowed"
+                  : "opacity-100 cursor-pointer shadow-md shadow-teal-500/25 active:scale-95"
+              }`}
               title="Send Message"
             >
               <Send size={15} />
             </button>
           </div>
-        </form>
+        </div>
         {/* Message Info Modal */}
         {selectedInfoMsg && (
           <div 
