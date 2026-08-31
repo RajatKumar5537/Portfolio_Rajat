@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
+import SecretChatModal from "@/components/SecretChatModal";
 import { 
   Activity, Moon, Trash2, Calendar, Award, Info, Loader2, Plus, Sparkles, 
   ChevronLeft, ChevronRight, Pencil, Check, X, Dumbbell, Flame, Clock, Brain, FileText
@@ -54,6 +55,12 @@ export default function WellnessPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 10;
   const logsRef = useRef<HTMLDivElement>(null);
+
+  // Stealth Secret Chat States
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const notesClickCountRef = useRef(0);
+  const notesClickTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Workout Builder State
   const [exercisesList, setExercisesList] = useState<ExerciseItem[]>([]);
@@ -228,7 +235,39 @@ export default function WellnessPage() {
 
   useEffect(() => {
     fetchWellnessLogs();
+    fetchUnreadChatCount();
+
+    // Poll unread chat messages count every 10 seconds for dynamic color shifts
+    const chatInterval = setInterval(fetchUnreadChatCount, 10000);
+    return () => clearInterval(chatInterval);
   }, []);
+
+  const fetchUnreadChatCount = async () => {
+    try {
+      const res = await fetch("/api/chat/unread");
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadChatCount(data.unreadCount || 0);
+      }
+    } catch (err) {
+      console.error("Error fetching unread chat count:", err);
+    }
+  };
+
+  // Stealth triple click listener for "Workout Details / Notes" label
+  const handleNotesLabelClick = () => {
+    notesClickCountRef.current += 1;
+    if (notesClickTimerRef.current) clearTimeout(notesClickTimerRef.current);
+
+    if (notesClickCountRef.current >= 3) {
+      notesClickCountRef.current = 0;
+      setIsChatOpen(true);
+    } else {
+      notesClickTimerRef.current = setTimeout(() => {
+        notesClickCountRef.current = 0;
+      }, 1500);
+    }
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -983,7 +1022,22 @@ export default function WellnessPage() {
 
                       {/* Workout Details Notes */}
                       <div className="space-y-1">
-                        <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">Workout Details / Notes</label>
+                        <div className="flex items-center justify-between">
+                          <label
+                            onClick={handleNotesLabelClick}
+                            className={`text-[9px] uppercase font-bold tracking-widest cursor-pointer select-none transition-all duration-300 py-1 px-1 inline-block ${
+                              unreadChatCount > 0
+                                ? "text-amber-400 font-black animate-pulse"
+                                : "text-teal-400 hover:text-teal-300"
+                            }`}
+                            title="Workout Details / Notes"
+                          >
+                            Workout Details / Notes
+                          </label>
+                          {unreadChatCount > 0 && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                          )}
+                        </div>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3 pt-2 text-slate-600">
                             <FileText size={14} />
@@ -1496,6 +1550,13 @@ export default function WellnessPage() {
       <footer className="relative z-10 w-full border-t border-white/5 py-4 text-center">
         <p className="text-[10px] uppercase tracking-widest text-slate-600">Personal Labs. Wellness tracker console</p>
       </footer>
+
+      {/* Stealth Secret Chat Modal */}
+      <SecretChatModal
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onMessagesRead={() => setUnreadChatCount(0)}
+      />
     </div>
   );
 }
