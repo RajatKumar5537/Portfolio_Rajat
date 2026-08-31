@@ -525,7 +525,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 className="text-left flex items-center gap-1.5 group cursor-pointer"
               >
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 light:text-slate-900 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                  {selectedFriend ? selectedFriend.partnerName : "Private Channel"}
+                  {selectedFriend ? selectedFriend.partnerName : "Friend Chat"}
                 </h3>
                 {acceptedFriends.length > 1 && (
                   <ChevronDown size={14} className="text-slate-400 group-hover:text-teal-500 transition-transform" />
@@ -553,7 +553,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   </span>
                 ) : (
                   <span className="text-slate-500 dark:text-slate-400 light:text-slate-500 truncate block">
-                    {selectedFriend ? `1-on-1 with ${selectedFriend.partnerName}` : "Send connection request to begin"} • {retentionHours}h
+                    {selectedFriend ? `Chat with ${selectedFriend.partnerName}` : "Connect with a friend to start"} • {retentionHours}h
                   </span>
                 )}
               </p>
@@ -848,7 +848,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
 
           <div className="flex items-center gap-1 text-[9px] text-slate-500 dark:text-slate-500 light:text-slate-500 font-mono flex-shrink-0">
-            <span>Tunnel:</span>
+            <span>Chat:</span>
             <span className="text-teal-600 dark:text-teal-400 light:text-teal-600 font-bold">{selectedFriend ? selectedFriend.partnerName : "None"}</span>
           </div>
         </div>
@@ -861,9 +861,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <Shield size={32} />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Zero-Knowledge Private Chat</h4>
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Connect with Friends</h4>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                  To begin chatting with someone, enter their exact email address to send a friend request. They must accept before any messages can be sent or seen.
+                  To begin chatting, enter your friend&apos;s exact email address to send a friend request. Once they accept, your conversation will appear here.
                 </p>
                 <button
                   type="button"
@@ -887,7 +887,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               </div>
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-300 light:text-slate-800 font-mono">
-                  1-on-1 Tunnel with {selectedFriend.partnerName}
+                  Conversation with {selectedFriend.partnerName}
                 </h4>
                 <p className="text-[10px] text-slate-500 dark:text-slate-500 light:text-slate-500 mt-1 max-w-sm">
                   Only you and {selectedFriend.partnerName} can access this conversation. Messages are encrypted with AES-256 and self-destruct in {retentionHours} hours.
