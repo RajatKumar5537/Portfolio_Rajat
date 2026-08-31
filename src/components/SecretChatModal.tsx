@@ -878,19 +878,19 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       style={viewportHeight && typeof window !== "undefined" && window.innerWidth < 640 ? { height: `${viewportHeight}px`, top: 0, bottom: "auto", position: "fixed" } : undefined}
     >
       <div 
-        className="w-full sm:max-w-2xl bg-white dark:bg-[#090913] border-0 sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-full sm:h-[640px] sm:max-h-[90vh] relative font-sans transition-colors"
+        className="w-full sm:max-w-2xl bg-white dark:bg-[#0c121d]/90 dark:backdrop-blur-2xl border-0 sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl shadow-2xl dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col h-full sm:h-[640px] sm:max-h-[90vh] relative font-sans transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header (Zero-Knowledge 1-on-1 Tunnel) */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-slate-200 dark:border-white/10 bg-[#f0f2f5] dark:bg-[#111b21] flex-shrink-0 pt-[max(0.625rem,env(safe-area-inset-top))] transition-colors">
+        {/* Top Header (Zero-Knowledge 1-on-1 Tunnel with Glassmorphism) */}
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-slate-200 dark:border-white/[0.08] bg-[#f0f2f5] dark:bg-[#111927]/80 dark:backdrop-blur-xl flex-shrink-0 pt-[max(0.625rem,env(safe-area-inset-top))] transition-colors">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             {/* Avatar & Online Presence */}
             <div className="relative flex-shrink-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-teal-500/15 dark:bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-700 dark:text-teal-400 font-bold text-xs sm:text-sm">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-teal-500/15 dark:bg-teal-500/25 border border-teal-500/30 dark:border-teal-400/40 flex items-center justify-center text-teal-700 dark:text-teal-300 font-bold text-xs sm:text-sm shadow-inner">
                 {selectedFriend ? selectedFriend.partnerName.slice(0, 2).toUpperCase() : <Lock size={16} />}
               </div>
               {friendPresence && (
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111b21] shadow-sm"></span>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111927] shadow-sm"></span>
               )}
             </div>
 
@@ -904,13 +904,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 }}
                 className="text-left flex items-center gap-1.5 group cursor-pointer"
               >
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                   {selectedFriend ? selectedFriend.partnerName : "Friend Chat"}
                 </h3>
                 {acceptedFriends.length > 1 && (
                   <ChevronDown size={14} className="text-slate-500 dark:text-slate-400 group-hover:text-teal-500 transition-transform" />
                 )}
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 font-mono font-normal flex-shrink-0">
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/25 dark:border-emerald-400/30 text-emerald-700 dark:text-emerald-300 font-mono font-normal flex-shrink-0">
                   AES-256
                 </span>
               </button>
@@ -951,8 +951,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               }}
               className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs ${
                 showAddFriendForm
-                  ? "bg-[#005c4b] text-white font-bold"
-                  : "bg-slate-200/80 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-400"
+                  ? "bg-[#005c4b] dark:bg-gradient-to-r dark:from-teal-600 dark:to-emerald-600 text-white font-bold shadow-sm"
+                  : "bg-slate-200/80 dark:bg-white/[0.07] dark:border dark:border-white/10 text-slate-700 dark:text-slate-200 hover:text-teal-700 dark:hover:bg-white/15"
               }`}
               title="Connect with Friend (Send Request)"
             >
@@ -961,12 +961,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             </button>
 
             {/* Per-user disappearing messages toggle */}
-            <div className="flex items-center bg-slate-200/80 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-0.5 sm:p-1 text-[8px] sm:text-[9px] font-mono">
+            <div className="flex items-center bg-slate-200/80 dark:bg-white/[0.07] border border-slate-300 dark:border-white/10 rounded-xl p-0.5 sm:p-1 text-[8px] sm:text-[9px] font-mono">
               <button
                 type="button"
                 onClick={() => handleUpdateRetention(12)}
                 className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
-                  retentionHours === 12 ? "bg-[#005c4b] text-white font-bold" : "text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-slate-200"
+                  retentionHours === 12 
+                    ? "bg-[#005c4b] dark:bg-gradient-to-r dark:from-teal-600 dark:to-emerald-600 text-white font-bold shadow-xs" 
+                    : "text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white"
                 }`}
                 title="Disappear messages older than 12 hours for your view"
               >
@@ -976,7 +978,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 type="button"
                 onClick={() => handleUpdateRetention(24)}
                 className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
-                  retentionHours === 24 ? "bg-[#005c4b] text-white font-bold" : "text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-slate-200"
+                  retentionHours === 24 
+                    ? "bg-[#005c4b] dark:bg-gradient-to-r dark:from-teal-600 dark:to-emerald-600 text-white font-bold shadow-xs" 
+                    : "text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white"
                 }`}
                 title="Disappear messages older than 24 hours for your view"
               >
@@ -990,7 +994,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 type="button"
                 onClick={handleClearAll}
                 disabled={messages.length === 0}
-                className="p-2 sm:p-1.5 rounded-xl bg-slate-200/80 dark:bg-white/5 hover:bg-red-500/20 text-slate-700 dark:text-slate-400 hover:text-red-600 border border-slate-300 dark:border-white/5 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+                className="p-2 sm:p-1.5 rounded-xl bg-slate-200/80 dark:bg-white/[0.07] dark:border dark:border-white/10 hover:bg-red-500/20 text-slate-700 dark:text-slate-300 hover:text-red-600 border border-slate-300 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                 title="Clear conversation for you"
               >
                 <Trash2 size={15} />
@@ -1000,7 +1004,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             {/* Panic / Close button */}
             <button
               onClick={onClose}
-              className="p-2 sm:p-1.5 rounded-xl bg-slate-200/80 dark:bg-white/5 hover:bg-red-500/20 text-slate-700 dark:text-slate-400 hover:text-red-600 border border-slate-300 dark:border-white/5 transition-all cursor-pointer min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+              className="p-2 sm:p-1.5 rounded-xl bg-slate-200/80 dark:bg-white/[0.07] dark:border dark:border-white/10 hover:bg-red-500/20 text-slate-700 dark:text-slate-300 hover:text-red-600 border border-slate-300 transition-all cursor-pointer min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
               title="Stealth Close (Esc)"
             >
               <X size={16} />
@@ -1010,10 +1014,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
         {/* Incoming Friend Request Banner (Accept / Decline) */}
         {pendingIncoming.length > 0 && (
-          <div className="p-3 bg-amber-500/10 border-b border-amber-500/25 flex-shrink-0 space-y-2 animate-in fade-in duration-150">
+          <div className="p-3 bg-amber-500/10 dark:bg-amber-500/15 border-b border-amber-500/25 flex-shrink-0 space-y-2 animate-in fade-in duration-150">
             {pendingIncoming.map((req) => (
               <div key={req.connectionId} className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 light:text-amber-700 font-medium truncate">
+                <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 font-medium truncate">
                   <Bell size={14} className="text-amber-500 flex-shrink-0 animate-bounce" />
                   <span className="truncate">
                     <strong>{req.requesterName}</strong> sent you a friend request.
@@ -1031,7 +1035,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   <button
                     type="button"
                     onClick={() => handleRespondRequest(req.connectionId, "decline")}
-                    className="px-2.5 py-1 bg-slate-200 dark:bg-white/10 light:bg-slate-200 hover:bg-red-500/20 text-slate-600 dark:text-slate-300 light:text-slate-600 hover:text-red-500 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1"
+                    className="px-2.5 py-1 bg-slate-200 dark:bg-white/10 hover:bg-red-500/20 text-slate-600 dark:text-slate-300 hover:text-red-500 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1"
                   >
                     <X size={12} />
                     Decline
@@ -1044,10 +1048,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
         {/* Send Friend Request Modal / Form */}
         {showAddFriendForm && (
-          <div className="p-4 bg-slate-100 dark:bg-[#0e0e22] light:bg-slate-100 border-b border-slate-200 dark:border-white/10 light:border-slate-200 flex-shrink-0 animate-in fade-in slide-in-from-top-2 duration-150 shadow-lg">
+          <div className="p-4 bg-slate-100 dark:bg-[#111927]/90 dark:backdrop-blur-md border-b border-slate-200 dark:border-white/10 flex-shrink-0 animate-in fade-in slide-in-from-top-2 duration-150 shadow-lg">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 light:text-slate-700 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                <UserPlus size={13} className="text-teal-500" />
+              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <UserPlus size={13} className="text-teal-600 dark:text-teal-400" />
                 Connect with a Friend
               </span>
               <button
@@ -1059,7 +1063,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 mb-3">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
               Enter the exact email address of the friend you want to chat with. They will receive a private request and must accept it before the channel opens.
             </p>
 
@@ -1070,13 +1074,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   value={requestEmailInput}
                   onChange={(e) => setRequestEmailInput(e.target.value)}
                   placeholder="Enter friend's email (e.g. friend@example.com)..."
-                  className="w-full bg-white dark:bg-white/10 light:bg-white border border-slate-300 dark:border-white/20 light:border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-500"
+                  className="w-full bg-white dark:bg-white/[0.08] border border-slate-300 dark:border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-teal-500"
                   autoFocus
                 />
                 <button
                   type="submit"
                   disabled={!requestEmailInput.trim() || isSubmittingRequest}
-                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer flex-shrink-0 shadow-md shadow-teal-500/20"
+                  className="px-4 py-2 rounded-xl bg-[#005c4b] dark:bg-gradient-to-r dark:from-teal-600 dark:to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer flex-shrink-0 shadow-md"
                 >
                   {isSubmittingRequest ? "Sending..." : "Send Request"}
                 </button>
@@ -1122,7 +1126,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
         {/* Connected Friends Switcher Panel with Remove / Unfriend Option */}
         {showFriendPicker && (
-          <div className="p-3.5 bg-slate-100 dark:bg-[#111b21] border-b border-slate-200 dark:border-white/10 flex-shrink-0 animate-in fade-in slide-in-from-top-2 duration-150 shadow-lg">
+          <div className="p-3.5 bg-slate-100 dark:bg-[#111927]/95 dark:backdrop-blur-xl border-b border-slate-200 dark:border-white/10 flex-shrink-0 animate-in fade-in slide-in-from-top-2 duration-150 shadow-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
                 <Users size={12} className="text-teal-600 dark:text-teal-400" />
@@ -1148,8 +1152,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       key={p.partnerId}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all ${
                         isSelected
-                          ? "bg-[#005c4b] text-white font-bold shadow-sm"
-                          : "bg-white dark:bg-[#202c33] text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-200/60 dark:border-white/5"
+                          ? "bg-[#005c4b] dark:bg-gradient-to-r dark:from-teal-600 dark:to-emerald-600 text-white font-bold shadow-sm"
+                          : "bg-white dark:bg-white/[0.06] dark:border dark:border-white/10 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-200/60"
                       }`}
                     >
                       <button
@@ -1161,7 +1165,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         className="flex items-center gap-2.5 truncate flex-1 text-left cursor-pointer"
                       >
                         <div className={`w-6 h-6 rounded-full font-bold text-[10px] flex items-center justify-center flex-shrink-0 ${
-                          isSelected ? "bg-white/20 text-white" : "bg-teal-500/15 text-teal-700 dark:text-teal-400"
+                          isSelected ? "bg-white/20 text-white" : "bg-teal-500/15 dark:bg-teal-400/20 text-teal-700 dark:text-teal-300"
                         }`}>
                           {p.partnerName.slice(0, 2).toUpperCase()}
                         </div>
@@ -1192,7 +1196,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         )}
 
         {/* User Identity Bar */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-1.5 bg-[#f7f8fa] dark:bg-[#111b21] border-b border-slate-200 dark:border-white/5 text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 flex-shrink-0 transition-colors">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-1.5 bg-[#f7f8fa] dark:bg-[#0e1522]/80 dark:backdrop-blur-lg border-b border-slate-200 dark:border-white/[0.06] text-[9px] sm:text-[10px] text-slate-600 dark:text-slate-400 flex-shrink-0 transition-colors">
           <div className="flex items-center gap-1.5 truncate">
             <User size={11} className="text-teal-600 dark:text-teal-400 flex-shrink-0" />
             <span className="hidden sm:inline">Logged in as:</span>
@@ -1237,15 +1241,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           </div>
         </div>
 
-        {/* Message Feed (Warm ivory light WhatsApp wallpaper, dark wallpaper in dark mode) */}
+        {/* Message Feed (Warm ivory light WhatsApp wallpaper, Dark Glass Depth Wallpaper in Dark Mode) */}
         <div 
           ref={chatFeedRef}
           onClick={() => setActiveActionMenuId(null)}
-          className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-[#efeae2] dark:bg-[#0b141a] overscroll-contain touch-pan-y transition-colors"
+          className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-[#efeae2] dark:bg-[#090e17] dark:bg-radial-[at_top_right] overscroll-contain touch-pan-y transition-colors"
         >
           {!selectedFriend ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8 bg-white/70 dark:bg-white/[0.02] rounded-2xl border border-slate-300/60 dark:border-white/5">
-              <div className="p-3.5 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400">
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8 bg-white/70 dark:bg-white/[0.04] dark:backdrop-blur-md rounded-2xl border border-slate-300/60 dark:border-white/10">
+              <div className="p-3.5 rounded-full bg-teal-500/15 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400">
                 <Shield size={32} />
               </div>
               <div>
@@ -1256,7 +1260,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <button
                   type="button"
                   onClick={() => setShowAddFriendForm(true)}
-                  className="mt-4 px-4 py-2 rounded-xl bg-[#005c4b] hover:bg-[#00705a] text-white text-xs font-bold shadow-md cursor-pointer inline-flex items-center gap-1.5"
+                  className="mt-4 px-4 py-2 rounded-xl bg-[#005c4b] dark:bg-gradient-to-r dark:from-teal-600 dark:to-emerald-600 hover:opacity-90 text-white text-xs font-bold shadow-md cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <UserPlus size={14} />
                   <span>Connect Friend</span>
@@ -1269,12 +1273,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <p className="text-xs font-mono">Decrypting communications with {selectedFriend.partnerName}...</p>
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8 border border-dashed border-slate-300 dark:border-white/10 rounded-2xl bg-white/70 dark:bg-white/[0.02]">
-              <div className="p-3 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400">
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8 border border-dashed border-slate-300 dark:border-white/10 rounded-2xl bg-white/70 dark:bg-white/[0.04] dark:backdrop-blur-md">
+              <div className="p-3 rounded-full bg-teal-500/15 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400">
                 <Sparkles size={24} />
               </div>
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-300 font-mono">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 font-mono">
                   Conversation with {selectedFriend.partnerName}
                 </h4>
                 <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 max-w-sm">
@@ -1297,14 +1301,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   {/* Quoted Message Preview if Reply */}
                   {msg.replyTo && (
                     <div
-                      className={`mb-1 px-3 py-1.5 rounded-xl text-[10px] border-l-2 bg-white/80 dark:bg-white/[0.05] border-teal-600 max-w-[85%] sm:max-w-md shadow-xs ${
+                      className={`mb-1 px-3 py-1.5 rounded-xl text-[10px] border-l-2 bg-white/80 dark:bg-white/[0.08] dark:backdrop-blur-sm border-teal-600 dark:border-teal-400 max-w-[85%] sm:max-w-md shadow-xs ${
                         isMe ? "text-right mr-1" : "text-left ml-1"
                       }`}
                     >
-                      <span className="text-[8px] font-bold uppercase tracking-widest text-teal-700 dark:text-teal-400 font-mono block">
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-teal-700 dark:text-teal-300 font-mono block">
                         Replying to @{msg.replyTo.sender}
                       </span>
-                      <p className="text-slate-700 dark:text-slate-300 line-clamp-1 italic text-[10px]">
+                      <p className="text-slate-700 dark:text-slate-200 line-clamp-1 italic text-[10px]">
                         &quot;{msg.replyTo.text}&quot;
                       </p>
                     </div>
@@ -1312,12 +1316,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
                   {/* Inline Edit Form */}
                   {isEditing ? (
-                    <div className="bg-white dark:bg-[#121226] border border-teal-500/40 p-2.5 sm:p-3 rounded-2xl space-y-2 w-full max-w-md shadow-lg my-1">
+                    <div className="bg-white dark:bg-[#121926] border border-teal-500/40 p-2.5 sm:p-3 rounded-2xl space-y-2 w-full max-w-md shadow-lg my-1">
                       <input
                         type="text"
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-white/10 border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-base sm:text-xs text-slate-900 dark:text-white outline-none focus:border-teal-500 placeholder-slate-400"
+                        className="w-full bg-slate-50 dark:bg-white/[0.08] border border-slate-300 dark:border-white/15 rounded-xl px-3 py-2 text-base sm:text-xs text-slate-900 dark:text-white outline-none focus:border-teal-500 placeholder-slate-400"
                         autoFocus
                       />
                       <div className="flex justify-end gap-1.5">
@@ -1327,14 +1331,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                             setEditingId(null);
                             setEditText("");
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-white/5 text-[10px] text-slate-700 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-white/10 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-white/10 text-[10px] text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-white/15 cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           type="button"
                           onClick={() => handleSaveEdit(msg._id)}
-                          className="px-3 py-1 rounded-lg bg-[#005c4b] text-[10px] text-white font-bold hover:bg-[#00705a] cursor-pointer shadow-sm"
+                          className="px-3 py-1 rounded-lg bg-[#005c4b] dark:bg-gradient-to-r dark:from-teal-600 dark:to-emerald-600 text-[10px] text-white font-bold hover:opacity-90 cursor-pointer shadow-sm"
                         >
                           Save
                         </button>
@@ -1343,7 +1347,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   ) : msg.isDeleted ? (
                     /* Deleted Message Bubble */
                     <div
-                      className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words relative transition-all border border-slate-300/60 dark:border-white/5 bg-white/70 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 italic flex items-center gap-1.5 ${
+                      className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words relative transition-all border border-slate-300/60 dark:border-white/10 bg-white/70 dark:bg-white/[0.05] dark:backdrop-blur-sm text-slate-500 dark:text-slate-400 italic flex items-center gap-1.5 ${
                         isMe ? "rounded-tr-xs" : "rounded-tl-xs"
                       }`}
                     >
@@ -1351,7 +1355,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       <span>This message was deleted</span>
                     </div>
                   ) : (
-                    /* Clean Modern Message Bubble */
+                    /* Clean Modern Message Bubble with Frosted Glassmorphism in Dark Mode */
                     <div 
                       className="relative group max-w-[85%] sm:max-w-[75%] touch-pan-y select-none"
                       onPointerDown={(e) => handlePointerDown(e, msg._id)}
@@ -1397,11 +1401,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                           transition: swipingId === msg._id ? "none" : "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)",
                         }}
                         className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words cursor-pointer select-none relative shadow-sm hover:brightness-105 active:scale-[0.99] ${
-                          isMenuOpen ? "ring-2 ring-teal-400/60 shadow-md" : ""
+                          isMenuOpen ? "ring-2 ring-teal-400/80 shadow-md" : ""
                         } ${
                           isMe
-                            ? "bg-[#005c4b] dark:bg-[#005c4b] text-white rounded-tr-xs"
-                            : "bg-white dark:bg-[#202c33] text-slate-800 dark:text-slate-100 border border-slate-200/80 dark:border-white/5 rounded-tl-xs shadow-xs"
+                            ? "bg-[#005c4b] dark:bg-gradient-to-br dark:from-teal-600/95 dark:to-emerald-700/95 dark:backdrop-blur-md dark:border dark:border-teal-400/30 dark:shadow-[0_4px_16px_rgba(13,148,136,0.3)] text-white rounded-tr-xs"
+                            : "bg-white dark:bg-white/[0.09] dark:backdrop-blur-xl text-slate-800 dark:text-white border border-slate-200/80 dark:border-white/15 dark:shadow-[0_4px_20px_rgba(0,0,0,0.35)] rounded-tl-xs shadow-xs"
                         }`}
                       >
                         {/* Media Display (Photo / Video) */}
@@ -1437,27 +1441,27 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
                         {/* Text and Inline Timestamp */}
                         {msg.text && (
-                          <span className={`whitespace-pre-wrap font-medium ${isMe ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>
+                          <span className={`whitespace-pre-wrap font-medium ${isMe ? "text-white" : "text-slate-800 dark:text-white"}`}>
                             {msg.text}
                           </span>
                         )}
                         <span className="text-[9px] font-mono ml-2.5 inline-flex items-center gap-1 float-right mt-1 select-none">
-                          <span className={isMe ? "text-emerald-200/90 font-mono" : "text-slate-400 dark:text-slate-400 font-mono"}>
+                          <span className={isMe ? "text-emerald-100/90 dark:text-teal-100/90 font-mono" : "text-slate-400 dark:text-slate-300/80 font-mono"}>
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </span>
                           {msg.isEdited && (
-                            <span className={isMe ? "text-[8px] text-white/70" : "text-[8px] text-slate-400"}>
+                            <span className={isMe ? "text-[8px] text-white/70" : "text-[8px] text-slate-400 dark:text-slate-400"}>
                               (edited)
                             </span>
                           )}
                           {isMe && (
                             <span className="inline-flex items-center ml-0.5" title={msg.isRead ? "Read" : msg.isDelivered ? "Delivered" : "Sent"}>
                               {msg.isRead ? (
-                                <CheckCheck size={13} className="text-sky-300 dark:text-sky-300 drop-shadow-[0_0_2px_#38bdf8] stroke-[2.5]" />
+                                <CheckCheck size={13} className="text-sky-300 dark:text-cyan-300 drop-shadow-[0_0_3px_#38bdf8] stroke-[2.5]" />
                               ) : msg.isDelivered ? (
-                                <CheckCheck size={13} className="text-white/60 dark:text-white/60 stroke-[1.8]" />
+                                <CheckCheck size={13} className="text-white/60 dark:text-white/70 stroke-[1.8]" />
                               ) : (
-                                <Check size={13} className="text-white/60 dark:text-white/60 stroke-[1.8]" />
+                                <Check size={13} className="text-white/60 dark:text-white/70 stroke-[1.8]" />
                               )}
                             </span>
                           )}
@@ -1721,13 +1725,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
         {/* Input Bar (Div container to prevent form submit keyboard dismiss) */}
         <div 
-          className="p-2.5 sm:p-3.5 bg-[#f0f2f5] dark:bg-[#111b21] border-t border-slate-200 dark:border-white/10 flex-shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))] transition-colors"
+          className="p-2.5 sm:p-3.5 bg-[#f0f2f5] dark:bg-[#111927]/85 dark:backdrop-blur-xl border-t border-slate-200 dark:border-white/[0.08] flex-shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))] transition-colors"
         >
-          <div className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-[#202c33] border border-slate-300 dark:border-white/10 focus-within:border-teal-600 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 transition-all shadow-sm">
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-white dark:bg-white/[0.07] dark:backdrop-blur-md border border-slate-300 dark:border-white/15 focus-within:border-teal-600 dark:focus-within:border-teal-400/80 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 transition-all shadow-sm dark:shadow-inner">
             {/* Attachment Button (Photo / Video) */}
             <label
               htmlFor="chat-media-file-input"
-              className={`p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer flex-shrink-0 flex items-center justify-center ${
+              className={`p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-all cursor-pointer flex-shrink-0 flex items-center justify-center ${
                 isCompressingMedia ? "pointer-events-none opacity-60" : ""
               }`}
               title="Attach Photo or Video"
@@ -1760,7 +1764,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               className={`p-1.5 rounded-lg transition-all cursor-pointer flex-shrink-0 ${
                 showEmojiPicker
                   ? "bg-teal-500/20 text-teal-700 dark:text-teal-400"
-                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10"
               }`}
               title="Add Emoji"
             >
@@ -1805,10 +1809,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 e.preventDefault();
                 handleSend();
               }}
-              className={`p-2 sm:p-2.5 rounded-lg bg-[#005c4b] hover:bg-[#00705a] text-white transition-all flex-shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center select-none ${
+              className={`p-2 sm:p-2.5 rounded-lg bg-[#005c4b] dark:bg-gradient-to-r dark:from-teal-500 dark:to-emerald-500 hover:bg-[#00705a] dark:hover:from-teal-400 dark:hover:to-emerald-400 text-white transition-all flex-shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center select-none ${
                 (!inputText.trim() && !stagedMedia) || !selectedFriend
                   ? "opacity-35 cursor-not-allowed"
-                  : "opacity-100 cursor-pointer shadow-md active:scale-95"
+                  : "opacity-100 cursor-pointer shadow-md dark:shadow-[0_0_15px_rgba(20,184,166,0.4)] active:scale-95"
               }`}
               title="Send Message"
             >
