@@ -175,6 +175,58 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   // Message Info Modal state
   const [selectedInfoMsg, setSelectedInfoMsg] = useState<MessageItem | null>(null);
 
+  // Swipe-to-Reply & Swipe-for-Actions gesture state
+  const [swipingId, setSwipingId] = useState<string | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<number>(0);
+  const touchStartXRef = useRef<number>(0);
+  const touchStartYRef = useRef<number>(0);
+  const isHorizontalSwipeRef = useRef<boolean>(false);
+
+  const handleBubbleTouchStart = (e: React.TouchEvent, msgId: string) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    isHorizontalSwipeRef.current = false;
+    setSwipingId(msgId);
+    setSwipeOffset(0);
+  };
+
+  const handleBubbleTouchMove = (e: React.TouchEvent) => {
+    if (!swipingId) return;
+    const deltaX = e.touches[0].clientX - touchStartXRef.current;
+    const deltaY = e.touches[0].clientY - touchStartYRef.current;
+
+    // Distinguish between horizontal swipe vs vertical scroll
+    if (!isHorizontalSwipeRef.current) {
+      if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        isHorizontalSwipeRef.current = true;
+      } else if (Math.abs(deltaY) > 8) {
+        return; // Natural vertical scroll
+      }
+    }
+
+    if (isHorizontalSwipeRef.current) {
+      // Apply elastic damping
+      const damped = deltaX > 0 ? Math.min(75, deltaX * 0.75) : Math.max(-75, deltaX * 0.75);
+      setSwipeOffset(damped);
+    }
+  };
+
+  const handleBubbleTouchEnd = (msg: MessageItem) => {
+    if (swipingId === msg._id && isHorizontalSwipeRef.current) {
+      if (swipeOffset > 40) {
+        // Swiped Right -> Instant Reply
+        setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text });
+        inputRef.current?.focus();
+      } else if (swipeOffset < -40) {
+        // Swiped Left -> Toggle Actions Toolbar
+        setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
+      }
+    }
+    setSwipingId(null);
+    setSwipeOffset(0);
+    isHorizontalSwipeRef.current = false;
+  };
+
   // Quick Emoji Picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activeEmojiTab, setActiveEmojiTab] = useState<string>("smileys");
@@ -1083,14 +1135,51 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       <span>This message was deleted</span>
                     </div>
                   ) : (
-                    /* Clean Modern Message Bubble (Tap to open action sheet) */
-                    <div className="relative group max-w-[85%] sm:max-w-[75%]">
+                    /* Clean Modern Message Bubble (Tap to open action sheet or Swipe Right to Reply / Left for Actions) */
+                    <div 
+                      className="relative group max-w-[85%] sm:max-w-[75%]"
+                      onTouchStart={(e) => handleBubbleTouchStart(e, msg._id)}
+                      onTouchMove={handleBubbleTouchMove}
+                      onTouchEnd={() => handleBubbleTouchEnd(msg)}
+                    >
+                      {/* Swipe Right Visual Hint (Reply ↩️) */}
+                      {swipingId === msg._id && swipeOffset > 15 && (
+                        <div 
+                          className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-teal-500/25 text-teal-400 border border-teal-500/40 pointer-events-none transition-transform shadow-lg"
+                          style={{
+                            transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + swipeOffset / 45)})`,
+                            opacity: Math.min(1, swipeOffset / 30),
+                          }}
+                        >
+                          <Reply size={14} className="stroke-[2.5]" />
+                        </div>
+                      )}
+
+                      {/* Swipe Left Visual Hint (Quick Actions ⚙️) */}
+                      {swipingId === msg._id && swipeOffset < -15 && (
+                        <div 
+                          className="absolute -right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-indigo-500/25 text-indigo-400 border border-indigo-500/40 pointer-events-none transition-transform shadow-lg"
+                          style={{
+                            transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + Math.abs(swipeOffset) / 45)})`,
+                            opacity: Math.min(1, Math.abs(swipeOffset) / 30),
+                          }}
+                        >
+                          <Info size={14} className="stroke-[2.5]" />
+                        </div>
+                      )}
+
                       <div
                         onClick={(e) => {
                           e.stopPropagation();
-                          setActiveActionMenuId(isMenuOpen ? null : msg._id);
+                          if (!isHorizontalSwipeRef.current) {
+                            setActiveActionMenuId(isMenuOpen ? null : msg._id);
+                          }
                         }}
-                        className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words transition-all cursor-pointer select-none relative shadow-sm hover:brightness-105 active:scale-[0.99] ${
+                        style={{
+                          transform: swipingId === msg._id ? `translateX(${swipeOffset}px)` : "translateX(0)",
+                          transition: swipingId === msg._id ? "none" : "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)",
+                        }}
+                        className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words cursor-pointer select-none relative shadow-sm hover:brightness-105 active:scale-[0.99] ${
                           isMenuOpen ? "ring-2 ring-teal-400/60 shadow-md" : ""
                         } ${
                           isMe
