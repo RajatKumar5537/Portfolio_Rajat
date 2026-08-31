@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
+import mongoose, { isValidObjectId } from "mongoose";
 import User from "@/lib/models/User";
 import ChatMessage from "@/lib/models/ChatMessage";
 import ChatConnection from "@/lib/models/ChatConnection";
@@ -34,7 +35,7 @@ export async function GET(req: Request) {
         if (targetUser) {
           targetRecipientId = targetUser._id.toString();
         }
-      } else if (mongoose.isValidObjectId(targetRecipientId)) {
+      } else if (isValidObjectId(targetRecipientId)) {
         const targetUser = await User.findById(targetRecipientId);
         if (targetUser) {
           targetRecipientEmail = targetUser.email.toLowerCase();
@@ -263,7 +264,7 @@ export async function POST(req: Request) {
 
     let targetRecipientId = recipientId;
     const recipientUser = await User.findOne({
-      $or: [{ _id: mongoose.isValidObjectId(recipientId) ? recipientId : null }, { email: recipientId.toLowerCase().trim() }],
+      $or: [{ _id: isValidObjectId(recipientId) ? recipientId : null }, { email: recipientId.toLowerCase().trim() }],
     });
     if (recipientUser) {
       targetRecipientId = recipientUser._id.toString();

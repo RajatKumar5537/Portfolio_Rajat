@@ -34,6 +34,7 @@ interface AcceptedFriend {
   partnerId: string;
   partnerName: string;
   roomId: string;
+  retentionHours?: number;
 }
 
 interface PendingIncomingRequest {
