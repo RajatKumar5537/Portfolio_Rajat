@@ -2,6 +2,26 @@ import mongoose, { Schema, model, models } from "mongoose";
 
 const ChatMessageSchema = new Schema(
   {
+    senderId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    recipientId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    roomId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    participants: {
+      type: [String],
+      required: true,
+      index: true,
+    },
     sender: {
       type: String,
       required: [true, "Sender is required"],
@@ -9,15 +29,15 @@ const ChatMessageSchema = new Schema(
     },
     content: {
       type: String,
-      required: [true, "Content is required"],
+      default: "",
     },
     iv: {
       type: String,
-      required: true,
+      default: "",
     },
     authTag: {
       type: String,
-      required: true,
+      default: "",
     },
     replyTo: {
       id: { type: String, default: null },
@@ -39,7 +59,7 @@ const ChatMessageSchema = new Schema(
     retentionHours: {
       type: Number,
       default: 24,
-      enum: [12, 24, 0], // 0 for permanent if needed
+      enum: [12, 24, 0],
     },
     expiresAt: {
       type: Date,
