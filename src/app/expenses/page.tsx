@@ -2,7 +2,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
-import { CreditCard, Trash2, Calendar, IndianRupee, Tag, FileText, Loader2, Plus, Sparkles, TrendingDown, TrendingUp, Wallet, ChevronLeft, ChevronRight, Pencil, Check, X } from "lucide-react";
+import * as XLSX from "xlsx";
+import {
+  CreditCard, Trash2, Calendar, IndianRupee, Tag, FileText, Loader2,
+  Plus, Sparkles, TrendingDown, TrendingUp, Wallet, ChevronLeft, ChevronRight,
+  Pencil, Check, X, Download, FileSpreadsheet, Printer, ChevronDown, Search
+} from "lucide-react";
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -12,9 +17,31 @@ export default function ExpensesPage() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 10;
 
+  // Search filter state
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Export & Statement states
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [showStatementModal, setShowStatementModal] = useState(false);
+  const [statementScope, setStatementScope] = useState<"current" | "all">("current");
+  const [statementType, setStatementType] = useState<"All" | "Income" | "Expense">("All");
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+        setShowExportDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ date: "", description: "", amount: "", category: "", type: "Expense" });
+
 
   const [filterMode, setFilterMode] = useState<"month" | "range">("range");
 
@@ -42,7 +69,8 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedMonth, selectedYear, startDate, endDate, filterMode, activeFilter]);
+  }, [selectedMonth, selectedYear, startDate, endDate, filterMode, activeFilter, searchQuery]);
+
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -372,15 +400,32 @@ export default function ExpensesPage() {
   // Dynamically compute sum for all active categories
   const categoryTotals = expenseCategories.map(cat => {
     const total = monthlyExpenses
-      .filter(e => e.category === cat && e.type === "Expense")
+      .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes(cat.toLowerCase()) || (e.description || "").toLowerCase().includes(cat.toLowerCase())))
       .reduce((acc, curr) => acc + curr.amount, 0);
     return { category: cat, total };
   }).filter(item => item.total > 0 || ["Home", "Ajit", "Swarna", "Delhi Room"].includes(item.category));
 
-  // 3. Filter displayed logs based on active card filters
+  // 3. Filter displayed logs based on active card filters & live search
   const displayedExpenses = monthlyExpenses.filter((exp) => {
+    // 1. Live search query (matches category OR description)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const cat = (exp.category || "").toLowerCase();
+      const desc = (exp.description || "").toLowerCase();
+      if (!cat.includes(q) && !desc.includes(q)) return false;
+    }
+
+    // 2. Type filter
     if (activeFilter.type && exp.type !== activeFilter.type) return false;
-    if (activeFilter.category && exp.category !== activeFilter.category) return false;
+
+    // 3. Category/Person filter (matches category OR description for the name)
+    if (activeFilter.category) {
+      const target = activeFilter.category.toLowerCase().trim();
+      const cat = (exp.category || "").toLowerCase();
+      const desc = (exp.description || "").toLowerCase();
+      if (!cat.includes(target) && !desc.includes(target)) return false;
+    }
+
     return true;
   });
 
@@ -391,7 +436,200 @@ export default function ExpensesPage() {
     currentPage * ITEMS_PER_PAGE
   );
 
+  // Helper to extract transactions for export / statement
+  const getExportData = (scope: "current" | "all", customType?: "All" | "Income" | "Expense") => {
+    let list = expenses;
+    if (scope === "current") {
+      list = monthlyExpenses;
+    }
+
+    // Filter by live search query if any (matches category OR description)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((e) =>
+        (e.category || "").toLowerCase().includes(q) ||
+        (e.description || "").toLowerCase().includes(q)
+      );
+    }
+
+    // Filter by person/category (matches category OR description)
+    if (activeFilter.category) {
+      const target = activeFilter.category.toLowerCase().trim();
+      list = list.filter((e) =>
+        (e.category || "").toLowerCase().includes(target) ||
+        (e.description || "").toLowerCase().includes(target)
+      );
+    }
+
+    // Determine type: if customType is provided, use it; otherwise use activeFilter.type if set, or "All"
+    const typeToFilter = customType !== undefined ? customType : (activeFilter.type || "All");
+
+    if (typeToFilter !== "All") {
+      list = list.filter((e) => e.type === typeToFilter);
+    }
+
+    // Sort by date descending
+    const sorted = [...list].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    let targetName = activeFilter.category
+      ? activeFilter.category
+      : searchQuery.trim()
+      ? `Search: "${searchQuery.trim()}"`
+      : "Personal Ledger";
+
+    if (typeToFilter === "All") {
+      targetName += (activeFilter.category || searchQuery.trim()) ? " (All Inflows & Outflows)" : " (Income & Expenses Combined)";
+    } else {
+      targetName += ` (${typeToFilter}s)`;
+    }
+
+
+    let periodLabel = getContextLabel();
+    if (scope === "all") {
+      if (sorted.length > 0) {
+        const oldestDate = new Date(sorted[sorted.length - 1].date);
+        const newestDate = new Date(sorted[0].date);
+
+        const formatDate = (d: Date) =>
+          d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+
+        if (oldestDate.toDateString() === newestDate.toDateString()) {
+          periodLabel = formatDate(oldestDate);
+        } else {
+          periodLabel = `${formatDate(oldestDate)} to ${formatDate(newestDate)}`;
+        }
+      } else {
+        periodLabel = "No Records";
+      }
+    }
+
+    const totalExp = sorted
+      .filter((e) => e.type === "Expense")
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const totalInc = sorted
+      .filter((e) => e.type === "Income")
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const netBal = totalInc - totalExp;
+
+    return {
+      targetName,
+      typeFilter: typeToFilter,
+      periodLabel,
+      transactions: sorted,
+      totalCount: sorted.length,
+      totalExpense: totalExp,
+      totalIncome: totalInc,
+      netBalance: netBal,
+    };
+  };
+
+  const handleExportExcel = (scope: "current" | "all", customType: "All" | "Income" | "Expense" = statementType) => {
+    const data = getExportData(scope, customType);
+    if (data.transactions.length === 0) {
+      alert(`No transactions found for ${data.targetName} (${data.periodLabel}).`);
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    // Metadata Header with Person & Summary Details
+    const wsData: any[][] = [
+      ["PERSONAL LEDGER - TRANSACTION STATEMENT"],
+      [],
+      ["Statement Subject / Person:", data.targetName],
+      ["Period / Scope:", data.periodLabel],
+      ["Generated Date:", new Date().toLocaleString()],
+      ["Total Transactions:", data.totalCount],
+      ["Total Outflow / Expense (INR):", data.totalExpense],
+      ["Total Inflow / Income (INR):", data.totalIncome],
+      ["Net Cash Flow / Balance (INR):", data.netBalance],
+      [],
+      ["Date", "Description / Purpose", "Category / Person", "Type", "Amount (INR)"]
+    ];
+
+    // Data rows
+    data.transactions.forEach((tx) => {
+      const d = new Date(tx.date);
+      const dateFormatted = d.toISOString().split("T")[0];
+      const amountVal = tx.type === "Income" ? Number(tx.amount) : -Number(tx.amount);
+      wsData.push([
+        dateFormatted,
+        tx.description || "",
+        tx.category || "Others",
+        tx.type || "Expense",
+        amountVal
+      ]);
+    });
+
+    // Grand total row
+    wsData.push([]);
+    wsData.push(["Total Inflow (Income)", "", "", "", data.totalIncome]);
+    wsData.push(["Total Outflow (Expense)", "", "", "", -data.totalExpense]);
+    wsData.push(["Net Balance", "", "", "", data.netBalance]);
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Set Column Widths
+    ws["!cols"] = [
+      { wch: 15 }, // Date
+      { wch: 40 }, // Description
+      { wch: 22 }, // Category
+      { wch: 14 }, // Type
+      { wch: 18 }  // Amount
+    ];
+
+    const safeSheetName = (data.targetName.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 25) || "Statement");
+    XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+
+    const safeFileName = `${data.targetName.replace(/\s+/g, "_")}_Statement_${scope === "all" ? "AllTime" : "Range"}_${new Date().toISOString().split("T")[0]}.xlsx`;
+    XLSX.writeFile(wb, safeFileName);
+    setShowExportDropdown(false);
+  };
+
+  const handleExportCSV = (scope: "current" | "all", customType: "All" | "Income" | "Expense" = statementType) => {
+    const data = getExportData(scope, customType);
+    if (data.transactions.length === 0) {
+      alert(`No transactions found for ${data.targetName} (${data.periodLabel}).`);
+      return;
+    }
+
+    const headers = ["Date", "Description", "Category", "Type", "Amount (INR)"];
+    const rows = data.transactions.map((tx) => {
+      const d = new Date(tx.date);
+      const dateFormatted = d.toISOString().split("T")[0];
+      const desc = `"${(tx.description || "").replace(/"/g, '""')}"`;
+      const cat = `"${(tx.category || "Others").replace(/"/g, '""')}"`;
+      const type = tx.type || "Expense";
+      const amt = tx.type === "Income" ? Number(tx.amount) : -Number(tx.amount);
+      return [dateFormatted, desc, cat, type, amt].join(",");
+    });
+
+    const metaComments = [
+      `# PERSONAL LEDGER - TRANSACTION STATEMENT`,
+      `# Subject / Person: ${data.targetName}`,
+      `# Scope: ${data.periodLabel}`,
+      `# Generated On: ${new Date().toLocaleString()}`,
+      `# Total Transactions: ${data.totalCount}`,
+      `# Total Inflow (Income): +₹${data.totalIncome}`,
+      `# Total Outflow (Expense): -₹${data.totalExpense}`,
+      `# Net Balance: ₹${data.netBalance}`,
+      ``
+    ].join("\n");
+
+    const csvContent = metaComments + headers.join(",") + "\n" + rows.join("\n") + `\nTotal Inflow,,,,${data.totalIncome}\nTotal Outflow,,,,-${data.totalExpense}\nNet Balance,,,,${data.netBalance}`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeFileName = `${data.targetName.replace(/\s+/g, "_")}_Statement_${scope === "all" ? "AllTime" : "Range"}_${new Date().toISOString().split("T")[0]}.csv`;
+    link.setAttribute("href", url);
+    link.setAttribute("download", safeFileName);
+    link.click();
+    setShowExportDropdown(false);
+  };
+
   const activeCategories = form.type === "Income" ? incomeCategories : expenseCategories;
+
+
 
   return (
     <div className="relative min-h-screen bg-[#030308] flex flex-col justify-between">
@@ -557,7 +795,7 @@ export default function ExpensesPage() {
             {categoryTotals.map((item) => (
               <div
                 key={item.category}
-                onClick={() => handleCardFilter("Expense", item.category, `${item.category} Spend`)}
+                onClick={() => handleCardFilter(null, item.category, item.category)}
                 className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
                   activeFilter.category === item.category
                     ? "mini-3d-card-active-category"
@@ -568,6 +806,7 @@ export default function ExpensesPage() {
                 <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{item.total.toLocaleString()}</h3>
               </div>
             ))}
+
           </div>
 
 
@@ -755,10 +994,36 @@ export default function ExpensesPage() {
                           Filtered: {activeFilter.label}
                         </span>
                       )}
+                      {searchQuery.trim() && (
+                        <span className="text-[8px] text-purple-400 bg-purple-950/60 border border-purple-500/20 px-2 py-0.5 rounded-full font-mono font-bold uppercase whitespace-nowrap">
+                          Search: &quot;{searchQuery.trim()}&quot;
+                        </span>
+                      )}
                     </span>
                   </span>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+                    {/* Live Search Input (matches category OR description) */}
+                    <div className="relative flex items-center">
+                      <Search size={11} className="absolute left-2.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search name / note..."
+                        className="bg-white/[0.02] light:bg-white border border-white/5 light:border-slate-200 focus:border-indigo-500/50 rounded-lg py-1 pl-7 pr-6 text-[9px] font-medium text-slate-200 light:text-slate-800 placeholder-slate-500 outline-none w-28 sm:w-36 transition-all"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-1.5 text-slate-400 hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                        >
+                          <X size={10} />
+                        </button>
+                      )}
+                    </div>
+
                     {/* General category dropdown filter */}
                     <select
                       value={activeFilter.category || ""}
@@ -767,9 +1032,8 @@ export default function ExpensesPage() {
                         if (!val) {
                           setActiveFilter({ type: null, category: null, label: "All" });
                         } else {
-                          const isIncomeCat = incomeCategories.includes(val);
                           setActiveFilter({
-                            type: isIncomeCat ? "Income" : "Expense",
+                            type: null,
                             category: val,
                             label: val,
                           });
@@ -777,7 +1041,7 @@ export default function ExpensesPage() {
                       }}
                       className="bg-white/[0.02] light:bg-white border border-white/5 light:border-slate-200 focus:border-indigo-500/50 rounded-lg py-1 px-2.5 text-[9px] font-bold uppercase tracking-wider text-slate-300 light:text-slate-700 outline-none cursor-pointer font-sans"
                     >
-                      <option value="" className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-350">ALL CATEGORIES</option>
+                      <option value="" className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">ALL CATEGORIES</option>
                       <optgroup label="Expenses" className="bg-white dark:bg-[#0c0c16] text-slate-500">
                         {expenseCategories.map(cat => (
                           <option key={cat} value={cat} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{cat.toUpperCase()}</option>
@@ -790,15 +1054,118 @@ export default function ExpensesPage() {
                       </optgroup>
                     </select>
 
-                    {activeFilter.label !== "All" && (
+                    {(activeFilter.label !== "All" || searchQuery) && (
                       <button
-                        onClick={() => setActiveFilter({ type: null, category: null, label: "All" })}
-                        className="text-[9px] text-slate-500 hover:text-slate-305 light:text-slate-600 light:hover:text-slate-800 underline font-bold uppercase tracking-wider cursor-pointer font-mono whitespace-nowrap"
+                        onClick={() => {
+                          setActiveFilter({ type: null, category: null, label: "All" });
+                          setSearchQuery("");
+                        }}
+                        className="text-[9px] text-slate-500 hover:text-slate-300 light:text-slate-600 light:hover:text-slate-800 underline font-bold uppercase tracking-wider cursor-pointer font-mono whitespace-nowrap"
                       >
                         Reset
                       </button>
                     )}
+
+
+                    {/* Export Button with Quick Actions & Statement Modal */}
+                    <div className="relative" ref={exportDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setShowExportDropdown(!showExportDropdown)}
+                        className="flex items-center gap-1.5 bg-indigo-600/10 hover:bg-indigo-600/20 light:bg-indigo-50 light:hover:bg-indigo-100 text-indigo-400 hover:text-indigo-300 light:text-indigo-600 border border-indigo-500/20 hover:border-indigo-500/40 light:border-indigo-200 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+                        title="Export transactions & person statements"
+                      >
+                        <Download size={11} className="text-indigo-400 light:text-indigo-600" />
+                        <span>Export</span>
+                        <ChevronDown size={10} className={`transition-transform duration-200 ${showExportDropdown ? "rotate-180" : ""}`} />
+                      </button>
+
+                      {showExportDropdown && (
+                        <div className="absolute right-0 mt-1.5 w-64 rounded-xl border border-white/10 dark:border-white/10 light:border-slate-200 bg-[#0c0c16]/95 light:bg-white backdrop-blur-xl shadow-2xl p-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
+                          <div className="px-2.5 py-1.5 border-b border-white/5 light:border-slate-100 mb-1">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-300 light:text-slate-800">
+                              Export {activeFilter.category || (activeFilter.type ? `${activeFilter.type}s` : "Ledger")}
+                            </p>
+                            <p className="text-[9px] text-slate-500 light:text-slate-400 font-mono truncate">
+                              {displayedExpenses.length} records in {getContextLabel()}
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            {/* Quick Excel Download for current view */}
+                            <button
+                              type="button"
+                              onClick={() => handleExportExcel("current")}
+                              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-200 light:text-slate-700 hover:bg-emerald-500/10 hover:text-emerald-400 light:hover:text-emerald-600 transition-all text-left cursor-pointer group"
+                            >
+                              <div className="flex items-center gap-2">
+                                <FileSpreadsheet size={13} className="text-emerald-400 flex-shrink-0" />
+                                <span>Excel (.xlsx) - Current Range</span>
+                              </div>
+                              <span className="text-[8px] font-mono text-slate-500 group-hover:text-emerald-400">XLSX</span>
+                            </button>
+
+                            {/* Quick CSV Download for current view */}
+                            <button
+                              type="button"
+                              onClick={() => handleExportCSV("current")}
+                              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-200 light:text-slate-700 hover:bg-blue-500/10 hover:text-blue-400 light:hover:text-blue-600 transition-all text-left cursor-pointer group"
+                            >
+                              <div className="flex items-center gap-2">
+                                <FileText size={13} className="text-blue-400 flex-shrink-0" />
+                                <span>CSV (.csv) - Current Range</span>
+                              </div>
+                              <span className="text-[8px] font-mono text-slate-500 group-hover:text-blue-400">CSV</span>
+                            </button>
+
+                            {activeFilter.category && (
+                              <>
+                                <div className="my-1 border-t border-white/5 light:border-slate-100" />
+                                <div className="px-2.5 py-0.5">
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-purple-400">
+                                    All-Time Records
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleExportExcel("all")}
+                                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-200 light:text-slate-700 hover:bg-purple-500/10 hover:text-purple-400 light:hover:text-purple-600 transition-all text-left cursor-pointer group"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <FileSpreadsheet size={13} className="text-purple-400 flex-shrink-0" />
+                                    <span>All {activeFilter.category} (Excel)</span>
+                                  </div>
+                                  <span className="text-[8px] font-mono text-slate-500 group-hover:text-purple-400">
+                                    {expenses.filter(e => e.category === activeFilter.category).length} tx
+                                  </span>
+                                </button>
+                              </>
+                            )}
+
+                            <div className="my-1 border-t border-white/5 light:border-slate-100" />
+
+                            {/* Detailed Statement & Print Modal */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowExportDropdown(false);
+                                setStatementScope("current");
+                                setShowStatementModal(true);
+                              }}
+                              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider text-indigo-400 hover:bg-indigo-500/10 transition-all text-left cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Printer size={13} className="text-indigo-400 flex-shrink-0" />
+                                <span>Statement & Print / PDF</span>
+                              </div>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
                 </h3>
 
                 {loading ? (
@@ -956,6 +1323,257 @@ export default function ExpensesPage() {
             </div>
           </div>
         </main>
+
+        {/* ── DETAILED STATEMENT & PRINT / PDF MODAL ── */}
+
+        {showStatementModal && (() => {
+          const stmtData = getExportData(statementScope, statementType);
+          return (
+            <div className="statement-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto">
+              <div className="statement-modal-card relative w-full max-w-4xl bg-[#0c0c16] light:bg-white border border-white/10 light:border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                {/* Modal Top Action Header */}
+                <div className="no-print flex flex-wrap items-center justify-between gap-3 p-4 border-b border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-slate-50">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                      <FileSpreadsheet size={16} />
+                    </span>
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 light:text-slate-800">
+                        Transaction Statement
+                      </h3>
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 light:text-slate-400">
+                        Detailed breakdown for {stmtData.targetName}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Filter Switches: Type & Scope */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Combined (All) vs Expense vs Income */}
+                    <div className="flex bg-white/[0.03] light:bg-slate-200 border border-white/5 light:border-slate-300 p-0.5 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setStatementType("All")}
+                        className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                          statementType === "All"
+                            ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 font-black"
+                            : "text-slate-400 hover:text-slate-200 light:text-slate-600"
+                        }`}
+                      >
+                        Combined (All)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatementType("Expense")}
+                        className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                          statementType === "Expense"
+                            ? "bg-red-500/20 text-red-400 border border-red-500/30 font-black"
+                            : "text-slate-400 hover:text-slate-200 light:text-slate-600"
+                        }`}
+                      >
+                        Expenses
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatementType("Income")}
+                        className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                          statementType === "Income"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black"
+                            : "text-slate-400 hover:text-slate-200 light:text-slate-600"
+                        }`}
+                      >
+                        Income
+                      </button>
+                    </div>
+
+                    {/* Scope Switcher: Range vs All-Time */}
+                    <div className="flex bg-white/[0.03] light:bg-slate-200 border border-white/5 light:border-slate-300 p-0.5 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setStatementScope("current")}
+                        className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                          statementScope === "current"
+                            ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                            : "text-slate-400 hover:text-slate-200 light:text-slate-600"
+                        }`}
+                      >
+                        Current Range
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatementScope("all")}
+                        className={`px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                          statementScope === "all"
+                            ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
+                            : "text-slate-400 hover:text-slate-200 light:text-slate-600"
+                        }`}
+                      >
+                        All-Time Records
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => setShowStatementModal(false)}
+                      className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-white/5 transition-all cursor-pointer"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Printable Statement Document Content */}
+                <div className="overflow-y-auto p-6 space-y-6 flex-grow" id="printable-statement">
+                  {/* Statement Paper Header */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-white/10 light:border-slate-200">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-400 font-bold">
+                        Personal Labs • Transaction Ledger Statement
+                      </span>
+                      <h2 className="text-xl font-black uppercase tracking-wider text-slate-100 light:text-slate-900 mt-1">
+                        {stmtData.targetName}
+                      </h2>
+                      <p className="text-xs text-slate-400 light:text-slate-500 mt-0.5">
+                        Period: <strong className="text-slate-200 light:text-slate-700">{stmtData.periodLabel}</strong>
+                      </p>
+                    </div>
+
+                    <div className="text-left sm:text-right font-mono text-xs text-slate-400 space-y-0.5">
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500">Generated On</p>
+                      <p className="text-slate-200 light:text-slate-800 font-bold">{new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</p>
+                      <p className="text-[10px] text-slate-500">{new Date().toLocaleTimeString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Summary KPI Cards in Statement */}
+                  <div className="statement-kpi-grid grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div className="statement-kpi-card p-3.5 rounded-xl bg-white/[0.02] light:bg-slate-50 border border-white/5 light:border-slate-200">
+                      <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Total Transactions</span>
+                      <p className="text-base font-black font-mono text-slate-200 light:text-slate-800 mt-1">{stmtData.totalCount}</p>
+                    </div>
+                    <div className="statement-kpi-card p-3.5 rounded-xl bg-red-950/10 light:bg-red-50 border border-red-500/10 light:border-red-200">
+                      <span className="text-[9px] uppercase tracking-wider text-red-400 light:text-red-600 font-bold">Total Outflow (Expense)</span>
+                      <p className="text-base font-black font-mono text-red-400 light:text-red-600 mt-1">₹{stmtData.totalExpense.toLocaleString()}</p>
+                    </div>
+                    <div className="statement-kpi-card p-3.5 rounded-xl bg-emerald-950/10 light:bg-emerald-50 border border-emerald-500/10 light:border-emerald-200">
+                      <span className="text-[9px] uppercase tracking-wider text-emerald-400 light:text-emerald-600 font-bold">Total Inflow (Income)</span>
+                      <p className="text-base font-black font-mono text-emerald-400 light:text-emerald-600 mt-1">₹{stmtData.totalIncome.toLocaleString()}</p>
+                    </div>
+                    <div className="statement-kpi-card p-3.5 rounded-xl bg-indigo-950/10 light:bg-indigo-50 border border-indigo-500/10 light:border-indigo-200">
+                      <span className="text-[9px] uppercase tracking-wider text-indigo-400 light:text-indigo-600 font-bold">Net Balance</span>
+                      <p className={`text-base font-black font-mono mt-1 ${stmtData.netBalance >= 0 ? "text-emerald-400 light:text-emerald-600" : "text-red-400 light:text-red-600"}`}>
+                        ₹{stmtData.netBalance.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Detailed Table */}
+                  <div className="table-print-wrapper overflow-x-auto rounded-xl border border-white/10 light:border-slate-200">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-white/[0.03] light:bg-slate-100 border-b border-white/10 light:border-slate-200 text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono">
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Description / Note</th>
+                          <th className="py-2.5 px-3">Category</th>
+                          <th className="py-2.5 px-3">Type</th>
+                          <th className="py-2.5 px-3 text-right">Amount (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 light:divide-slate-200">
+                        {stmtData.transactions.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center text-slate-500 italic">
+                              No records found for the selected scope.
+                            </td>
+                          </tr>
+                        ) : (
+                          stmtData.transactions.map((t) => {
+                            const d = new Date(t.date);
+                            const dateDisplay = d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+                            return (
+                              <tr key={t._id} className="hover:bg-white/[0.02] light:hover:bg-slate-50 transition-all font-mono">
+                                <td className="py-2.5 px-3 text-slate-300 light:text-slate-700 whitespace-nowrap">{dateDisplay}</td>
+                                <td className="py-2.5 px-3 text-slate-200 light:text-slate-900 font-sans font-medium">{t.description}</td>
+                                <td className="py-2.5 px-3 text-purple-400 light:text-purple-700 font-semibold">{t.category}</td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold ${
+                                    t.type === "Income"
+                                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 print-income-tag"
+                                      : "bg-red-500/10 text-red-400 border border-red-500/20 print-expense-tag"
+                                  }`}>
+                                    {t.type}
+                                  </span>
+                                </td>
+                                <td className={`py-2.5 px-3 text-right font-bold whitespace-nowrap ${
+                                  t.type === "Income" ? "text-emerald-400 light:text-emerald-600" : "text-slate-100 light:text-slate-900"
+                                }`}>
+                                  {t.type === "Income" ? "+" : "-"}₹{Number(t.amount).toLocaleString()}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-white/[0.03] light:bg-slate-100 border-t border-white/10 light:border-slate-200 font-mono font-black text-xs">
+                          <td colSpan={4} className="py-3 px-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                              <span className="uppercase tracking-wider text-slate-300 light:text-slate-800">
+                                Grand Total ({stmtData.transactions.length} Records)
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-normal font-mono">
+                                Inflow: <strong className="text-emerald-400 light:text-emerald-600">+₹{stmtData.totalIncome.toLocaleString()}</strong> | Outflow: <strong className="text-red-400 light:text-red-600">-₹{stmtData.totalExpense.toLocaleString()}</strong>
+                              </span>
+                            </div>
+                          </td>
+                          <td className={`py-3 px-3 text-right text-sm ${stmtData.netBalance >= 0 ? "text-emerald-400 light:text-emerald-600" : "text-red-400 light:text-red-600"}`}>
+                            ₹{stmtData.netBalance.toLocaleString()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Modal Bottom Action Footer */}
+
+                <div className="no-print flex flex-wrap items-center justify-between gap-3 p-4 border-t border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-slate-50">
+                  <p className="text-[9px] uppercase tracking-wider font-mono text-slate-500">
+                    Ready to download or print
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleExportExcel(statementScope)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all"
+                    >
+                      <FileSpreadsheet size={13} />
+                      <span>Download Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleExportCSV(statementScope)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all"
+                    >
+                      <FileText size={13} />
+                      <span>Download CSV</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider cursor-pointer shadow-lg shadow-indigo-500/20 transition-all"
+                    >
+                      <Printer size={13} />
+                      <span>Print / Save as PDF</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       <footer className="relative z-10 w-full border-t border-white/5 py-4 text-center">

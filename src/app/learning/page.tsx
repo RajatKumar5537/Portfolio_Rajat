@@ -87,6 +87,8 @@ export default function LearningPage() {
   ];
 
   useEffect(() => {
+
+
     setMounted(true);
     setCurrentTime(new Date());
     setQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
@@ -667,18 +669,18 @@ export default function LearningPage() {
           {/* Header & Date Filters */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
-              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Learning Lab</h2>
-              <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Track growth roadmaps and study time</p>
+              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-100 light:text-slate-900">Learning Lab</h2>
+              <p className="page-subheading text-xs text-slate-400 light:text-slate-500 uppercase tracking-wider mt-0.5">Track growth roadmaps and study time</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
 
               {/* Premium Month/Year/Date selection bar */}
-              <div className="filter-bar flex flex-wrap items-center gap-2 sm:gap-3 bg-white dark:bg-[#0c0c16]/60 shadow-lg dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-slate-200 dark:border-white/10 p-2 rounded-xl hover:border-slate-300 dark:hover:border-white/15 transition-all">
+              <div className="filter-bar flex flex-wrap items-center gap-2 sm:gap-3 bg-white/[0.03] light:bg-white shadow-lg border border-white/10 light:border-slate-200 p-2 rounded-xl hover:border-white/15 light:hover:border-slate-300 transition-all">
                 <button
                   onClick={handlePrevMonth}
                   disabled={!!selectedDate}
-                  className="bar-btn p-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="bar-btn p-1.5 rounded-lg bg-white/[0.02] light:bg-slate-100 border border-white/5 light:border-slate-200 hover:bg-white/[0.08] light:hover:bg-slate-200 text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-900 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronLeft size={14} />
                 </button>
@@ -689,45 +691,45 @@ export default function LearningPage() {
                       <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 light:text-indigo-600 outline-none cursor-pointer py-1 px-2 font-sans"
                       >
-                        <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL MONTHS</option>
+                        <option value={-1} className="bg-[#0c0c16] light:bg-white text-indigo-400 light:text-indigo-600 font-bold">ALL MONTHS</option>
                         {months.map((m, idx) => (
-                          <option key={m} value={idx} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{m.toUpperCase()}</option>
+                          <option key={m} value={idx} className="bg-[#0c0c16] light:bg-white text-slate-200 light:text-slate-800">{m.toUpperCase()}</option>
                         ))}
                       </select>
 
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-2 font-sans"
+                        className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-400 light:text-indigo-600 outline-none cursor-pointer py-1 px-2 font-sans"
                       >
-                        <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL YEARS</option>
+                        <option value={-1} className="bg-[#0c0c16] light:bg-white text-indigo-400 light:text-indigo-600 font-bold">ALL YEARS</option>
                         {availableYears.map((year) => (
-                          <option key={year} value={year} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{year}</option>
+                          <option key={year} value={year} className="bg-[#0c0c16] light:bg-white text-slate-200 light:text-slate-800">{year}</option>
                         ))}
                       </select>
                     </>
                   ) : (
-                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 px-2 py-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 light:text-indigo-600 px-2 py-1">
                       {new Date(selectedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </span>
                   )}
 
-                  <div className="flex items-center gap-2 border-l border-slate-200 dark:border-white/10 pl-2">
-                    <div className="date-pill flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-500/5 hover:bg-indigo-100 dark:hover:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-2.5 py-1 rounded-xl text-indigo-600 dark:text-indigo-400 transition-all">
-                      <Calendar size={13} className="text-indigo-600/80 dark:text-indigo-400/80 flex-shrink-0" />
+                  <div className="flex items-center gap-2 border-l border-white/10 light:border-slate-200 pl-2">
+                    <div className="date-pill flex items-center gap-1.5 bg-indigo-500/5 light:bg-indigo-50 hover:bg-indigo-500/10 light:hover:bg-indigo-100 border border-indigo-500/20 light:border-indigo-200 px-2.5 py-1 rounded-xl text-indigo-400 light:text-indigo-600 transition-all">
+                      <Calendar size={13} className="text-indigo-400/80 light:text-indigo-600/80 flex-shrink-0" />
                       <input
                         type="date"
                         value={selectedDate || ""}
                         onChange={(e) => setSelectedDate(e.target.value || null)}
-                        className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
+                        className="bg-transparent border-none outline-none text-xs font-bold text-indigo-400 light:text-indigo-600 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
                       />
                     </div>
                     {selectedDate && (
                       <button
                         onClick={() => setSelectedDate(null)}
-                        className="text-[10px] text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 font-black uppercase tracking-widest cursor-pointer ml-1"
+                        className="text-[10px] text-red-400 light:text-red-600 hover:text-red-300 light:hover:text-red-700 font-black uppercase tracking-widest cursor-pointer ml-1"
                       >
                         Clear
                       </button>
@@ -738,14 +740,14 @@ export default function LearningPage() {
                 <button
                   onClick={handleNextMonth}
                   disabled={!!selectedDate}
-                  className="bar-btn p-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="bar-btn p-1.5 rounded-lg bg-white/[0.02] light:bg-slate-100 border border-white/5 light:border-slate-200 hover:bg-white/[0.08] light:hover:bg-slate-200 text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-900 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronRight size={14} />
                 </button>
               </div>
 
               {currentStreak > 0 && (
-                <div className="flex items-center gap-1.5 bg-orange-950/40 border border-orange-500/25 px-4 py-2 rounded-xl text-xs text-orange-400 font-bold uppercase tracking-wider font-mono">
+                <div className="flex items-center gap-1.5 bg-orange-950/40 light:bg-orange-50 border border-orange-500/25 light:border-orange-200 px-4 py-2 rounded-xl text-xs text-orange-400 light:text-orange-600 font-bold uppercase tracking-wider font-mono">
                   <Flame size={14} />
                   <span>{currentStreak} DAY STREAK</span>
                 </div>
@@ -757,51 +759,64 @@ export default function LearningPage() {
             {/* Left Side Progress ring and session timer */}
             <div className="space-y-8 lg:col-span-5">
               {/* Radial Progress & Goals */}
-              <div className="glass-card card-glow-indigo p-6 rounded-2xl border border-slate-200 dark:border-white/5 relative">
+              <div className="glass-card card-glow-indigo p-6 rounded-2xl border border-white/10 light:border-slate-200 relative">
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="absolute top-4 right-4 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all cursor-pointer z-10"
+                  title="Configure Goal"
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 light:text-slate-500 light:hover:text-slate-800 p-1.5 rounded-lg hover:bg-white/5 light:hover:bg-slate-100 transition-all cursor-pointer z-10"
                 >
                   <Settings size={16} />
                 </button>
 
                 {showSettings && (
-                  <form onSubmit={handleSaveGoalSettings} className="w-full bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl p-4 mt-8 space-y-3">
-                    <h4 className="text-[10px] uppercase tracking-widest font-black text-indigo-600 dark:text-indigo-400">Configure Goal</h4>
+                  <form onSubmit={handleSaveGoalSettings} className="w-full bg-[#0c0c16] light:bg-slate-50 border border-white/10 light:border-slate-200 rounded-xl p-4 mt-6 space-y-3">
+                    <h4 className="text-[10px] uppercase tracking-widest font-black text-indigo-400 light:text-indigo-600">Configure Goal</h4>
                     <div className="space-y-1">
-                      <label className="text-[9px] uppercase font-bold text-slate-500">Start Date</label>
+                      <label className="text-[9px] uppercase font-bold text-slate-400 light:text-slate-600">Start Date</label>
                       <input
                         type="date"
                         value={inputStartDate}
                         onChange={(e) => setInputStartDate(e.target.value)}
-                        className="w-full bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-lg p-1.5 text-xs text-slate-800 dark:text-slate-300 outline-none"
+                        className="w-full bg-[#121224] light:bg-white border border-white/10 light:border-slate-300 rounded-lg p-2 text-xs text-slate-100 light:text-slate-900 outline-none focus:border-indigo-500 transition-all font-mono font-bold shadow-sm"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[9px] uppercase font-bold text-slate-500">Duration</label>
+                        <label className="text-[9px] uppercase font-bold text-slate-400 light:text-slate-600">Duration</label>
                         <input
                           type="number"
                           value={inputDuration}
                           onChange={(e) => setInputDuration(parseInt(e.target.value) || 1)}
-                          className="w-full bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-lg p-1.5 text-xs text-slate-800 dark:text-slate-300 outline-none"
+                          className="w-full bg-[#121224] light:bg-white border border-white/10 light:border-slate-300 rounded-lg p-2 text-xs text-slate-100 light:text-slate-900 outline-none focus:border-indigo-500 transition-all font-mono font-bold shadow-sm"
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9px] uppercase font-bold text-slate-500">Unit</label>
+                        <label className="text-[9px] uppercase font-bold text-slate-400 light:text-slate-600">Unit</label>
                         <select
                           value={inputDurationUnit}
                           onChange={(e) => setInputDurationUnit(e.target.value as "months" | "days")}
-                          className="w-full bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-lg p-1.5 text-xs text-slate-800 dark:text-slate-300 outline-none"
+                          className="w-full bg-[#121224] light:bg-white border border-white/10 light:border-slate-300 rounded-lg p-2 text-xs text-slate-100 light:text-slate-900 outline-none focus:border-indigo-500 transition-all font-bold shadow-sm"
                         >
-                          <option value="months">Months</option>
-                          <option value="days">Days</option>
+                          <option value="months" className="bg-[#121224] light:bg-white text-slate-100 light:text-slate-900">Months</option>
+                          <option value="days" className="bg-[#121224] light:bg-white text-slate-100 light:text-slate-900">Days</option>
                         </select>
                       </div>
                     </div>
-                    <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-widest py-1.5 rounded-lg cursor-pointer transition-all">
-                      Save Configurations
-                    </button>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowSettings(false)}
+                        className="w-1/3 bg-white/5 hover:bg-white/10 light:bg-slate-200 light:hover:bg-slate-300 text-slate-300 light:text-slate-700 text-[10px] font-bold uppercase tracking-widest py-2 rounded-lg cursor-pointer transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="w-2/3 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-widest py-2 rounded-lg cursor-pointer shadow-lg shadow-indigo-500/20 transition-all"
+                      >
+                        Save Configurations
+                      </button>
+                    </div>
                   </form>
                 )}
 
@@ -832,9 +847,9 @@ export default function LearningPage() {
                           />
                         </svg>
                         <div className="absolute text-center">
-                          <span className="text-2xl font-black font-mono text-slate-900 dark:text-slate-100">{percentProgress.toFixed(1)}%</span>
-                          <p className="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5 font-bold">COMPLETED</p>
-                          <p className="text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-0.5 font-mono font-bold">
+                          <span className="text-2xl font-black font-mono text-slate-100 light:text-slate-900">{percentProgress.toFixed(1)}%</span>
+                          <p className="text-[9px] uppercase tracking-widest text-slate-400 light:text-slate-600 mt-0.5 font-bold">COMPLETED</p>
+                          <p className="text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-500 mt-0.5 font-mono font-bold">
                             {daysElapsed}/{totalDays} DAYS
                           </p>
                         </div>
@@ -845,32 +860,32 @@ export default function LearningPage() {
                     <div className="sm:col-span-7 space-y-4">
                       {/* Countdown Timer */}
                       <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full">
-                        <div className="flex flex-col items-center bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl py-2.5 px-1 text-center min-w-0">
-                          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-slate-100">{padZero(remainingDays)}</span>
-                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">DAYS</span>
+                        <div className="flex flex-col items-center bg-white/[0.03] light:bg-slate-100 border border-white/5 light:border-slate-200 rounded-xl py-2.5 px-1 text-center min-w-0">
+                          <span className="text-lg sm:text-xl font-black font-mono text-slate-100 light:text-slate-900">{padZero(remainingDays)}</span>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 light:text-slate-500 mt-0.5">DAYS</span>
                         </div>
-                        <div className="flex flex-col items-center bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl py-2.5 px-1 text-center min-w-0">
-                          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-slate-100">{padZero(remainingHours)}</span>
-                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">HOURS</span>
+                        <div className="flex flex-col items-center bg-white/[0.03] light:bg-slate-100 border border-white/5 light:border-slate-200 rounded-xl py-2.5 px-1 text-center min-w-0">
+                          <span className="text-lg sm:text-xl font-black font-mono text-slate-100 light:text-slate-900">{padZero(remainingHours)}</span>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 light:text-slate-500 mt-0.5">HOURS</span>
                         </div>
-                        <div className="flex flex-col items-center bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl py-2.5 px-1 text-center min-w-0">
-                          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-slate-100">{padZero(remainingMins)}</span>
-                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">MINS</span>
+                        <div className="flex flex-col items-center bg-white/[0.03] light:bg-slate-100 border border-white/5 light:border-slate-200 rounded-xl py-2.5 px-1 text-center min-w-0">
+                          <span className="text-lg sm:text-xl font-black font-mono text-slate-100 light:text-slate-900">{padZero(remainingMins)}</span>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 light:text-slate-500 mt-0.5">MINS</span>
                         </div>
-                        <div className="flex flex-col items-center bg-slate-100 dark:bg-[#070711] border border-slate-200 dark:border-white/5 rounded-xl py-2.5 px-1 text-center min-w-0">
-                          <span className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-slate-100">{padZero(remainingSecs)}</span>
-                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">SECS</span>
+                        <div className="flex flex-col items-center bg-white/[0.03] light:bg-slate-100 border border-white/5 light:border-slate-200 rounded-xl py-2.5 px-1 text-center min-w-0">
+                          <span className="text-lg sm:text-xl font-black font-mono text-slate-100 light:text-slate-900">{padZero(remainingSecs)}</span>
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 light:text-slate-500 mt-0.5">SECS</span>
                         </div>
                       </div>
 
                       {/* Track Session Stopwatch (embedded) */}
                       <div className={`p-4 rounded-xl border transition-all ${
                         isSessionActive
-                          ? "border-teal-500/25 bg-teal-950/10 dark:bg-teal-950/20"
-                          : "border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-[#070711]"
+                          ? "border-teal-500/25 bg-teal-950/20 light:bg-teal-50"
+                          : "border-white/5 light:border-slate-200 bg-white/[0.03] light:bg-slate-100"
                       } text-center`}>
-                        <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">TRACK SESSION</h3>
-                        <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-slate-100 mb-3 tracking-wider">
+                        <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400 light:text-slate-600 mb-1">TRACK SESSION</h3>
+                        <div className="text-2xl sm:text-3xl font-black font-mono text-slate-100 light:text-slate-900 mb-3 tracking-wider">
                           {formatStopwatch(sessionSeconds)}
                         </div>
                         <button
@@ -891,6 +906,7 @@ export default function LearningPage() {
                 )}
               </div>
             </div>
+
 
             {/* Right Side tabs roadmap/logs */}
             <div ref={logsRef} className="lg:col-span-7 space-y-6">

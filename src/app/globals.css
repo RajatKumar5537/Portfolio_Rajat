@@ -688,3 +688,190 @@ input[type="date"]::-webkit-date-and-time-value {
     0 8px 20px rgba(99, 102, 241, 0.08) !important;
 }
 
+/* Print Styles for Multi-Page Statement Export */
+@media print {
+  @page {
+    size: auto;
+    margin: 10mm 12mm 12mm 12mm;
+  }
+
+  /* Reset global layout containers so they never clip or scroll */
+  html,
+  body,
+  #__next,
+  div {
+    overflow: visible !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide everything except the statement modal */
+  .nav-header,
+  footer,
+  main,
+  .cyber-grid,
+  .no-print,
+  [data-no-print="true"],
+  button {
+    display: none !important;
+  }
+
+  /* Flatten modal overlays to natural document flow */
+  .statement-modal-overlay {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    inset: auto !important;
+    z-index: auto !important;
+  }
+
+  .statement-modal-card {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #printable-statement {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure text & titles are crisp dark on white */
+  #printable-statement * {
+    color: #0f172a !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Table Container and Multi-page Pagination */
+  .table-print-wrapper {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+  }
+
+  #printable-statement table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  #printable-statement thead {
+    display: table-header-group !important;
+  }
+
+  #printable-statement thead th {
+    background-color: #f1f5f9 !important;
+    color: #334155 !important;
+    font-weight: 700 !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+  }
+
+  #printable-statement tbody tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  #printable-statement tbody td {
+    padding: 5px 8px !important;
+    font-size: 10px !important;
+    color: #0f172a !important;
+  }
+
+  #printable-statement tfoot {
+    display: table-footer-group !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #printable-statement tfoot tr {
+    border-top: 2px solid #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    font-weight: 800 !important;
+  }
+
+  #printable-statement tfoot td {
+    padding: 8px 8px !important;
+    font-size: 11px !important;
+  }
+
+  /* Summary KPI cards in print */
+  #printable-statement .statement-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 12px !important;
+  }
+
+  #printable-statement .statement-kpi-card {
+    border: 1px solid #cbd5e1 !important;
+    background-color: #f8fafc !important;
+    padding: 6px 8px !important;
+    border-radius: 6px !important;
+  }
+
+  #printable-statement .statement-kpi-card span {
+    color: #64748b !important;
+    font-size: 8px !important;
+  }
+
+  #printable-statement .statement-kpi-card p {
+    color: #0f172a !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+  }
+}
+
+
+
