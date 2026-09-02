@@ -1127,7 +1127,7 @@ export default function ExpensesPage() {
                       </button>
 
                       {showExportDropdown && (
-                        <div className="absolute right-0 mt-1.5 w-64 rounded-xl border border-white/10 dark:border-white/10 light:border-slate-200 bg-[#0c0c16]/95 light:bg-white backdrop-blur-xl shadow-2xl p-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-64 max-w-[calc(100vw-2.5rem)] rounded-xl border border-white/10 dark:border-white/10 light:border-slate-200 bg-[#0c0c16]/95 light:bg-white backdrop-blur-xl shadow-2xl p-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
                           <div className="px-2.5 py-1.5 border-b border-white/5 light:border-slate-100 mb-1">
                             <p className="text-[10px] font-black uppercase tracking-wider text-slate-300 light:text-slate-800">
                               Export {activeFilter.category || (activeFilter.type ? `${activeFilter.type}s` : "Ledger")}
