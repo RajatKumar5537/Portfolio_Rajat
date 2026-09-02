@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
+import User from "@/lib/models/User";
 import ChatPresence from "@/lib/models/ChatPresence";
 
 export async function GET() {
@@ -12,6 +13,10 @@ export async function GET() {
     }
 
     await dbConnect();
+    const currentUserEmail = session.user.email?.toLowerCase().trim();
+    const currentUser = currentUserEmail ? await User.findOne({ email: currentUserEmail }) : null;
+    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+
     // Return presences from the last 7 days so lastSeenAt timestamp is available when offline
     const weekThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -19,17 +24,17 @@ export async function GET() {
       lastSeenAt: { $gt: weekThreshold },
     }).lean();
 
-    const currentUserId = (session.user as any).id || session.user.email;
-    const currentUserEmail = session.user.email?.toLowerCase().trim();
+    const now = Date.now();
 
     const activeUsers = presences.map((p: any) => {
       const lastSeenDate = p.lastSeenAt ? new Date(p.lastSeenAt) : null;
-      const isOnline = lastSeenDate ? (Date.now() - lastSeenDate.getTime()) < 8000 : false;
+      // Consider online if heartbeat was within the last 15 seconds
+      const isOnline = lastSeenDate ? (now - lastSeenDate.getTime()) < 15000 : false;
       const pEmail = p.userEmail?.toLowerCase().trim();
 
       const isMe = 
         p.userId === currentUserId || 
-        (currentUserEmail && p.userId.toLowerCase() === currentUserEmail) ||
+        p.userId === currentUserEmail ||
         (currentUserEmail && pEmail && pEmail === currentUserEmail);
 
       return {
@@ -58,24 +63,35 @@ export async function POST(req: Request) {
     }
 
     const { isTyping = false, customName } = await req.json();
-    const userId = (session.user as any).id || session.user.email;
-    const userEmail = session.user.email?.toLowerCase().trim() || "";
-    const defaultName = session.user.name || session.user.email?.split("@")[0] || "User";
-    const userName = customName && customName.trim() ? customName.trim() : defaultName;
-
     await dbConnect();
 
-    await ChatPresence.findOneAndUpdate(
-      { $or: [{ userId }, { userEmail: userEmail }] },
-      {
-        userId,
-        userEmail,
+    const currentUserEmail = session.user.email?.toLowerCase().trim() || "";
+    const currentUser = currentUserEmail ? await User.findOne({ email: currentUserEmail }) : null;
+    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+    const defaultName = currentUser?.name || session.user.name || currentUserEmail.split("@")[0] || "User";
+    const userName = customName && customName.trim() ? customName.trim() : defaultName;
+
+    // Safe lookup and update avoiding MongoServerError on $or upsert
+    let presence: any = await ChatPresence.findOne({
+      $or: [{ userId: currentUserId }, { userEmail: currentUserEmail }],
+    });
+
+    if (presence) {
+      presence.userId = currentUserId;
+      presence.userEmail = currentUserEmail;
+      presence.userName = userName;
+      presence.isTyping = !!isTyping;
+      presence.lastSeenAt = new Date();
+      await presence.save();
+    } else {
+      await ChatPresence.create({
+        userId: currentUserId,
+        userEmail: currentUserEmail,
         userName,
         isTyping: !!isTyping,
         lastSeenAt: new Date(),
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
