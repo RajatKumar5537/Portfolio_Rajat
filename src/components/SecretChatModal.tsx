@@ -6,7 +6,8 @@ import {
   X, Send, Reply, Pencil, Trash2, Shield, User, 
   Sparkles, RefreshCw, Check, Ban, Smile, Copy, CheckCheck,
   Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete, Info,
-  Paperclip, Image as ImageIcon, Film, Download, Loader2, CornerDownRight
+  Paperclip, Image as ImageIcon, Film, Download, Loader2, CornerDownRight,
+  Search, Phone, PhoneCall, PhoneIncoming, PhoneOff, Mic, MicOff, Volume2, ArrowLeft
 } from "lucide-react";
 
 interface ReplyToData {
@@ -39,8 +40,19 @@ interface AcceptedFriend {
   connectionId: string;
   partnerId: string;
   partnerName: string;
+  partnerEmail?: string;
   roomId: string;
   retentionHours?: number;
+  unreadCount?: number;
+  lastMessage?: {
+    text: string;
+    sender: string;
+    senderId: string;
+    isMe: boolean;
+    isRead: boolean;
+    isDelivered: boolean;
+    createdAt: string;
+  } | null;
 }
 
 interface PendingIncomingRequest {
@@ -65,6 +77,18 @@ interface ActiveUser {
   isOnline: boolean;
   isMe: boolean;
   lastSeenAt: string | null;
+}
+
+interface CallSession {
+  callId: string;
+  callerId: string;
+  callerName: string;
+  recipientId: string;
+  recipientName: string;
+  roomId: string;
+  status: "calling" | "incoming" | "connected";
+  isMuted: boolean;
+  durationSec: number;
 }
 
 const EMOJI_CATEGORIES = [
@@ -127,6 +151,27 @@ const EMOJI_CATEGORIES = [
   }
 ];
 
+function formatWhatsAppTime(dateString?: string | null) {
+  if (!dateString) return "";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0 && d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return "Yesterday";
+  }
+  if (diffDays < 7) {
+    return d.toLocaleDateString([], { weekday: "short" });
+  }
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
 interface SecretChatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -150,9 +195,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const [selectedFriend, setSelectedFriend] = useState<AcceptedFriend | null>(null);
   const selectedFriendRef = useRef<AcceptedFriend | null>(null);
   selectedFriendRef.current = selectedFriend;
+
+  // WhatsApp Layout States
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"all" | "unread" | "requests">("all");
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   
   // UI Panels
-  const [showFriendPicker, setShowFriendPicker] = useState(false);
   const [showAddFriendForm, setShowAddFriendForm] = useState(false);
   const [requestEmailInput, setRequestEmailInput] = useState("");
   const [requestStatusMsg, setRequestStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -197,6 +246,17 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // WebRTC Voice Calling State & References
+  const [activeCall, setActiveCall] = useState<CallSession | null>(null);
+  const activeCallRef = useRef<CallSession | null>(null);
+  activeCallRef.current = activeCall;
+
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Ref anchors for stable callback references across renders
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -210,7 +270,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
 
-    // Clean non-destructive body scroll lock: only set overflow = "hidden"
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -230,13 +289,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
     return () => {
       document.body.style.overflow = originalOverflow || "";
-      document.body.style.removeProperty("overflow");
-      document.body.style.removeProperty("position");
-      document.body.style.removeProperty("top");
-      document.body.style.removeProperty("width");
-      document.body.style.removeProperty("height");
-      document.body.style.removeProperty("touch-action");
-
       window.visualViewport?.removeEventListener("resize", updateViewport);
       window.visualViewport?.removeEventListener("scroll", updateViewport);
     };
@@ -254,7 +306,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
 
     const handlePopState = () => {
-      onCloseRef.current();
+      if (mobileView === "chat") {
+        setMobileView("list");
+      } else {
+        onCloseRef.current();
+      }
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -265,13 +321,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         window.history.back();
       }
     };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (viewportHeight && chatFeedRef.current) {
-      chatFeedRef.current.scrollTop = chatFeedRef.current.scrollHeight;
-    }
-  }, [viewportHeight]);
+  }, [isOpen, mobileView]);
 
   // Universal Gesture Swipe for Laptop (Mouse / Trackpad) and Mobile (Touch)
   const [swipingId, setSwipingId] = useState<string | null>(null);
@@ -283,7 +333,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, msgId: string) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-
     pointerStartXRef.current = e.clientX;
     pointerStartYRef.current = e.clientY;
     isDraggingRef.current = false;
@@ -294,11 +343,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!swipingId || activePointerIdRef.current !== e.pointerId) return;
-
     const deltaX = e.clientX - pointerStartXRef.current;
     const deltaY = e.clientY - pointerStartYRef.current;
 
-    // Detect horizontal drag intent
     if (!isDraggingRef.current) {
       if (Math.abs(deltaX) > 5 && Math.abs(deltaX) > Math.abs(deltaY)) {
         isDraggingRef.current = true;
@@ -306,13 +353,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         } catch (_) {}
       } else if (Math.abs(deltaY) > 6) {
-        return; // Natural vertical scroll
+        return;
       }
     }
 
     if (isDraggingRef.current) {
       e.preventDefault();
-      // Elastic damping
       const damped = deltaX > 0 ? Math.min(80, deltaX * 0.8) : Math.max(-80, deltaX * 0.8);
       setSwipeOffset(damped);
     }
@@ -323,9 +369,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
 
       if (isMe) {
-        // Current user (Sent bubble on the right):
-        // Swiping Left (< -35px) -> Instant Reply
-        // Swiping Right (> 35px) -> Toggle Actions Toolbar
         if (swipeOffset < -35) {
           setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
           focusInput();
@@ -333,9 +376,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
         }
       } else {
-        // Friend's message (Received bubble on the left):
-        // Swiping Right (> 35px) -> Instant Reply
-        // Swiping Left (< -35px) -> Toggle Actions Toolbar
         if (swipeOffset > 35) {
           setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
           focusInput();
@@ -376,10 +416,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const chatFeedRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll helper that strictly scrolls only the chat container, never the window/body
   const scrollToBottom = (smooth = true) => {
     if (chatFeedRef.current) {
       if (smooth) {
@@ -396,7 +434,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   // Reply Jump & Highlight state
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
 
-  // Jump to the exact replied message and smoothly pulse highlight it
   const handleJumpToMessage = (targetMsgId?: string, targetText?: string) => {
     let targetEl: HTMLElement | null = null;
     let foundId: string | null = null;
@@ -406,7 +443,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       if (targetEl) foundId = targetMsgId;
     }
 
-    // Fallback: search by text if ID was missing (e.g. older messages)
     if (!targetEl && targetText) {
       const match = messages.find(
         (m) => m.text === targetText || (m.mediaName && targetText.includes(m.mediaName))
@@ -427,6 +463,63 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       }
     }
   };
+
+  // Web Audio Ringtone Synthesizer
+  const playRingtone = (type: "outgoing" | "incoming") => {
+    try {
+      if (!audioContextRef.current) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        audioContextRef.current = new AudioCtx();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (type === "outgoing") {
+        // WhatsApp style pleasant dual ringback
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+        osc.start();
+        osc.stop(ctx.currentTime + 1.2);
+      } else {
+        // Pleasant melodic incoming chime
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15); // E5
+        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.3); // G5
+        osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.45); // C6
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.8);
+      }
+    } catch (_) {}
+  };
+
+  // Stop WebRTC and reset call states
+  const cleanupCall = useCallback(() => {
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+      callTimerRef.current = null;
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    setActiveCall(null);
+  }, []);
 
   // Fetch 1-on-1 messages for a specific partner ID
   const fetchMessagesForPartner = useCallback(async (partnerId: string, markRead = true) => {
@@ -501,26 +594,266 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   }, [currentSender]);
 
-  // Initial load
+  // Voice Call Signaling Poller
+  const checkIncomingAndCallStatus = useCallback(async () => {
+    try {
+      const currentCall = activeCallRef.current;
+
+      if (currentCall) {
+        const res = await fetch(`/api/chat/call?callId=${currentCall.callId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const callData = data.call;
+          if (callData) {
+            if (callData.status === "declined" || callData.status === "ended" || callData.status === "missed") {
+              cleanupCall();
+              if (selectedFriendRef.current) {
+                fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+              }
+            } else if (callData.status === "accepted" && currentCall.status === "calling" && callData.answer) {
+              if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== "stable") {
+                try {
+                  const sdpAnswer = JSON.parse(callData.answer);
+                  await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(sdpAnswer));
+                  setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : null));
+                } catch (e) {
+                  console.error("Error setting remote SDP answer:", e);
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Poll for incoming call if idle
+        const res = await fetch("/api/chat/call");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.incomingCall && data.incomingCall.status === "ringing") {
+            const inc = data.incomingCall;
+            setActiveCall({
+              callId: inc._id,
+              callerId: inc.callerId,
+              callerName: inc.callerName,
+              recipientId: inc.recipientId,
+              recipientName: inc.recipientName,
+              roomId: inc.roomId,
+              status: "incoming",
+              isMuted: false,
+              durationSec: 0,
+            });
+            playRingtone("incoming");
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Call status check error:", err);
+    }
+  }, [cleanupCall, fetchMessagesForPartner]);
+
+  // Initiate Outgoing WebRTC Voice Call
+  const handleStartVoiceCall = async () => {
+    if (!selectedFriend || activeCall) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
+        ]
+      });
+      peerConnectionRef.current = pc;
+
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      pc.ontrack = (event) => {
+        if (remoteAudioRef.current && event.streams[0]) {
+          remoteAudioRef.current.srcObject = event.streams[0];
+        }
+      };
+
+      const candidatesList: any[] = [];
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          candidatesList.push(event.candidate);
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const res = await fetch("/api/chat/call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientId: selectedFriend.partnerId,
+          recipientName: selectedFriend.partnerName,
+          recipientEmail: selectedFriend.partnerEmail,
+          offer: JSON.stringify(offer),
+          candidates: candidatesList,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setActiveCall({
+          callId: data.callId,
+          callerId: currentUserId,
+          callerName: currentSender,
+          recipientId: selectedFriend.partnerId,
+          recipientName: selectedFriend.partnerName,
+          roomId: data.call.roomId,
+          status: "calling",
+          isMuted: false,
+          durationSec: 0,
+        });
+        playRingtone("outgoing");
+      }
+    } catch (err: any) {
+      alert("Microphone access is required for voice calls: " + (err.message || err));
+      cleanupCall();
+    }
+  };
+
+  // Accept Incoming WebRTC Voice Call
+  const handleAcceptVoiceCall = async () => {
+    if (!activeCall) return;
+
+    try {
+      const callRes = await fetch(`/api/chat/call?callId=${activeCall.callId}`);
+      const callData = (await callRes.json()).call;
+      if (!callData || !callData.offer) return;
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
+        ]
+      });
+      peerConnectionRef.current = pc;
+
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      pc.ontrack = (event) => {
+        if (remoteAudioRef.current && event.streams[0]) {
+          remoteAudioRef.current.srcObject = event.streams[0];
+        }
+      };
+
+      await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(callData.offer)));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      await fetch("/api/chat/call", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callId: activeCall.callId,
+          action: "answer",
+          answer: JSON.stringify(answer),
+        }),
+      });
+
+      setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : null));
+
+      // Match selected friend if available
+      const matchingFriend = acceptedFriends.find((f) => f.partnerId === activeCall.callerId || f.partnerName.toLowerCase() === activeCall.callerName.toLowerCase());
+      if (matchingFriend) {
+        setSelectedFriend(matchingFriend);
+      }
+    } catch (err: any) {
+      console.error("Error accepting voice call:", err);
+      cleanupCall();
+    }
+  };
+
+  // Decline Incoming Voice Call
+  const handleDeclineVoiceCall = async () => {
+    if (!activeCall) return;
+    const callId = activeCall.callId;
+    cleanupCall();
+    try {
+      await fetch("/api/chat/call", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callId, action: "decline" }),
+      });
+      if (selectedFriendRef.current) {
+        fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+      }
+    } catch (_) {}
+  };
+
+  // End Active Voice Call
+  const handleEndVoiceCall = async () => {
+    if (!activeCall) return;
+    const callId = activeCall.callId;
+    const duration = activeCall.durationSec;
+    cleanupCall();
+    try {
+      await fetch("/api/chat/call", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callId, action: "end", durationSec: duration }),
+      });
+      if (selectedFriendRef.current) {
+        fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+      }
+    } catch (_) {}
+  };
+
+  // Toggle Microphone Mute
+  const handleToggleMute = () => {
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setActiveCall((prev) => (prev ? { ...prev, isMuted: !audioTrack.enabled } : null));
+      }
+    }
+  };
+
+  // Active call duration counter
+  useEffect(() => {
+    if (activeCall?.status === "connected") {
+      callTimerRef.current = setInterval(() => {
+        setActiveCall((prev) => (prev ? { ...prev, durationSec: prev.durationSec + 1 } : null));
+      }, 1000);
+    } else {
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+    }
+    return () => {
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+    };
+  }, [activeCall?.status]);
+
+  // Main polling interval (Connections, Messages, Presence, Call signaling)
   useEffect(() => {
     if (!isOpen) return;
 
     fetchConnections();
     syncPresence(false);
+    checkIncomingAndCallStatus();
 
     let messageInterval: NodeJS.Timeout;
     let presenceInterval: NodeJS.Timeout;
     let connectionInterval: NodeJS.Timeout;
+    let callInterval: NodeJS.Timeout;
 
     const startIntervals = () => {
       const isVisible = typeof document !== "undefined" && document.visibilityState === "visible";
       const msgFreq = isVisible ? 600 : 4000;
       const presFreq = isVisible ? 1200 : 5000;
-      const connFreq = isVisible ? 3000 : 10000;
+      const connFreq = isVisible ? 2500 : 8000;
+      const callFreq = isVisible ? 1000 : 3000;
 
       clearInterval(messageInterval);
       clearInterval(presenceInterval);
       clearInterval(connectionInterval);
+      clearInterval(callInterval);
 
       messageInterval = setInterval(() => {
         if (selectedFriendRef.current) {
@@ -535,6 +868,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       connectionInterval = setInterval(() => {
         fetchConnections();
       }, connFreq);
+
+      callInterval = setInterval(() => {
+        checkIncomingAndCallStatus();
+      }, callFreq);
     };
 
     startIntervals();
@@ -546,6 +883,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
         }
         syncPresence(false);
+        checkIncomingAndCallStatus();
       }
       startIntervals();
     };
@@ -563,10 +901,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       clearInterval(messageInterval);
       clearInterval(presenceInterval);
       clearInterval(connectionInterval);
+      clearInterval(callInterval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence]);
+  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, checkIncomingAndCallStatus]);
 
   // When selected friend changes, reload messages and retention
   useEffect(() => {
@@ -646,6 +985,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             const newlyAccepted = accepted.find((f) => f.connectionId === connectionId) || accepted[accepted.length - 1];
             if (newlyAccepted) {
               setSelectedFriend(newlyAccepted);
+              setMobileView("chat");
             }
           }
         }
@@ -674,6 +1014,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         if (selectedFriend?.connectionId === connectionId) {
           setSelectedFriend(null);
           setMessages([]);
+          setMobileView("list");
         }
       }
     } catch (err) {
@@ -720,7 +1061,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       const processImageElement = (img: HTMLImageElement, cleanupUrl?: string) => {
         try {
           const canvas = document.createElement("canvas");
-          const maxDimension = 1280; // Optimal HD for mobile & fast delivery
+          const maxDimension = 1280;
           let width = img.naturalWidth || img.width;
           let height = img.naturalHeight || img.height;
 
@@ -831,18 +1172,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const focusInput = () => {
     if (inputRef.current) {
       inputRef.current.focus({ preventScroll: true });
-      requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
-      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 10);
-      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50);
-      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 120);
     }
   };
 
-  // Send 1-on-1 message handler with keyboard focus persistence
+  // Send message
   const handleSend = async (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
+    if (e) e.preventDefault();
     if ((!inputText.trim() && !stagedMedia) || !selectedFriend || sending) {
       focusInput();
       return;
@@ -880,77 +1215,46 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       });
 
       if (res.ok) {
-        const newMsg = await res.json();
-        setMessages((prev) => [...prev, newMsg]);
-        setTimeout(() => scrollToBottom(true), 30);
-        if (onMessagesRead) onMessagesRead();
-        fetchMessagesForPartner(currentPartner.partnerId, true);
+        await fetchMessagesForPartner(currentPartner.partnerId, true);
+        await fetchConnections();
+        scrollToBottom(false);
       }
     } catch (err) {
-      console.error("Error sending 1-on-1 message:", err);
+      console.error("Error sending message:", err);
     } finally {
       setSending(false);
       focusInput();
     }
   };
 
-  // Edit message handler
-  const handleSaveEdit = async (id: string) => {
-    if (!editText.trim()) return;
+  // Edit sent message
+  const handleSaveEdit = async (msgId: string) => {
+    if (!editText.trim() || !selectedFriend) return;
 
     try {
       const res = await fetch("/api/chat/messages", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, text: editText.trim() }),
+        body: JSON.stringify({
+          messageId: msgId,
+          text: editText.trim(),
+        }),
       });
 
       if (res.ok) {
-        const updated = await res.json();
-        setMessages((prev) => prev.map((m) => (m._id === id ? updated : m)));
         setEditingId(null);
         setEditText("");
+        await fetchMessagesForPartner(selectedFriend.partnerId, true);
+        await fetchConnections();
       }
     } catch (err) {
-      console.error("Error editing message:", err);
+      console.error("Error updating message:", err);
     }
   };
 
-  // Delete message handler
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this message for everyone?")) return;
-
-    try {
-      const res = await fetch(`/api/chat/messages?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m._id === id
-              ? {
-                  ...m,
-                  isDeleted: true,
-                  text: "This message was deleted",
-                  mediaType: null,
-                  mediaData: null,
-                  mediaName: null,
-                  replyTo: null,
-                }
-              : m
-          )
-        );
-      }
-    } catch (err) {
-      console.error("Error deleting message:", err);
-    }
-  };
-
-  // Clear 1-on-1 conversation for current user only
+  // Clear conversation for me
   const handleClearAll = async () => {
-    if (!selectedFriend) return;
-    if (!confirm(`Clear conversation with ${selectedFriend.partnerName} for you? (Your friend will still keep their chat history)`)) return;
+    if (!selectedFriend || !confirm(`Clear all messages in your conversation with ${selectedFriend.partnerName}?`)) return;
 
     try {
       const res = await fetch(`/api/chat/messages?clearAll=true&recipientId=${encodeURIComponent(selectedFriend.partnerId)}`, {
@@ -959,35 +1263,38 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
       if (res.ok) {
         setMessages([]);
+        await fetchConnections();
       }
     } catch (err) {
-      console.error("Error clearing conversation:", err);
+      console.error("Error clearing chat:", err);
     }
   };
 
-  // Update per-user disappearing messages retention (12h or 24h)
+  // Update disappearing message retention
   const handleUpdateRetention = async (hours: 12 | 24) => {
-    setRetentionHours(hours);
     if (!selectedFriend) return;
+    setRetentionHours(hours);
 
     try {
       await fetch("/api/chat/connections", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId: selectedFriend.connectionId, retentionHours: hours }),
+        body: JSON.stringify({
+          connectionId: selectedFriend.connectionId,
+          retentionHours: hours,
+        }),
       });
-      fetchMessagesForPartner(selectedFriend.partnerId, true);
+      await fetchConnections();
     } catch (err) {
       console.error("Error updating retention:", err);
     }
   };
 
-  // Presence & Last Seen calculation for User B (partner) and User A (self)
+  // Presence & Last Seen calculation for partner
   const friendPresence = selectedFriend 
     ? activeUsers.find((u) => !u.isMe && (u.userId === selectedFriend.partnerId || u.userName.toLowerCase() === selectedFriend.partnerName.toLowerCase()))
     : null;
   const isFriendOnline = friendPresence?.isOnline ?? false;
-
   const myPresence = activeUsers.find((u) => u.isMe);
 
   const formatLastSeen = (dateInput?: string | Date | null) => {
@@ -998,7 +1305,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMinutes = Math.floor(diffMs / 60000);
-
     const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     if (diffMinutes < 1) {
@@ -1019,11 +1325,23 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   };
 
+  // Filter friends list
+  const filteredFriends = acceptedFriends.filter((friend) => {
+    const matchesSearch = friend.partnerName.toLowerCase().includes(searchQuery.toLowerCase()) || (friend.partnerEmail && friend.partnerEmail.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (!matchesSearch) return false;
+    if (activeTab === "unread") {
+      return (friend.unreadCount || 0) > 0;
+    }
+    return true;
+  });
+
+  const totalUnreadAll = acceptedFriends.reduce((sum, f) => sum + (f.unreadCount || 0), 0);
+
   if (!isOpen) return null;
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 md:p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden"
       style={
         viewportHeight && typeof window !== "undefined" && window.innerWidth < 640
           ? {
@@ -1036,1178 +1354,926 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           : undefined
       }
     >
+      {/* Hidden audio element for remote WebRTC voice call stream */}
+      <audio ref={remoteAudioRef} autoPlay />
+
       <div 
-        className="w-full sm:max-w-2xl bg-[#030308]/95 backdrop-blur-2xl border-0 sm:border border-white/10 sm:rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_30px_rgba(99,102,241,0.08)] light:bg-white light:border-slate-200 light:shadow-2xl overflow-hidden flex flex-col h-full sm:h-[640px] sm:max-h-[90vh] relative font-sans transition-colors"
+        className="w-full sm:max-w-5xl md:max-w-6xl bg-[#030308]/98 backdrop-blur-2xl border-0 sm:border border-white/10 sm:rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_40px_rgba(20,184,166,0.12)] light:bg-white light:border-slate-200 light:shadow-2xl overflow-hidden flex flex-row h-full sm:h-[680px] sm:max-h-[92vh] relative font-sans transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header (Zero-Knowledge 1-on-1 Tunnel with Cyber Glassmorphism) */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-white/10 bg-[#070712]/90 backdrop-blur-xl light:bg-[#f0f2f5] light:border-slate-200 flex-shrink-0 pt-[max(0.625rem,env(safe-area-inset-top))] transition-colors">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            {/* Avatar & Online Presence */}
-            <div className="relative flex-shrink-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 font-bold text-xs sm:text-sm shadow-inner flex items-center justify-center light:bg-teal-500/15 light:border-teal-500/30 light:text-teal-700">
-                {selectedFriend ? selectedFriend.partnerName.slice(0, 2).toUpperCase() : <Lock size={16} />}
+        {/* ========================================================= */}
+        {/* LEFT SIDEBAR: WhatsApp Web Contact List (Chats, Search, Tabs) */}
+        {/* ========================================================= */}
+        <div 
+          className={`w-full md:w-[320px] lg:w-[360px] border-r border-white/10 flex flex-col flex-shrink-0 bg-[#070712] light:bg-[#f0f2f5] light:border-slate-200 transition-all ${
+            mobileView === "chat" && selectedFriend ? "hidden md:flex" : "flex"
+          }`}
+        >
+          {/* Sidebar Top Header */}
+          <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-white/10 bg-[#0a0a1a] light:bg-[#f0f2f5] light:border-slate-200 flex-shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-md">
+                  {currentSender.slice(0, 2).toUpperCase()}
+                </div>
+                {myPresence?.isOnline && (
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm"></span>
+                )}
               </div>
-              {isFriendOnline && (
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm"></span>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white truncate light:text-slate-900">Chats</h3>
+                <p className="text-[10px] text-teal-400 font-mono font-medium truncate light:text-teal-600 flex items-center gap-1">
+                  <Lock size={10} /> AES-256 E2EE
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Add / Connect Friend Button */}
+              <button
+                type="button"
+                onClick={() => setShowAddFriendForm(!showAddFriendForm)}
+                className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs ${
+                  showAddFriendForm
+                    ? "bg-teal-600 text-white shadow-sm"
+                    : "bg-white/[0.07] border border-white/10 text-slate-200 hover:bg-white/15 light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                }`}
+                title="New Chat (Add Friend by Email)"
+              >
+                <UserPlus size={15} />
+              </button>
+
+              {/* Close Modal (Mobile / Desktop) */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-red-600"
+                title="Close (Esc)"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="p-2.5 border-b border-white/5 bg-[#05050e] light:bg-white light:border-slate-200 flex-shrink-0">
+            <div className="relative flex items-center">
+              <Search size={14} className="absolute left-3 text-slate-400 light:text-slate-500 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search or start a new chat"
+                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-slate-100 light:border-slate-200 light:text-slate-900 light:placeholder-slate-400 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 text-slate-400 hover:text-white text-xs cursor-pointer light:hover:text-slate-700"
+                >
+                  ✕
+                </button>
               )}
             </div>
 
-            {/* Friend Info / Switcher */}
-            <div className="min-w-0">
+            {/* Filter Tabs: All / Unread / Requests */}
+            <div className="flex items-center gap-1.5 mt-2 overflow-x-auto no-scrollbar">
               <button
                 type="button"
-                onClick={() => {
-                  setShowFriendPicker(!showFriendPicker);
-                  setShowAddFriendForm(false);
-                }}
-                className="text-left flex items-center gap-1.5 group cursor-pointer"
-                title={acceptedFriends.length > 1 ? "Click to switch active chat between connected friends" : undefined}
+                onClick={() => setActiveTab("all")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  activeTab === "all"
+                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 light:bg-teal-600 light:text-white"
+                    : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
+                }`}
               >
-                <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-teal-400 truncate transition-colors light:text-slate-900 light:group-hover:text-teal-600">
-                  {selectedFriend ? selectedFriend.partnerName : "Friend Chat"}
-                </h3>
-                {acceptedFriends.length > 1 && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-teal-500/20 text-teal-300 border border-teal-500/30 flex items-center gap-0.5 group-hover:bg-teal-500/30 light:bg-teal-100 light:text-teal-700 light:border-teal-200">
-                    <Users size={10} />
-                    <span>{acceptedFriends.length}</span>
-                    <ChevronDown size={11} className="transition-transform group-hover:translate-y-0.5" />
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("unread")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "unread"
+                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 light:bg-teal-600 light:text-white"
+                    : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
+                }`}
+              >
+                <span>Unread</span>
+                {totalUnreadAll > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-emerald-500 text-black text-[9px] font-bold flex items-center justify-center">
+                    {totalUnreadAll}
                   </span>
                 )}
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-mono font-normal flex-shrink-0 light:bg-emerald-500/10 light:border-emerald-500/25 light:text-emerald-700">
-                  AES-256
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("requests")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "requests"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 light:bg-amber-600 light:text-white"
+                    : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
+                }`}
+              >
+                <span>Requests</span>
+                {pendingIncoming.length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-amber-500 text-black text-[9px] font-bold flex items-center justify-center animate-pulse">
+                    {pendingIncoming.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Add Friend Form Dropdown */}
+          {showAddFriendForm && (
+            <div className="p-3 bg-[#0c0c1e] border-b border-white/10 flex-shrink-0 animate-in fade-in duration-150 light:bg-slate-100 light:border-slate-200">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider font-mono flex items-center gap-1">
+                  <UserPlus size={12} /> Add Friend by Email
                 </span>
-              </button>
-
-              {/* Status Subtitle */}
-              <p className="text-[9px] sm:text-[10px] tracking-wide truncate mt-0.5">
-                {friendPresence?.isTyping ? (
-                  <span className="text-teal-400 font-bold flex items-center gap-1 animate-pulse light:text-teal-600">
-                    <span className="truncate">✍️ {selectedFriend?.partnerName} is typing</span>
-                    <span className="inline-flex gap-0.5 flex-shrink-0">
-                      <span className="w-1 h-1 bg-teal-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                      <span className="w-1 h-1 bg-teal-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                      <span className="w-1 h-1 bg-teal-500 rounded-full animate-bounce"></span>
-                    </span>
-                  </span>
-                ) : isFriendOnline ? (
-                  <span className="text-emerald-400 font-medium flex items-center gap-1 light:text-emerald-600">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping flex-shrink-0"></span>
-                    Online
-                  </span>
-                ) : friendPresence?.lastSeenAt ? (
-                  <span className="text-slate-400 truncate block light:text-slate-500">
-                    last seen {formatLastSeen(friendPresence.lastSeenAt)}
-                  </span>
-                ) : (
-                  <span className="text-slate-400 truncate block light:text-slate-500">
-                    {selectedFriend ? `Chat with ${selectedFriend.partnerName}` : "Connect with a friend to start"} • {retentionHours}h
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Add / Connect Friend Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowAddFriendForm(!showAddFriendForm);
-                setShowFriendPicker(false);
-                setRequestStatusMsg(null);
-              }}
-              className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs ${
-                showAddFriendForm
-                  ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-sm light:bg-[#005c4b]"
-                  : "bg-white/[0.07] border border-white/10 text-slate-200 hover:bg-white/15 light:bg-slate-200/80 light:border-slate-300 light:text-slate-700 light:hover:text-teal-700"
-              }`}
-              title="Connect with Friend (Send Request)"
-            >
-              <UserPlus size={14} />
-              <span className="hidden sm:inline text-[10px]">Add Friend</span>
-            </button>
-
-            {/* Per-user disappearing messages toggle */}
-            <div className="flex items-center bg-white/[0.07] border border-white/10 rounded-xl p-0.5 sm:p-1 text-[8px] sm:text-[9px] font-mono light:bg-slate-200/80 light:border-slate-300">
-              <button
-                type="button"
-                onClick={() => handleUpdateRetention(12)}
-                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
-                  retentionHours === 12 
-                    ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs light:bg-[#005c4b]" 
-                    : "text-slate-300 hover:text-white light:text-slate-700 light:hover:text-slate-950"
-                }`}
-                title="Disappear messages older than 12 hours for your view"
-              >
-                12h
-              </button>
-              <button
-                type="button"
-                onClick={() => handleUpdateRetention(24)}
-                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
-                  retentionHours === 24 
-                    ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs light:bg-[#005c4b]" 
-                    : "text-slate-300 hover:text-white light:text-slate-700 light:hover:text-slate-950"
-                }`}
-                title="Disappear messages older than 24 hours for your view"
-              >
-                24h
-              </button>
-            </div>
-
-            {/* Clear Conversation for Me Button */}
-            {selectedFriend && (
-              <button
-                type="button"
-                onClick={handleClearAll}
-                disabled={messages.length === 0}
-                className="p-2 sm:p-1.5 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center light:bg-slate-200/80 light:border-slate-300 light:text-slate-700 light:hover:text-red-600"
-                title="Clear conversation for you"
-              >
-                <Trash2 size={15} />
-              </button>
-            )}
-
-            {/* Panic / Close button */}
-            <button
-              onClick={onClose}
-              className="p-2 sm:p-1.5 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center light:bg-slate-200/80 light:border-slate-300 light:text-slate-700 light:hover:text-red-600"
-              title="Stealth Close (Esc)"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Incoming Friend Request Banner (Accept / Decline) */}
-        {pendingIncoming.length > 0 && (
-          <div className="p-3 bg-amber-500/15 border-b border-amber-500/25 flex-shrink-0 space-y-2 animate-in fade-in duration-150 light:bg-amber-500/10">
-            {pendingIncoming.map((req) => (
-              <div key={req.connectionId} className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 text-xs text-amber-300 font-medium truncate light:text-amber-700">
-                  <Bell size={14} className="text-amber-400 flex-shrink-0 animate-bounce light:text-amber-500" />
-                  <span className="truncate">
-                    <strong>{req.requesterName}</strong> sent you a friend request.
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 ml-auto">
-                  <button
-                    type="button"
-                    onClick={() => handleRespondRequest(req.connectionId, "accept")}
-                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1"
-                  >
-                    <Check size={12} />
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRespondRequest(req.connectionId, "decline")}
-                    className="px-2.5 py-1 bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 rounded-lg text-xs transition-all cursor-pointer flex items-center gap-1 light:bg-slate-200 light:text-slate-600 light:hover:text-red-500"
-                  >
-                    <X size={12} />
-                    Decline
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddFriendForm(false)}
+                  className="text-slate-400 hover:text-white text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Send Friend Request Modal / Form */}
-        {showAddFriendForm && (
-          <div className="p-4 bg-[#080814]/95 backdrop-blur-md border-b border-white/10 flex-shrink-0 animate-in fade-in slide-in-from-top-2 duration-150 shadow-lg light:bg-slate-100 light:border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5 light:text-slate-700">
-                <UserPlus size={13} className="text-teal-400 light:text-teal-600" />
-                Connect with a Friend
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowAddFriendForm(false)}
-                className="text-slate-400 hover:text-white text-xs p-1 cursor-pointer light:hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-400 mb-3 light:text-slate-600">
-              Enter the exact email address of the friend you want to chat with. They will receive a private request and must accept it before the channel opens.
-            </p>
-
-            <form onSubmit={handleSendConnectionRequest} className="space-y-2.5">
-              <div className="flex items-center gap-2">
+              <form onSubmit={handleSendConnectionRequest} className="space-y-2">
                 <input
                   type="email"
                   value={requestEmailInput}
                   onChange={(e) => setRequestEmailInput(e.target.value)}
-                  placeholder="Enter friend's email (e.g. friend@example.com)..."
-                  className="w-full bg-white/[0.08] border border-white/20 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-teal-500 placeholder-slate-500 light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
+                  placeholder="friend@example.com..."
+                  className="w-full bg-white/[0.08] border border-white/20 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900"
                   autoFocus
                 />
                 <button
                   type="submit"
                   disabled={!requestEmailInput.trim() || isSubmittingRequest}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer flex-shrink-0 shadow-md light:bg-[#005c4b]"
+                  className="w-full py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
                 >
-                  {isSubmittingRequest ? "Sending..." : "Send Request"}
+                  {isSubmittingRequest ? "Sending Request..." : "Send Request"}
                 </button>
-              </div>
+                {requestStatusMsg && (
+                  <div className={`text-[11px] p-2 rounded-lg ${requestStatusMsg.type === "success" ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300"}`}>
+                    {requestStatusMsg.text}
+                  </div>
+                )}
+              </form>
+            </div>
+          )}
 
-              {requestStatusMsg && (
-                <div
-                  className={`text-xs p-2 rounded-xl border ${
-                    requestStatusMsg.type === "success"
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 light:text-emerald-600"
-                      : "bg-red-500/10 border-red-500/30 text-red-400 light:text-red-600"
-                  }`}
-                >
-                  {requestStatusMsg.text}
+          {/* Contacts & Pending Requests List Feed */}
+          <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-white/5 light:divide-slate-200">
+            {/* Incoming Requests Banner / Section */}
+            {(activeTab === "requests" || (activeTab === "all" && pendingIncoming.length > 0)) && (
+              <div className="p-2.5 bg-amber-500/[0.08] border-b border-amber-500/20 space-y-2 light:bg-amber-500/10">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
+                  <Bell size={12} className="animate-bounce" /> Friend Requests ({pendingIncoming.length})
                 </div>
-              )}
-            </form>
-
-            {/* Pending Outgoing Requests with Cancel Option */}
-            {pendingOutgoing.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-white/10 space-y-1.5 light:border-slate-200">
-                <span className="text-[9px] uppercase tracking-wider text-slate-400 font-mono">Pending Sent Requests:</span>
-                {pendingOutgoing.map((out) => (
-                  <div key={out.connectionId} className="flex items-center justify-between text-xs text-slate-300 bg-white/5 px-2.5 py-1.5 rounded-lg light:text-slate-600 light:bg-white/50">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <span>⏳ Request sent to <strong>{out.recipientName || out.recipientEmail}</strong></span>
-                      <span className="text-[9px] text-amber-400 font-mono hidden sm:inline light:text-amber-600">(Waiting for acceptance)</span>
+                {pendingIncoming.map((req) => (
+                  <div key={req.connectionId} className="bg-black/40 light:bg-white p-2.5 rounded-xl border border-amber-500/20 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-300 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                        {req.requesterName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-bold text-white truncate light:text-slate-900">{req.requesterName}</h4>
+                        <p className="text-[10px] text-slate-400 truncate light:text-slate-500">{req.requesterEmail}</p>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveConnection(out.connectionId, out.recipientName || out.recipientEmail, true)}
-                      className="px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold transition-colors cursor-pointer flex-shrink-0 ml-2 light:text-red-600"
-                      title="Cancel this request"
-                    >
-                      Cancel Request
-                    </button>
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleRespondRequest(req.connectionId, "accept")}
+                        className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <Check size={12} /> Accept
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRespondRequest(req.connectionId, "decline")}
+                        className="flex-1 py-1 bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1 light:bg-slate-200 light:text-slate-700"
+                      >
+                        <X size={12} /> Decline
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Connected Friends Switcher Panel with Remove / Unfriend Option */}
-        {showFriendPicker && (
-          <div className="p-3.5 bg-[#080814]/95 backdrop-blur-xl border-b border-white/10 flex-shrink-0 animate-in fade-in slide-in-from-top-2 duration-150 shadow-lg light:bg-slate-100 light:border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5 light:text-slate-700">
-                <Users size={12} className="text-teal-400 light:text-teal-600" />
-                Your Connected Friends
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowFriendPicker(false)}
-                className="text-slate-400 hover:text-white text-xs p-1 cursor-pointer light:hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-1.5 max-h-36 overflow-y-auto">
-              {acceptedFriends.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No connected friends yet. Click &quot;Add Friend&quot; to send a request.</p>
-              ) : (
-                acceptedFriends.map((p) => {
-                  const isSelected = selectedFriend?.partnerId === p.partnerId;
-                  const pPresence = activeUsers.find((u) => !u.isMe && (u.userId === p.partnerId || u.userName.toLowerCase() === p.partnerName.toLowerCase()));
-                  const isPOnline = pPresence?.isOnline ?? false;
-
-                  return (
-                    <div
-                      key={p.partnerId}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all ${
-                        isSelected
-                          ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-sm light:bg-[#005c4b]"
-                          : "bg-white/[0.06] border border-white/10 text-slate-200 hover:bg-white/10 light:bg-white light:border-slate-200/60 light:text-slate-800 light:hover:bg-slate-50"
-                      }`}
+            {/* Accepted Friends WhatsApp Chat Cards */}
+            {activeTab !== "requests" && (
+              <>
+                {filteredFriends.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center space-y-2">
+                    <Users size={28} className="text-slate-500 light:text-slate-400" />
+                    <p className="text-xs text-slate-400 light:text-slate-600">
+                      {searchQuery ? "No contacts matching search" : "No friends connected yet"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddFriendForm(true)}
+                      className="text-xs text-teal-400 font-bold hover:underline cursor-pointer"
                     >
-                      <button
-                        type="button"
+                      + Connect with a friend
+                    </button>
+                  </div>
+                ) : (
+                  filteredFriends.map((p) => {
+                    const isSelected = selectedFriend?.partnerId === p.partnerId;
+                    const pPresence = activeUsers.find((u) => !u.isMe && (u.userId === p.partnerId || u.userName.toLowerCase() === p.partnerName.toLowerCase()));
+                    const isPOnline = pPresence?.isOnline ?? false;
+                    const isPTyping = pPresence?.isTyping ?? false;
+
+                    return (
+                      <div
+                        key={p.partnerId}
                         onClick={() => {
                           setSelectedFriend(p);
-                          setShowFriendPicker(false);
+                          setMobileView("chat");
                         }}
-                        className="flex items-center gap-2.5 truncate flex-1 text-left cursor-pointer"
+                        className={`flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all border-b border-white/[0.04] light:border-slate-200/60 ${
+                          isSelected
+                            ? "bg-teal-500/15 border-l-4 border-l-teal-400 light:bg-slate-200"
+                            : "hover:bg-white/[0.04] light:hover:bg-slate-100"
+                        }`}
                       >
+                        {/* Avatar + Online Indicator */}
                         <div className="relative flex-shrink-0">
-                          <div className={`w-6 h-6 rounded-full font-bold text-[10px] flex items-center justify-center flex-shrink-0 ${
-                            isSelected ? "bg-white/20 text-white" : "bg-teal-400/20 text-teal-300 light:bg-teal-500/15 light:text-teal-700"
-                          }`}>
+                          <div className="w-11 h-11 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 font-bold text-sm flex items-center justify-center shadow-inner light:bg-teal-100 light:text-teal-700 light:border-teal-300">
                             {p.partnerName.slice(0, 2).toUpperCase()}
                           </div>
                           {isPOnline && (
-                            <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-[#080814] light:border-white"></span>
+                            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm animate-pulse"></span>
                           )}
                         </div>
-                        <div className="flex flex-col truncate min-w-0">
-                          <span className="truncate">{p.partnerName}</span>
-                          <span className={`text-[8px] font-normal truncate ${isSelected ? "text-white/80" : "text-slate-400 light:text-slate-500"}`}>
-                            {pPresence?.isTyping ? (
-                              "✍️ typing..."
-                            ) : isPOnline ? (
-                              "🟢 Online"
-                            ) : pPresence?.lastSeenAt ? (
-                              `last seen ${formatLastSeen(pPresence.lastSeenAt)}`
-                            ) : (
-                              "offline"
+
+                        {/* Contact Info & Last Message Snippet */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <h4 className={`text-xs sm:text-sm font-bold truncate ${isSelected ? "text-teal-300 light:text-teal-900" : "text-slate-200 light:text-slate-900"}`}>
+                              {p.partnerName}
+                            </h4>
+                            <span className="text-[10px] text-slate-400 light:text-slate-500 font-mono flex-shrink-0">
+                              {p.lastMessage ? formatWhatsAppTime(p.lastMessage.createdAt) : ""}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-1.5">
+                            <p className="text-xs text-slate-400 truncate light:text-slate-600 flex items-center gap-1 min-w-0">
+                              {isPTyping ? (
+                                <span className="text-teal-400 font-bold animate-pulse light:text-teal-600">✍️ typing...</span>
+                              ) : p.lastMessage ? (
+                                <>
+                                  {p.lastMessage.isMe && (
+                                    <span className={p.lastMessage.isRead ? "text-teal-400" : "text-slate-500"}>
+                                      <CheckCheck size={13} className="inline flex-shrink-0" />
+                                    </span>
+                                  )}
+                                  <span className="truncate">{p.lastMessage.text}</span>
+                                </>
+                              ) : (
+                                <span className="italic text-slate-500">No messages yet</span>
+                              )}
+                            </p>
+
+                            {/* Unread Count Badge */}
+                            {(p.unreadCount || 0) > 0 && (
+                              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-black text-[10px] font-black flex items-center justify-center flex-shrink-0 shadow-sm">
+                                {p.unreadCount}
+                              </span>
                             )}
-                          </span>
+                          </div>
                         </div>
-                        {isSelected && <UserCheck size={14} className="flex-shrink-0 ml-auto mr-2 text-teal-200" />}
-                      </button>
-
-                      {/* Remove / Unfriend Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveConnection(p.connectionId, p.partnerName, false);
-                        }}
-                        className={`p-1 rounded-lg transition-colors cursor-pointer ml-2 flex-shrink-0 ${
-                          isSelected ? "hover:bg-white/20 text-white/80 hover:text-white" : "hover:bg-red-500/10 text-slate-400 hover:text-red-500"
-                        }`}
-                        title={`Remove ${p.partnerName} and delete chat`}
-                      >
-                        <UserMinus size={14} />
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* User Identity Bar */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-1.5 bg-[#05050c]/90 border-b border-white/5 text-[9px] sm:text-[10px] text-slate-400 flex-shrink-0 transition-colors light:bg-[#f7f8fa] light:border-slate-200 light:text-slate-600">
-          <div className="flex items-center gap-1.5 truncate">
-            <User size={11} className="text-teal-400 flex-shrink-0 light:text-teal-600" />
-            <span className="hidden sm:inline">You:</span>
-            {!isEditingName ? (
-              <span className="font-bold text-slate-200 truncate light:text-slate-900">{currentSender}</span>
-            ) : (
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder={accountName}
-                  className="bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-xs text-slate-100 outline-none w-24 sm:w-28 light:bg-white light:border-slate-300 light:text-slate-900"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setIsEditingName(false)}
-                  className="text-teal-400 hover:opacity-80 p-1 light:text-teal-600"
-                >
-                  <Check size={11} />
-                </button>
-              </div>
-            )}
-            {!isEditingName && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomName(currentSender);
-                  setIsEditingName(true);
-                }}
-                className="text-[9px] text-teal-400 hover:underline ml-0.5 cursor-pointer light:text-slate-500 light:hover:text-teal-600"
-              >
-                (Edit)
-              </button>
-            )}
-            <span className="text-[8px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 font-mono hidden sm:inline-block light:bg-emerald-500/10 light:text-emerald-700">
-              {myPresence?.lastSeenAt ? "active now" : "connected"}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1 text-[9px] text-slate-400 font-mono flex-shrink-0 light:text-slate-500">
-            <span>Chat:</span>
-            <span className="text-teal-400 font-bold light:text-teal-600">{selectedFriend ? selectedFriend.partnerName : "None"}</span>
-            {friendPresence?.lastSeenAt && !isFriendOnline && (
-              <span className="text-[8px] text-slate-500 hidden md:inline">({formatLastSeen(friendPresence.lastSeenAt)})</span>
+                      </div>
+                    );
+                  })
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* Message Feed (Pure Deep Black with Cyber Glass Depth in Dark Mode, Warm ivory light WhatsApp wallpaper in Light Mode) */}
+        {/* ========================================================= */}
+        {/* RIGHT PANE: Active Conversation Window / Welcome Splash */}
+        {/* ========================================================= */}
         <div 
-          ref={chatFeedRef}
-          onClick={() => setActiveActionMenuId(null)}
-          className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-[#030308] bg-radial-[at_top_right] from-indigo-950/20 via-[#030308] to-[#030308] light:bg-[#efeae2] light:bg-none overscroll-contain touch-pan-y transition-colors"
+          className={`flex-1 flex flex-col h-full bg-[#030308] light:bg-[#efeae2] relative min-w-0 ${
+            mobileView === "list" && !selectedFriend ? "hidden md:flex" : mobileView === "list" ? "hidden md:flex" : "flex"
+          }`}
         >
           {!selectedFriend ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-6 sm:p-8 bg-white/[0.04] backdrop-blur-md rounded-2xl border border-white/10 light:bg-white/70 light:border-slate-300/60">
-              <div className="p-3.5 rounded-full bg-teal-500/20 text-teal-400 light:bg-teal-500/15 light:text-teal-600">
-                <Shield size={32} />
+            /* WhatsApp Web Welcome Splash Screen on Desktop */
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+              <div className="w-20 h-20 rounded-3xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shadow-lg light:bg-teal-50 light:border-teal-200 light:text-teal-600">
+                <Shield size={40} />
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-200 light:text-slate-800">Connect with Friends</h4>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm light:text-slate-600">
-                  To begin chatting, enter your friend&apos;s exact email address to send a friend request. Once they accept, your conversation will appear here.
+              <div className="max-w-md space-y-1.5">
+                <h3 className="text-lg font-bold text-white light:text-slate-900">Encrypted Secret Chat</h3>
+                <p className="text-xs text-slate-400 leading-relaxed light:text-slate-600">
+                  Select a contact from the sidebar or click <strong>+</strong> to start an end-to-end encrypted private conversation.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setShowAddFriendForm(true)}
-                  className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 text-white text-xs font-bold shadow-md cursor-pointer inline-flex items-center gap-1.5 light:bg-[#005c4b]"
-                >
-                  <UserPlus size={14} />
-                  <span>Connect Friend</span>
-                </button>
-              </div>
-            </div>
-          ) : loading ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-2 light:text-slate-500">
-              <RefreshCw size={20} className="animate-spin text-teal-400 light:text-teal-600" />
-              <p className="text-xs font-mono">Decrypting communications with {selectedFriend.partnerName}...</p>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[140px] my-auto text-center space-y-2 p-4 sm:p-6 border border-dashed border-white/10 rounded-2xl bg-white/[0.04] backdrop-blur-md light:border-slate-300 light:bg-white/70">
-              <div className="p-2.5 rounded-full bg-teal-500/20 text-teal-400 light:bg-teal-500/15 light:text-teal-600">
-                <Sparkles size={20} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono light:text-slate-800">
-                  Conversation with {selectedFriend.partnerName}
-                </h4>
-                <p className="text-[10px] text-slate-400 mt-0.5 max-w-sm light:text-slate-600">
-                  Messages are encrypted with AES-256 and self-destruct in {retentionHours} hours.
-                </p>
+                <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-teal-400 font-mono font-medium light:text-teal-700">
+                  <Lock size={12} /> 12h / 24h Disappearing Messages Enabled
+                </div>
               </div>
             </div>
           ) : (
-            messages.map((msg) => {
-              const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
-              const isEditing = editingId === msg._id;
-              const isCopied = copiedId === msg._id;
-              const isMenuOpen = activeActionMenuId === msg._id;
+            /* Active 1-on-1 Chat Conversation */
+            <>
+              {/* Top Chat Header */}
+              <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-white/10 bg-[#070712]/90 backdrop-blur-xl light:bg-[#f0f2f5] light:border-slate-200 flex-shrink-0 pt-[max(0.625rem,env(safe-area-inset-top))] transition-colors">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                  {/* Mobile Back Button */}
+                  <button
+                    type="button"
+                    onClick={() => setMobileView("list")}
+                    className="md:hidden p-1.5 -ml-1 text-slate-300 hover:text-white cursor-pointer light:text-slate-700"
+                    title="Back to chats"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
 
-              return (
-                <div
-                  id={`chat-msg-${msg._id}`}
-                  key={msg._id}
-                  className={`flex flex-col relative transition-all duration-300 rounded-2xl p-0.5 ${
-                    isMe ? "items-end" : "items-start"
-                  } ${
-                    highlightedMsgId === msg._id
-                      ? "ring-2 ring-teal-300 bg-teal-500/25 shadow-[0_0_20px_rgba(20,184,166,0.6)] scale-[1.02] light:ring-teal-400 light:bg-teal-500/20"
-                      : ""
-                  }`}
-                >
-                  {/* Quoted Message Preview if Reply (Click to Jump to Original Message) */}
-                  {msg.replyTo && (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleJumpToMessage(msg.replyTo?.id, msg.replyTo?.text);
-                      }}
-                      title="Click to view replied message"
-                      className={`mb-1 px-3 py-1.5 rounded-xl text-[10px] border-l-2 max-w-[85%] sm:max-w-md shadow-xs cursor-pointer transition-all duration-150 hover:opacity-90 active:scale-[0.98] group/quote ${
-                        isMe
-                          ? "bg-black/30 border-teal-300 text-right mr-1 !text-white light:bg-[#004d3e] light:border-teal-300"
-                          : "bg-white/[0.08] backdrop-blur-sm border-teal-400 text-white text-left ml-1 light:bg-slate-100 light:border-teal-600 light:text-slate-800"
-                      }`}
-                    >
-                      <div className={`flex items-center gap-1.5 ${isMe ? "justify-end" : "justify-start"}`}>
-                        <span className={`text-[8px] font-bold uppercase tracking-widest font-mono block ${
-                          isMe ? "!text-teal-200 text-teal-200" : "text-teal-300 light:text-teal-700"
-                        }`}>
-                          Replying to @{msg.replyTo.sender}
+                  {/* Avatar & Online Presence */}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 font-bold text-xs sm:text-sm shadow-inner flex items-center justify-center light:bg-teal-100 light:border-teal-300 light:text-teal-700">
+                      {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
+                    </div>
+                    {isFriendOnline && (
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm"></span>
+                    )}
+                  </div>
+
+                  {/* Contact Name & Live Status */}
+                  <div className="min-w-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-white truncate light:text-slate-900">
+                      {selectedFriend.partnerName}
+                    </h3>
+                    <p className="text-[9px] sm:text-[10px] tracking-wide truncate mt-0.5">
+                      {friendPresence?.isTyping ? (
+                        <span className="text-teal-400 font-bold flex items-center gap-1 animate-pulse light:text-teal-600">
+                          ✍️ typing...
                         </span>
-                        <CornerDownRight size={10} className={`flex-shrink-0 transition-transform group-hover/quote:translate-x-0.5 ${
-                          isMe ? "!text-teal-200 text-teal-200" : "text-teal-400 light:text-teal-600"
-                        }`} />
-                      </div>
-                      <p className={`line-clamp-1 italic text-[10px] mt-0.5 ${
-                        isMe ? "!text-white/90 text-white/90" : "text-slate-200 light:text-slate-800"
-                      }`}>
-                        &quot;{msg.replyTo.text}&quot;
+                      ) : isFriendOnline ? (
+                        <span className="text-emerald-400 font-medium flex items-center gap-1 light:text-emerald-600">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping flex-shrink-0"></span>
+                          Online
+                        </span>
+                      ) : friendPresence?.lastSeenAt ? (
+                        <span className="text-slate-400 truncate block light:text-slate-500">
+                          last seen {formatLastSeen(friendPresence.lastSeenAt)}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 truncate block light:text-slate-500">
+                          Encrypted • {retentionHours}h
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Header Action Buttons (Voice Call, Retention Toggle, Clear, Close) */}
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                  {/* Voice Call Button */}
+                  <button
+                    type="button"
+                    onClick={handleStartVoiceCall}
+                    disabled={Boolean(activeCall)}
+                    className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
+                      activeCall
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                        : "bg-white/[0.07] border-white/10 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-400 light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-emerald-700"
+                    }`}
+                    title="Start Encrypted Voice Call"
+                  >
+                    <Phone size={15} />
+                    <span className="hidden sm:inline text-[10px] font-bold">Call</span>
+                  </button>
+
+                  {/* Disappearing Messages Retention Toggle */}
+                  <div className="flex items-center bg-white/[0.07] border border-white/10 rounded-xl p-0.5 sm:p-1 text-[8px] sm:text-[9px] font-mono light:bg-slate-200 light:border-slate-300">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateRetention(12)}
+                      className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
+                        retentionHours === 12 
+                          ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs" 
+                          : "text-slate-300 hover:text-white light:text-slate-700"
+                      }`}
+                      title="Self-destruct in 12 hours"
+                    >
+                      12h
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateRetention(24)}
+                      className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
+                        retentionHours === 24 
+                          ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs" 
+                          : "text-slate-300 hover:text-white light:text-slate-700"
+                      }`}
+                      title="Self-destruct in 24 hours"
+                    >
+                      24h
+                    </button>
+                  </div>
+
+                  {/* Clear Chat Button */}
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    disabled={messages.length === 0}
+                    className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                    title="Clear chat for me"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+
+                  {/* Panic / Close Button */}
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                    title="Close"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {/* In-Call Active Floating Overlay Bar */}
+              {activeCall && (
+                <div className="p-3 bg-gradient-to-r from-teal-950/90 via-emerald-950/90 to-teal-950/90 border-b border-teal-500/30 backdrop-blur-xl flex items-center justify-between gap-2 z-20 animate-in slide-in-from-top duration-200">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500 text-black flex items-center justify-center animate-bounce flex-shrink-0">
+                      <PhoneCall size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                        <span>{activeCall.status === "calling" ? `Calling ${activeCall.recipientName}...` : activeCall.status === "incoming" ? `Incoming call from ${activeCall.callerName}...` : `In call with ${selectedFriend.partnerName}`}</span>
+                      </h4>
+                      <p className="text-[10px] text-emerald-300 font-mono">
+                        {activeCall.status === "connected" ? (
+                          <span>🟢 Active Call: {Math.floor(activeCall.durationSec / 60)}:{String(activeCall.durationSec % 60).padStart(2, "0")}</span>
+                        ) : activeCall.status === "calling" ? (
+                          "Ringing..."
+                        ) : (
+                          "Ringing..."
+                        )}
                       </p>
                     </div>
-                  )}
+                  </div>
 
-                  {/* Inline Edit Form */}
-                  {isEditing ? (
-                    <div className="bg-[#0b0f19] border border-teal-500/40 p-2.5 sm:p-3 rounded-2xl space-y-2 w-full max-w-md shadow-lg my-1 light:bg-white light:border-teal-500/40">
-                      <input
-                        type="text"
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        className="w-full bg-white/[0.08] border border-white/15 rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-teal-500 placeholder-slate-500 light:bg-slate-50 light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
-                        autoFocus
-                      />
-                      <div className="flex justify-end gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {activeCall.status === "incoming" ? (
+                      <>
                         <button
                           type="button"
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditText("");
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-white/10 text-[10px] text-slate-300 hover:bg-white/15 cursor-pointer light:bg-slate-200 light:text-slate-700 light:hover:bg-slate-300"
+                          onClick={handleAcceptVoiceCall}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1"
                         >
-                          Cancel
+                          <Phone size={13} /> Accept
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleSaveEdit(msg._id)}
-                          className="px-3 py-1 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 text-[10px] text-white font-bold hover:opacity-90 cursor-pointer shadow-sm light:bg-[#005c4b]"
+                          onClick={handleDeclineVoiceCall}
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1"
                         >
-                          Save
+                          <PhoneOff size={13} /> Decline
                         </button>
-                      </div>
-                    </div>
-                  ) : msg.isDeleted ? (
-                    /* Deleted Message Bubble */
-                    <div
-                      className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words relative transition-all border border-white/10 bg-white/[0.05] backdrop-blur-sm text-slate-400 italic flex items-center gap-1.5 light:border-slate-300/60 light:bg-white/70 light:text-slate-500 ${
-                        isMe ? "rounded-tr-xs" : "rounded-tl-xs"
-                      }`}
-                    >
-                      <Ban size={12} className="text-slate-400 flex-shrink-0" />
-                      <span>This message was deleted</span>
-                    </div>
-                  ) : (
-                    /* Clean Modern Message Bubble with Crisp Light & Dark Theme Support */
-                    <div 
-                      className="relative group max-w-[85%] sm:max-w-[75%] touch-pan-y select-none"
-                      onPointerDown={(e) => handlePointerDown(e, msg._id)}
-                      onPointerMove={handlePointerMove}
-                      onPointerUp={(e) => handlePointerUp(e, msg)}
-                      onPointerCancel={handlePointerCancel}
-                    >
-                      {/* Direction-Aware Swipe Visual Hints */}
-                      {isMe ? (
-                        /* Current User (Bubble on Right): Swiping Left (Reply ↩️) / Right (Actions ⚙️) */
-                        <>
-                          {swipingId === msg._id && swipeOffset < -15 && (
-                            <div 
-                              className="absolute -right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-teal-500/25 text-teal-400 border border-teal-500/40 pointer-events-none transition-transform shadow-lg light:text-teal-600"
-                              style={{
-                                transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + Math.abs(swipeOffset) / 45)})`,
-                                opacity: Math.min(1, Math.abs(swipeOffset) / 30),
-                              }}
-                            >
-                              <Reply size={14} className="stroke-[2.5]" />
-                            </div>
-                          )}
-                          {swipingId === msg._id && swipeOffset > 15 && (
-                            <div 
-                              className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-indigo-500/25 text-indigo-400 border border-indigo-500/40 pointer-events-none transition-transform shadow-lg light:text-indigo-500"
-                              style={{
-                                transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + swipeOffset / 45)})`,
-                                opacity: Math.min(1, swipeOffset / 30),
-                              }}
-                            >
-                              <Info size={14} className="stroke-[2.5]" />
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        /* Friend's Message (Bubble on Left): Swiping Right (Reply ↩️) / Left (Actions ⚙️) */
-                        <>
-                          {swipingId === msg._id && swipeOffset > 15 && (
-                            <div 
-                              className="absolute -left-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-teal-500/25 text-teal-400 border border-teal-500/40 pointer-events-none transition-transform shadow-lg light:text-teal-600"
-                              style={{
-                                transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + swipeOffset / 45)})`,
-                                opacity: Math.min(1, swipeOffset / 30),
-                              }}
-                            >
-                              <Reply size={14} className="stroke-[2.5]" />
-                            </div>
-                          )}
-                          {swipingId === msg._id && swipeOffset < -15 && (
-                            <div 
-                              className="absolute -right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-indigo-500/25 text-indigo-400 border border-indigo-500/40 pointer-events-none transition-transform shadow-lg light:text-indigo-500"
-                              style={{
-                                transform: `translateY(-50%) scale(${Math.min(1.15, 0.5 + Math.abs(swipeOffset) / 45)})`,
-                                opacity: Math.min(1, Math.abs(swipeOffset) / 30),
-                              }}
-                            >
-                              <Info size={14} className="stroke-[2.5]" />
-                            </div>
-                          )}
-                        </>
-                      )}
+                      </>
+                    ) : (
+                      <>
+                        {activeCall.status === "connected" && (
+                          <button
+                            type="button"
+                            onClick={handleToggleMute}
+                            className={`p-2 rounded-xl transition-all cursor-pointer ${
+                              activeCall.isMuted
+                                ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
+                                : "bg-white/10 text-white hover:bg-white/20"
+                            }`}
+                            title={activeCall.isMuted ? "Unmute Mic" : "Mute Mic"}
+                          >
+                            {activeCall.isMuted ? <MicOff size={15} /> : <Mic size={15} />}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleEndVoiceCall}
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1"
+                        >
+                          <PhoneOff size={13} /> End Call
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
+              {/* Message Feed Container */}
+              <div 
+                ref={chatFeedRef}
+                onClick={() => setActiveActionMenuId(null)}
+                className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-[#030308] bg-radial-[at_top_right] from-teal-950/15 via-[#030308] to-[#030308] light:bg-[#efeae2] light:bg-none overscroll-contain touch-pan-y transition-colors"
+              >
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-2 light:text-slate-500">
+                    <RefreshCw size={20} className="animate-spin text-teal-400 light:text-teal-600" />
+                    <p className="text-xs font-mono">Decrypting communications with {selectedFriend.partnerName}...</p>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center min-h-[140px] my-auto text-center space-y-2 p-4 sm:p-6 border border-dashed border-white/10 rounded-2xl bg-white/[0.04] backdrop-blur-md light:border-slate-300 light:bg-white/70">
+                    <div className="p-2.5 rounded-full bg-teal-500/20 text-teal-400 light:bg-teal-500/15 light:text-teal-600">
+                      <Sparkles size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono light:text-slate-800">
+                        Conversation with {selectedFriend.partnerName}
+                      </h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5 max-w-sm light:text-slate-600">
+                        Messages are end-to-end encrypted with AES-256 and self-destruct in {retentionHours} hours.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  messages.map((msg) => {
+                    const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
+                    const isEditing = editingId === msg._id;
+                    const isCopied = copiedId === msg._id;
+                    const isMenuOpen = activeActionMenuId === msg._id;
+
+                    return (
                       <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isDraggingRef.current) {
-                            setActiveActionMenuId(isMenuOpen ? null : msg._id);
-                          }
-                        }}
-                        style={{
-                          transform: swipingId === msg._id ? `translateX(${swipeOffset}px)` : "translateX(0)",
-                          transition: swipingId === msg._id ? "none" : "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)",
-                        }}
-                        className={`px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words cursor-pointer select-none relative shadow-sm hover:brightness-105 active:scale-[0.99] ${
-                          isMenuOpen ? "ring-2 ring-teal-400/80 shadow-md" : ""
+                        id={`chat-msg-${msg._id}`}
+                        key={msg._id}
+                        className={`flex flex-col relative transition-all duration-300 rounded-2xl p-0.5 ${
+                          isMe ? "items-end" : "items-start"
                         } ${
-                          isMe
-                            ? "bg-gradient-to-br from-teal-600/95 to-emerald-700/95 backdrop-blur-md border border-teal-400/30 shadow-[0_4px_16px_rgba(13,148,136,0.3)] !text-white text-white rounded-tr-xs light:bg-[#005c4b] light:border-transparent"
-                            : "bg-white/[0.07] backdrop-blur-xl text-white border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)] rounded-tl-xs light:bg-white light:text-slate-900 light:border-slate-200/80 light:shadow-xs"
+                          highlightedMsgId === msg._id
+                            ? "ring-2 ring-teal-300 bg-teal-500/25 shadow-[0_0_20px_rgba(20,184,166,0.6)] scale-[1.02]"
+                            : ""
                         }`}
                       >
-                        {/* Media Display (Photo / Video) */}
-                        {msg.mediaType === "image" && msg.mediaData && (
-                          <div className="mb-1 rounded-xl overflow-hidden cursor-pointer group/media relative shadow-sm">
-                            <img
-                              src={msg.mediaData}
-                              alt={msg.mediaName || "Photo"}
-                              className="max-h-60 sm:max-h-72 w-auto max-w-full rounded-xl object-cover hover:scale-[1.01] transition-transform duration-200"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLightboxMedia({
-                                  type: "image",
-                                  url: msg.mediaData!,
-                                  name: msg.mediaName || "photo.jpg",
-                                  msgId: msg._id,
-                                  isMe: isMe,
-                                });
-                              }}
-                            />
+                        {/* Quoted Message Preview if Reply */}
+                        {msg.replyTo && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleJumpToMessage(msg.replyTo?.id, msg.replyTo?.text);
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 mb-1 text-[10px] rounded-lg border cursor-pointer max-w-[85%] sm:max-w-md ${
+                              isMe
+                                ? "bg-teal-950/60 border-teal-500/30 text-teal-300 mr-1"
+                                : "bg-white/[0.06] border-white/10 text-slate-300 ml-1"
+                            }`}
+                          >
+                            <CornerDownRight size={11} className="flex-shrink-0" />
+                            <span className="font-bold">{msg.replyTo.sender}:</span>
+                            <span className="truncate">{msg.replyTo.text}</span>
                           </div>
                         )}
 
-                        {msg.mediaType === "video" && msg.mediaData && (
-                          <div className="mb-1 rounded-xl overflow-hidden max-w-xs bg-black/90 shadow-sm">
-                            <video
-                              src={msg.mediaData}
-                              controls
-                              playsInline
-                              preload="metadata"
-                              className="max-h-60 sm:max-h-72 w-full rounded-xl object-contain"
-                            />
-                          </div>
-                        )}
-
-                        {/* Text and Inline Timestamp */}
-                        {msg.text && (
-                          <span className={`whitespace-pre-wrap font-medium ${isMe ? "!text-white text-white" : "text-white light:text-slate-900"}`}>
-                            {msg.text}
-                          </span>
-                        )}
-                        <span className="text-[9px] font-mono ml-2.5 inline-flex items-center gap-1 float-right mt-1 select-none">
-                          <span className={isMe ? "!text-emerald-100 text-emerald-100 font-mono" : "text-slate-400 light:text-slate-500 font-mono"}>
-                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                          {msg.isEdited && (
-                            <span className={isMe ? "!text-white/70 text-white/70" : "text-slate-400 light:text-slate-400"}>
-                              (edited)
-                            </span>
-                          )}
-                          {isMe && (
-                            <span className="inline-flex items-center ml-0.5" title={msg.isRead ? "Read" : msg.isDelivered ? "Delivered" : "Sent"}>
-                              {msg.isRead ? (
-                                <CheckCheck size={13} className="text-cyan-300 drop-shadow-[0_0_3px_#38bdf8] stroke-[2.5] light:text-sky-300" />
-                              ) : msg.isDelivered ? (
-                                <CheckCheck size={13} className="!text-white/70 text-white/70 stroke-[1.8]" />
-                              ) : (
-                                <Check size={13} className="!text-white/70 text-white/70 stroke-[1.8]" />
-                              )}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Tap / Long-press Action Sheet (WhatsApp style floating toolbar with Crisp Theme Support) */}
-                      {isMenuOpen && (
+                        {/* Swipeable Message Container */}
                         <div
-                          onClick={(e) => e.stopPropagation()}
-                          className={`absolute ${
-                            isMe ? "right-0" : "left-0"
-                          } -top-11 z-40 flex items-center gap-0.5 p-1 bg-[#0b0f19]/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap light:bg-white/95 light:border-slate-300/80 light:shadow-xl`}
+                          onPointerDown={(e) => handlePointerDown(e, msg._id)}
+                          onPointerMove={handlePointerMove}
+                          onPointerUp={(e) => handlePointerUp(e, msg)}
+                          onPointerCancel={handlePointerCancel}
+                          style={{
+                            transform: swipingId === msg._id ? `translateX(${swipeOffset}px)` : "none",
+                            transition: swipingId === msg._id ? "none" : "transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)",
+                          }}
+                          className={`relative max-w-[88%] sm:max-w-md group rounded-2xl p-2.5 sm:p-3 text-xs shadow-md transition-shadow select-none touch-pan-y ${
+                            isMe
+                              ? "bg-gradient-to-r from-teal-900/80 to-emerald-900/80 border border-teal-500/30 text-teal-50 rounded-tr-xs light:bg-gradient-to-r light:from-[#d9fdd3] light:to-[#d9fdd3] light:border-transparent light:text-slate-900"
+                              : "bg-[#101026] border border-white/10 text-slate-100 rounded-tl-xs light:bg-white light:border-slate-200 light:text-slate-900"
+                          }`}
                         >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
-                              setActiveActionMenuId(null);
-                            }}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-slate-200 hover:bg-white/15 transition-colors cursor-pointer light:text-slate-700 light:hover:bg-slate-100"
-                          >
-                            <Reply size={13} className="text-teal-400 light:text-teal-600" />
-                            <span>Reply</span>
-                          </button>
+                          {/* Sender Alias Header */}
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className={`text-[10px] font-bold ${isMe ? "text-teal-300 light:text-teal-700" : "text-emerald-400 light:text-emerald-700"}`}>
+                              {msg.sender}
+                            </span>
+                          </div>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleCopyMessage(msg._id, msg.text || msg.mediaName || "Media attachment");
-                              setActiveActionMenuId(null);
-                            }}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-slate-200 hover:bg-white/15 transition-colors cursor-pointer light:text-slate-700 light:hover:bg-slate-100"
-                          >
-                            {isCopied ? <CheckCheck size={13} className="text-emerald-400 light:text-emerald-600" /> : <Copy size={13} className="text-indigo-400 light:text-indigo-600" />}
-                            <span>{isCopied ? "Copied" : "Copy"}</span>
-                          </button>
+                          {/* Media Attachment (Photo / Video) */}
+                          {msg.mediaData && (
+                            <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                              {msg.mediaType === "image" ? (
+                                <img
+                                  src={msg.mediaData}
+                                  alt={msg.mediaName || "Shared image"}
+                                  onClick={() => setLightboxMedia({ type: "image", url: msg.mediaData!, name: msg.mediaName || "image.jpg", msgId: msg._id, isMe })}
+                                  className="max-h-60 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                                />
+                              ) : (
+                                <video
+                                  src={msg.mediaData}
+                                  controls
+                                  className="max-h-60 w-full object-cover rounded-xl"
+                                />
+                              )}
+                            </div>
+                          )}
 
-                          {isMe && (
+                          {/* Message Body Text or Inline Edit */}
+                          {isEditing ? (
+                            <div className="space-y-1.5 my-1">
+                              <input
+                                type="text"
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                className="w-full bg-white/10 border border-teal-400/40 rounded px-2 py-1 text-xs text-white outline-none focus:border-teal-400"
+                                autoFocus
+                              />
+                              <div className="flex gap-1 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingId(null)}
+                                  className="px-2 py-0.5 text-[10px] bg-white/10 hover:bg-white/20 rounded text-slate-300"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEdit(msg._id)}
+                                  className="px-2 py-0.5 text-[10px] bg-teal-600 hover:bg-teal-500 rounded text-white font-bold"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-wrap break-words leading-relaxed text-[12px] sm:text-[13px]">
+                              {msg.text}
+                            </p>
+                          )}
+
+                          {/* Timestamp & Status Footer */}
+                          <div className="flex items-center justify-end gap-1.5 mt-1 pt-0.5 text-[9px] text-slate-400 light:text-slate-500">
+                            {msg.isEdited && <span className="italic text-[8px] opacity-80">(edited)</span>}
+                            <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                            {isMe && (
+                              <span className={msg.isRead ? "text-teal-400 light:text-teal-600" : "text-slate-500"}>
+                                <CheckCheck size={12} />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions Toolbar on Hover / Click */}
+                        {isMenuOpen && (
+                          <div className="flex items-center gap-1 mt-1 p-1 rounded-xl bg-[#0c0c1e] border border-white/15 shadow-lg z-10 animate-in fade-in zoom-in-95 duration-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
+                                setActiveActionMenuId(null);
+                                focusInput();
+                              }}
+                              className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+                              title="Reply"
+                            >
+                              <Reply size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleCopyMessage(msg._id, msg.text);
+                                setActiveActionMenuId(null);
+                              }}
+                              className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+                              title="Copy"
+                            >
+                              {isCopied ? <Check size={13} className="text-teal-400" /> : <Copy size={13} />}
+                            </button>
+                            {isMe && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingId(msg._id);
+                                  setEditText(msg.text);
+                                  setActiveActionMenuId(null);
+                                }}
+                                className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+                                title="Edit"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedInfoMsg(msg);
                                 setActiveActionMenuId(null);
                               }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-slate-200 hover:bg-white/15 transition-colors cursor-pointer light:text-slate-700 light:hover:bg-slate-100"
-                              title="Message Info"
+                              className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+                              title="Info"
                             >
-                              <Info size={13} className="text-sky-400 light:text-sky-600" />
-                              <span>Info</span>
+                              <Info size={13} />
                             </button>
-                          )}
-
-                          {isMe && !msg.mediaType && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingId(msg._id);
-                                setEditText(msg.text);
-                                setActiveActionMenuId(null);
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-slate-200 hover:bg-white/15 transition-colors cursor-pointer light:text-slate-700 light:hover:bg-slate-100"
-                            >
-                              <Pencil size={13} className="text-amber-400 light:text-amber-600" />
-                              <span>Edit</span>
-                            </button>
-                          )}
-
-                          {isMe && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleDelete(msg._id);
-                                setActiveActionMenuId(null);
-                              }}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium text-red-400 hover:bg-red-500/25 transition-colors cursor-pointer light:text-red-600 light:hover:bg-red-50"
-                            >
-                              <Trash2 size={13} />
-                              <span>Delete</span>
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => setActiveActionMenuId(null)}
-                            className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-0.5 cursor-pointer light:hover:text-slate-700 light:hover:bg-slate-100"
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-
-          {/* Live Typing Indicator */}
-          {friendPresence?.isTyping && (
-            <div className="flex items-center gap-2 text-xs text-slate-400 bg-white/[0.04] border border-white/10 rounded-2xl px-3.5 py-1.5 w-fit animate-in fade-in duration-150 light:text-slate-600 light:bg-slate-200/60 light:border-slate-300">
-              <span className="font-bold text-teal-400 font-mono text-[10px] light:text-teal-600">{selectedFriend?.partnerName}</span>
-              <span className="text-[10px] text-slate-400 italic light:text-slate-500">is typing</span>
-              <span className="inline-flex gap-1 items-center ml-0.5">
-                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce"></span>
-              </span>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Reply Quote Banner */}
-        {replyingTo && (
-          <div className="flex items-center justify-between px-3.5 sm:px-5 py-2 bg-teal-950/40 border-t border-teal-500/25 flex-shrink-0 light:bg-teal-50 light:border-teal-200">
-            <div className="flex items-center gap-2 overflow-hidden min-w-0">
-              <Reply size={12} className="text-teal-400 flex-shrink-0 light:text-teal-600" />
-              <div className="text-[10px] truncate">
-                <span className="font-bold text-teal-400 font-mono mr-1 light:text-teal-700">
-                  Replying to @{replyingTo.sender}:
-                </span>
-                <span className="text-slate-200 italic truncate light:text-slate-800">&quot;{replyingTo.text}&quot;</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setReplyingTo(null)}
-              className="text-slate-400 hover:text-slate-200 p-1 cursor-pointer flex-shrink-0 light:text-slate-500 light:hover:text-slate-700"
-              title="Cancel Reply"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
-        {/* Modern Categorized WhatsApp-Style Emoji Picker */}
-        {showEmojiPicker && (
-          <div 
-            className="px-3 py-2.5 bg-[#080814] border-t border-white/10 flex-shrink-0 animate-in fade-in slide-in-from-bottom-2 duration-150 transition-colors light:bg-slate-100 light:border-slate-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Category Bar + Backspace + Close */}
-            <div className="flex items-center justify-between gap-1 mb-2 pb-1.5 border-b border-white/10 light:border-slate-200">
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-                {EMOJI_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onTouchStart={(e) => {
-                      e.preventDefault();
-                      setActiveEmojiTab(cat.id);
-                    }}
-                    onClick={() => setActiveEmojiTab(cat.id)}
-                    className={`px-2 py-1 rounded-lg text-sm sm:text-base transition-all cursor-pointer select-none ${
-                      activeEmojiTab === cat.id
-                        ? "bg-teal-500/20 text-teal-400 font-bold scale-110 shadow-sm light:text-teal-600"
-                        : "opacity-60 hover:opacity-100 hover:bg-white/5 light:hover:bg-slate-200"
-                    }`}
-                    title={cat.name}
-                  >
-                    {cat.icon}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {/* Backspace Button */}
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    handleBackspaceEmoji();
-                  }}
-                  onClick={handleBackspaceEmoji}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer light:text-slate-500 light:hover:text-slate-800 light:hover:bg-slate-200"
-                  title="Backspace"
-                >
-                  <Delete size={15} />
-                </button>
-
-                {/* Close Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(false)}
-                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer light:hover:text-slate-700 light:hover:bg-slate-200"
-                  title="Close"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            </div>
-
-            {/* Emojis Grid (Categorized & Scrollable) */}
-            <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 sm:gap-1.5 max-h-36 sm:max-h-48 overflow-y-auto pr-1">
-              {(EMOJI_CATEGORIES.find((c) => c.id === activeEmojiTab)?.emojis || []).map((emoji, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    handleInsertEmoji(emoji);
-                  }}
-                  onClick={() => handleInsertEmoji(emoji)}
-                  className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-lg sm:text-xl transition-transform hover:scale-125 active:scale-95 cursor-pointer select-none light:hover:bg-slate-200"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Staged Media Preview Bar */}
-        {stagedMedia && (
-          <div className="p-2 sm:p-2.5 mx-2.5 sm:mx-3.5 mb-1 bg-white/[0.06] border border-teal-500/30 rounded-xl flex items-center justify-between gap-2 shadow-sm animate-in fade-in duration-150 light:bg-slate-100">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              {stagedMedia.type === "image" ? (
-                <img
-                  src={stagedMedia.dataUrl}
-                  alt="Preview"
-                  className="w-11 h-11 rounded-lg object-cover flex-shrink-0 border border-teal-500/40"
-                />
-              ) : (
-                <div className="w-11 h-11 rounded-lg bg-black/60 flex items-center justify-center text-teal-400 flex-shrink-0 border border-teal-500/40">
-                  <Film size={22} />
-                </div>
-              )}
-              <div className="overflow-hidden">
-                <p className="text-xs font-semibold text-slate-200 truncate max-w-[200px] sm:max-w-xs light:text-slate-800">
-                  {stagedMedia.name}
-                </p>
-                <span className="text-[10px] text-teal-400 font-mono light:text-teal-600">
-                  {stagedMedia.type === "image" ? "Photo attached (Add caption & send)" : "Video clip attached (Add caption & send)"}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setStagedMedia(null)}
-              className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-              title="Remove attachment"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
-
-        {/* Media Processing / Upload Error */}
-        {mediaError && (
-          <div className="mx-3.5 mb-1 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-xs text-red-400 flex items-center justify-between">
-            <span>{mediaError}</span>
-            <button type="button" onClick={() => setMediaError(null)} className="text-red-400 hover:text-red-300">
-              <X size={13} />
-            </button>
-          </div>
-        )}
-
-        {/* Input Bar (Div container to prevent form submit keyboard dismiss) */}
-        <div 
-          className="p-2.5 sm:p-3.5 bg-[#070712]/90 backdrop-blur-xl border-t border-white/10 flex-shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))] transition-colors light:bg-[#f0f2f5] light:border-slate-200"
-        >
-          <div className="flex items-center gap-1.5 sm:gap-2 bg-white/[0.07] backdrop-blur-md border border-white/15 focus-within:border-teal-400/80 rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 transition-all shadow-inner light:bg-white light:border-slate-300 light:focus-within:border-teal-600 light:shadow-sm">
-            {/* Attachment Button (Photo / Video) */}
-            <label
-              htmlFor="chat-media-file-input"
-              className={`p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all cursor-pointer flex-shrink-0 flex items-center justify-center light:text-slate-500 light:hover:text-slate-700 light:hover:bg-slate-100 ${
-                isCompressingMedia ? "pointer-events-none opacity-60" : ""
-              }`}
-              title="Attach Photo or Video"
-            >
-              {isCompressingMedia ? <Loader2 size={17} className="animate-spin text-teal-400 light:text-teal-600" /> : <Paperclip size={17} />}
-              <input
-                id="chat-media-file-input"
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </label>
-
-            {/* Emoji Button */}
-            <button
-              type="button"
-              onPointerDown={(e) => e.preventDefault()}
-              onMouseDown={(e) => e.preventDefault()}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                setShowEmojiPicker(!showEmojiPicker);
-                focusInput();
-              }}
-              onClick={() => {
-                setShowEmojiPicker(!showEmojiPicker);
-                focusInput();
-              }}
-              className={`p-1.5 rounded-lg transition-all cursor-pointer flex-shrink-0 ${
-                showEmojiPicker
-                  ? "bg-teal-500/20 text-teal-400 light:text-teal-700"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/10 light:text-slate-500 light:hover:text-slate-700 light:hover:bg-slate-100"
-              }`}
-              title="Add Emoji"
-            >
-              <Smile size={17} />
-            </button>
-
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputText}
-              onChange={handleInputChange}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="sentences"
-              placeholder={
-                stagedMedia
-                  ? "Add a caption..."
-                  : selectedFriend
-                  ? `Message ${selectedFriend.partnerName} securely...`
-                  : "Add or accept a friend above to message..."
-              }
-              disabled={!selectedFriend}
-              className="w-full bg-transparent text-base sm:text-xs text-white placeholder:text-slate-500 outline-none py-1 font-sans font-medium disabled:opacity-50 light:text-slate-900 light:placeholder:text-slate-400"
-            />
-
-            <button
-              type="button"
-              onPointerDown={(e) => e.preventDefault()}
-              onMouseDown={(e) => e.preventDefault()}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                handleSend();
-              }}
-              onTouchEnd={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.preventDefault();
-                handleSend();
-              }}
-              className={`p-2 sm:p-2.5 rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white transition-all flex-shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center select-none light:bg-[#005c4b] light:hover:bg-[#00705a] ${
-                (!inputText.trim() && !stagedMedia) || !selectedFriend
-                  ? "opacity-35 cursor-not-allowed"
-                  : "opacity-100 cursor-pointer shadow-[0_0_15px_rgba(20,184,166,0.4)] active:scale-95 light:shadow-md"
-              }`}
-              title="Send Message"
-            >
-              <Send size={15} />
-            </button>
-          </div>
-        </div>
-
-        {/* Message Info Modal */}
-        {selectedInfoMsg && (
-          <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
-            onClick={() => setSelectedInfoMsg(null)}
-          >
-            <div 
-              className="w-full max-w-sm bg-[#080814] border border-white/15 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4 light:bg-white light:border-slate-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-white/10 light:border-slate-200">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2 light:text-slate-900">
-                  <Info size={16} className="text-teal-400 light:text-teal-500" />
-                  Message Info
-                </h3>
-                <button 
-                  type="button" 
-                  onClick={() => setSelectedInfoMsg(null)}
-                  className="text-slate-400 hover:text-white p-1 cursor-pointer light:hover:text-slate-600"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-
-              {/* Message Preview */}
-              <div className="bg-white/[0.05] p-3 rounded-xl text-xs text-slate-200 font-medium whitespace-pre-wrap break-words light:bg-slate-100 light:text-slate-800">
-                &quot;{selectedInfoMsg.text}&quot;
-              </div>
-
-              {/* Timestamps */}
-              <div className="space-y-3 text-xs">
-                {/* Read */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-300 light:text-slate-700">
-                    <CheckCheck size={16} className="text-[#38bdf8] drop-shadow-[0_0_2px_#0284c7]" />
-                    <span className="font-bold">Read</span>
-                  </div>
-                  <span className="font-mono text-slate-400 text-[11px] light:text-slate-500">
-                    {selectedInfoMsg.isRead && selectedInfoMsg.readAt
-                      ? new Date(selectedInfoMsg.readAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-                      : selectedInfoMsg.isRead 
-                      ? "Read" 
-                      : "Not read yet"}
-                  </span>
-                </div>
-
-                {/* Delivered */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-300 light:text-slate-700">
-                    <CheckCheck size={16} className="text-slate-400" />
-                    <span className="font-bold">Delivered</span>
-                  </div>
-                  <span className="font-mono text-slate-400 text-[11px] light:text-slate-500">
-                    {selectedInfoMsg.isDelivered && selectedInfoMsg.deliveredAt
-                      ? new Date(selectedInfoMsg.deliveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-                      : selectedInfoMsg.isDelivered 
-                      ? "Delivered" 
-                      : "Sending / Waiting..."}
-                  </span>
-                </div>
-
-                {/* Sent */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-slate-300 light:text-slate-700">
-                    <Check size={16} className="text-slate-400" />
-                    <span className="font-bold">Sent</span>
-                  </div>
-                  <span className="font-mono text-slate-400 text-[11px] light:text-slate-500">
-                    {new Date(selectedInfoMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Full-Screen Lightbox Modal for Images & Videos */}
-        {lightboxMedia && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-150"
-            onClick={() => setLightboxMedia(null)}
-          >
-            <div 
-              className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="absolute -top-11 right-0 flex items-center gap-2">
-                {lightboxMedia.isMe && lightboxMedia.msgId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDelete(lightboxMedia.msgId!);
-                      setLightboxMedia(null);
-                    }}
-                    className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/35 text-red-400 hover:text-red-300 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
-                    title="Delete Photo/Video"
-                  >
-                    <Trash2 size={16} />
-                    <span className="hidden sm:inline">Delete</span>
-                  </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
-                <a
-                  href={lightboxMedia.url}
-                  download={lightboxMedia.name || "media_attachment"}
-                  className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
-                  title="Download Media"
-                >
-                  <Download size={18} />
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setLightboxMedia(null)}
-                  className="p-2 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
-                  title="Close Lightbox"
-                >
-                  <X size={18} />
-                </button>
               </div>
 
-              {lightboxMedia.type === "image" ? (
-                <img
-                  src={lightboxMedia.url}
-                  alt={lightboxMedia.name || "Full Image"}
-                  className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl"
-                />
-              ) : (
-                <video
-                  src={lightboxMedia.url}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl bg-black"
-                />
+              {/* Replying Preview Bar */}
+              {replyingTo && (
+                <div className="px-3 py-1.5 bg-teal-950/70 border-t border-teal-500/30 flex items-center justify-between gap-2 text-xs text-teal-200">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Reply size={13} className="text-teal-400 flex-shrink-0" />
+                    <span className="font-bold">{replyingTo.sender}:</span>
+                    <span className="truncate">{replyingTo.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyingTo(null)}
+                    className="text-slate-400 hover:text-white text-xs p-0.5"
+                  >
+                    ✕
+                  </button>
+                </div>
               )}
+
+              {/* Staged Media Preview */}
+              {stagedMedia && (
+                <div className="p-2 bg-black/60 border-t border-white/10 flex items-center justify-between gap-2 text-xs text-white">
+                  <div className="flex items-center gap-2">
+                    {stagedMedia.type === "image" ? <ImageIcon size={16} className="text-teal-400" /> : <Film size={16} className="text-teal-400" />}
+                    <span className="truncate max-w-xs">{stagedMedia.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStagedMedia(null)}
+                    className="text-slate-400 hover:text-red-400 p-1 cursor-pointer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
+
+              {/* Emoji Picker Dropdown */}
+              {showEmojiPicker && (
+                <div className="p-3 bg-[#0a0a1a] border-t border-white/10 max-h-48 overflow-y-auto">
+                  <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/10">
+                    {EMOJI_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setActiveEmojiTab(cat.id)}
+                        className={`px-2 py-0.5 rounded text-xs transition-all cursor-pointer ${
+                          activeEmojiTab === cat.id ? "bg-teal-500/30 text-teal-300 font-bold" : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        {cat.icon}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={handleBackspaceEmoji}
+                      className="ml-auto px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-300 text-xs cursor-pointer flex items-center gap-1"
+                    >
+                      <Delete size={12} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 text-base sm:text-lg">
+                    {EMOJI_CATEGORIES.find((c) => c.id === activeEmojiTab)?.emojis.map((emoji, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleInsertEmoji(emoji)}
+                        className="hover:scale-125 transition-transform p-1 cursor-pointer"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Message Input Bar */}
+              <form onSubmit={handleSend} className="p-2 sm:p-3 border-t border-white/10 bg-[#070712] light:bg-[#f0f2f5] light:border-slate-200 flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                {/* Media Attachment Clip Button */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="image/*,video/*"
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isCompressingMedia}
+                  className="p-2 rounded-xl text-slate-400 hover:text-teal-400 hover:bg-white/5 transition-all cursor-pointer light:hover:text-teal-700"
+                  title="Attach Photo or Video"
+                >
+                  {isCompressingMedia ? <Loader2 size={18} className="animate-spin text-teal-400" /> : <Paperclip size={18} />}
+                </button>
+
+                {/* Emoji Picker Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className={`p-2 rounded-xl transition-all cursor-pointer ${
+                    showEmojiPicker ? "text-teal-400 bg-teal-500/20" : "text-slate-400 hover:text-teal-400 hover:bg-white/5"
+                  }`}
+                  title="Insert Emoji"
+                >
+                  <Smile size={18} />
+                </button>
+
+                {/* Main Text Input */}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputText}
+                  onChange={handleInputChange}
+                  placeholder={`Message ${selectedFriend.partnerName} securely...`}
+                  className="flex-1 bg-white/[0.07] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
+                  autoFocus
+                />
+
+                {/* Send Button */}
+                <button
+                  type="submit"
+                  disabled={(!inputText.trim() && !stagedMedia) || sending}
+                  className="p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white transition-all cursor-pointer shadow-md flex-shrink-0"
+                  title="Send Message"
+                >
+                  <Send size={16} />
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Media Lightbox Zoom Modal */}
+      {lightboxMedia && (
+        <div 
+          onClick={() => setLightboxMedia(null)}
+          className="fixed inset-0 z-60 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-150"
+        >
+          <div className="absolute top-4 right-4 flex items-center gap-3">
+            <a
+              href={lightboxMedia.url}
+              download={lightboxMedia.name || "media-download"}
+              onClick={(e) => e.stopPropagation()}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
+              title="Download"
+            >
+              <Download size={18} />
+            </a>
+            <button
+              onClick={() => setLightboxMedia(null)}
+              className="p-2 rounded-full bg-white/10 hover:bg-red-500/30 text-white transition-all cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <img
+            src={lightboxMedia.url}
+            alt={lightboxMedia.name || "Preview"}
+            className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      {/* Message Info Modal */}
+      {selectedInfoMsg && (
+        <div 
+          onClick={() => setSelectedInfoMsg(null)}
+          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#0b0b1a] border border-white/15 rounded-2xl p-4 max-w-sm w-full space-y-3 shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <Info size={14} className="text-teal-400" /> Message Diagnostics
+              </h4>
+              <button onClick={() => setSelectedInfoMsg(null)} className="text-slate-400 hover:text-white text-xs">✕</button>
+            </div>
+            <div className="space-y-1.5 text-xs text-slate-300">
+              <div className="flex justify-between"><span className="text-slate-500">Sender:</span> <span className="font-bold">{selectedInfoMsg.sender}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Sent at:</span> <span>{new Date(selectedInfoMsg.createdAt).toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Delivered:</span> <span>{selectedInfoMsg.deliveredAt ? new Date(selectedInfoMsg.deliveredAt).toLocaleTimeString() : "Delivered"}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Read:</span> <span>{selectedInfoMsg.isRead ? "Read ✓✓" : "Delivered ✓"}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Encryption:</span> <span className="text-emerald-400 font-mono">AES-256 GCM</span></div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

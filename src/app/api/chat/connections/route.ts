@@ -5,6 +5,7 @@ import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import ChatConnection from "@/lib/models/ChatConnection";
 import ChatMessage from "@/lib/models/ChatMessage";
+import { decryptMessage } from "@/lib/crypto";
 
 export async function GET() {
   try {
@@ -17,6 +18,13 @@ export async function GET() {
     const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
     const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
     const currentUserEmail = session.user.email.toLowerCase().trim();
+    const now = new Date();
+
+    const recipientIdentifiers = [
+      currentUserId,
+      currentUserEmail,
+      ...(currentUser ? [currentUser._id.toString()] : []),
+    ];
 
     // Fetch all connections involving current user
     const connections: any[] = await ChatConnection.find({
@@ -38,14 +46,73 @@ export async function GET() {
       if (conn.status === "accepted") {
         const partnerId = isRequester ? conn.recipientId : conn.requesterId;
         const partnerName = isRequester ? conn.recipientName : conn.requesterName;
+        const partnerEmail = isRequester ? conn.recipientEmail : conn.requesterEmail;
         const myRetentionHours = isRequester ? (conn.requesterRetentionHours || 24) : (conn.recipientRetentionHours || 24);
+        const myClearedAt = isRequester ? conn.requesterClearedAt : conn.recipientClearedAt;
+
+        const retentionCutoff = new Date(Date.now() - (myRetentionHours || 24) * 60 * 60 * 1000);
+        const effectiveEarliestDate = myClearedAt && new Date(myClearedAt) > retentionCutoff ? new Date(myClearedAt) : retentionCutoff;
+
+        // Fetch last message for this connection
+        const lastMsg: any = await ChatMessage.findOne({
+          roomId: conn.roomId,
+          isDeleted: { $ne: true },
+          clearedFor: { $nin: recipientIdentifiers },
+          createdAt: { $gte: effectiveEarliestDate },
+          $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }, { expiresAt: { $exists: false } }],
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+
+        let lastMessageText = "";
+        if (lastMsg) {
+          if (lastMsg.mediaType === "image") {
+            lastMessageText = "📷 Photo";
+          } else if (lastMsg.mediaType === "video") {
+            lastMessageText = "🎥 Video";
+          } else if (lastMsg.content) {
+            try {
+              lastMessageText = decryptMessage({
+                content: lastMsg.content,
+                iv: lastMsg.iv || "",
+                authTag: lastMsg.authTag || "",
+              });
+            } catch {
+              lastMessageText = "Encrypted message";
+            }
+          }
+        }
+
+        // Count unread messages from this partner
+        const unreadForPartner = await ChatMessage.countDocuments({
+          roomId: conn.roomId,
+          recipientId: { $in: recipientIdentifiers },
+          isRead: false,
+          isDeleted: { $ne: true },
+          clearedFor: { $nin: recipientIdentifiers },
+          createdAt: { $gte: effectiveEarliestDate },
+          $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }, { expiresAt: { $exists: false } }],
+        });
 
         accepted.push({
           connectionId: conn._id ? conn._id.toString() : "",
           partnerId,
           partnerName,
+          partnerEmail,
           roomId: conn.roomId,
           retentionHours: myRetentionHours,
+          unreadCount: unreadForPartner,
+          lastMessage: lastMsg
+            ? {
+                text: lastMessageText,
+                sender: lastMsg.sender,
+                senderId: lastMsg.senderId,
+                isMe: lastMsg.senderId === currentUserId,
+                isRead: lastMsg.isRead,
+                isDelivered: lastMsg.isDelivered,
+                createdAt: lastMsg.createdAt,
+              }
+            : null,
         });
       } else if (conn.status === "pending") {
         if (isRequester) {
