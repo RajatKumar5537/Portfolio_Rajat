@@ -222,6 +222,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   // UI Panels
   const [showAddFriendForm, setShowAddFriendForm] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const showProfileModalRef = useRef(showProfileModal);
+  showProfileModalRef.current = showProfileModal;
   const [requestEmailInput, setRequestEmailInput] = useState("");
   const [requestStatusMsg, setRequestStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -718,7 +720,18 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           if (accepted.length === 0) return null;
           if (prev && accepted.some((p) => p.connectionId === prev.connectionId)) {
             const current = accepted.find((p) => p.connectionId === prev.connectionId);
-            return current || prev;
+            if (current) {
+              if (
+                current.unreadCount === prev.unreadCount &&
+                current.partnerName === prev.partnerName &&
+                current.retentionHours === prev.retentionHours &&
+                current.lastMessage?.text === prev.lastMessage?.text
+              ) {
+                return prev;
+              }
+              return current;
+            }
+            return prev;
           }
           return accepted[0];
         });
@@ -1183,7 +1196,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (showProfileModal) {
+        if (showProfileModalRef.current) {
           setShowProfileModal(false);
         } else {
           onCloseRef.current();
@@ -1200,7 +1213,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, checkIncomingAndCallStatus, showProfileModal]);
+  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, checkIncomingAndCallStatus]);
 
   // When selected friend changes, reload messages and retention
   useEffect(() => {
@@ -2682,14 +2695,18 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               {showProfileModal && (
                 <div 
                   onClick={(e) => {
-                    e.stopPropagation();
-                    setShowProfileModal(false);
-                    setMobileView("chat");
+                    if (e.target === e.currentTarget) {
+                      e.stopPropagation();
+                      setShowProfileModal(false);
+                      setMobileView("chat");
+                    }
                   }}
                   className="absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150 overflow-y-auto"
                 >
                   <div 
                     onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     className="bg-[#0b0b1a] border border-white/15 rounded-3xl p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl relative max-h-[90%] overflow-y-auto overscroll-contain light:bg-white light:border-slate-300 light:text-slate-900 my-auto"
                   >
                     {/* Header */}
