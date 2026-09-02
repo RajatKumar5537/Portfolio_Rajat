@@ -375,11 +375,31 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Unauthorized to edit this message" }, { status: 403 });
     }
 
+    let existingMediaType: "image" | "video" | null = null;
+    let existingMediaData: string | null = null;
+    let existingMediaName: string | null = null;
+
+    try {
+      const plainText = decryptMessage({
+        content: existing.content,
+        iv: existing.iv,
+        authTag: existing.authTag,
+      });
+      if (plainText.startsWith("{") && plainText.endsWith("}")) {
+        const parsed = JSON.parse(plainText);
+        if (parsed && typeof parsed === "object") {
+          existingMediaType = parsed.mediaType || null;
+          existingMediaData = parsed.mediaData || null;
+          existingMediaName = parsed.mediaName || null;
+        }
+      }
+    } catch (_) {}
+
     const payloadObj = {
       text: text ? text.trim() : "",
-      mediaType: existing.mediaType || null,
-      mediaData: existing.mediaDataUrl || null,
-      mediaName: existing.mediaName || null,
+      mediaType: existingMediaType,
+      mediaData: existingMediaData,
+      mediaName: existingMediaName,
     };
     const encrypted = encryptMessage(JSON.stringify(payloadObj));
 
@@ -396,9 +416,9 @@ export async function PUT(req: Request) {
       sender: existing.sender,
       isMe: true,
       text: text.trim(),
-      mediaType: existing.mediaType || null,
-      mediaData: existing.mediaDataUrl || null,
-      mediaName: existing.mediaName || null,
+      mediaType: existingMediaType,
+      mediaData: existingMediaData,
+      mediaName: existingMediaName,
       replyTo: existing.replyTo || null,
       isRead: existing.isRead,
       isEdited: true,
