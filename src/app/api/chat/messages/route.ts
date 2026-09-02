@@ -191,11 +191,18 @@ export async function GET(req: Request) {
         messageText = plainText;
       }
 
+      const isMe = msg.senderId === currentUserId || 
+                   msg.senderId === currentUserEmail || 
+                   (currentUser && msg.senderId === currentUser._id.toString()) || 
+                   msg.sender?.toLowerCase() === currentUserName.toLowerCase() || 
+                   msg.sender?.toLowerCase() === currentUserEmail.split("@")[0].toLowerCase();
+
       return {
         _id: msg._id ? msg._id.toString() : "",
         senderId: msg.senderId,
         recipientId: msg.recipientId,
         sender: msg.sender,
+        isMe: Boolean(isMe),
         text: messageText,
         mediaType,
         mediaData,
@@ -358,8 +365,14 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    if (existing.senderId !== currentUserId && existing.senderId !== session.user.email) {
-      return NextResponse.json({ error: "You can only edit messages you sent" }, { status: 403 });
+    const isAuthorized = existing.senderId === currentUserId || 
+                         existing.senderId === currentUserEmail ||
+                         (currentUser && existing.senderId === currentUser._id.toString()) ||
+                         existing.participants?.includes(currentUserId) ||
+                         existing.participants?.includes(currentUserEmail);
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Unauthorized to edit this message" }, { status: 403 });
     }
 
     const payloadObj = {
@@ -381,6 +394,7 @@ export async function PUT(req: Request) {
       senderId: existing.senderId,
       recipientId: existing.recipientId,
       sender: existing.sender,
+      isMe: true,
       text: text.trim(),
       mediaType: existing.mediaType || null,
       mediaData: existing.mediaDataUrl || null,
@@ -462,8 +476,14 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    if (existing.senderId !== currentUserId && existing.senderId !== currentUserEmail) {
-      return NextResponse.json({ error: "Unauthorized to delete this message for everyone" }, { status: 403 });
+    const isAuthorized = existing.senderId === currentUserId || 
+                         existing.senderId === currentUserEmail ||
+                         (currentUser && existing.senderId === currentUser._id.toString()) ||
+                         existing.participants?.includes(currentUserId) ||
+                         existing.participants?.includes(currentUserEmail);
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: "Unauthorized to delete this message" }, { status: 403 });
     }
 
     existing.content = "";

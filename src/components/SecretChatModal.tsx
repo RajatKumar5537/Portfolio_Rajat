@@ -2234,36 +2234,32 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                                 {isCopied ? <Check size={13} className="text-teal-400" /> : <Copy size={13} />}
                               </button>
 
-                              {/* Edit (only for my messages) */}
-                              {isMe && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingId(msg._id);
-                                    setEditText(msg.text);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="p-1 rounded-lg hover:bg-white/15 text-slate-300 hover:text-amber-300 transition-colors"
-                                  title="Edit"
-                                >
-                                  <Pencil size={13} />
-                                </button>
-                              )}
+                              {/* Edit */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingId(msg._id);
+                                  setEditText(msg.text);
+                                  setActiveActionMenuId(null);
+                                }}
+                                className="p-1 rounded-lg hover:bg-white/15 text-slate-300 hover:text-amber-300 transition-colors cursor-pointer"
+                                title="Edit Message"
+                              >
+                                <Pencil size={13} />
+                              </button>
 
-                              {/* Delete Single Message (only for my messages) */}
-                              {isMe && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleDeleteSingleMessage(msg._id);
-                                    setActiveActionMenuId(null);
-                                  }}
-                                  className="p-1 rounded-lg hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors"
-                                  title="Delete message for everyone"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              )}
+                              {/* Delete Single Message */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleDeleteSingleMessage(msg._id);
+                                  setActiveActionMenuId(null);
+                                }}
+                                className="p-1 rounded-lg hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors cursor-pointer"
+                                title="Delete Message"
+                              >
+                                <Trash2 size={13} />
+                              </button>
 
                               {/* Info Diagnostics */}
                               <button
