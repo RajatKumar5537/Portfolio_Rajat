@@ -16,11 +16,11 @@ const RoadmapSchema = new Schema(
     },
     startDate: {
       type: Date,
-      default: () => new Date("2026-08-25T00:00:00")
+      default: () => new Date()
     },
     duration: {
       type: Number,
-      default: 6
+      default: 1
     },
     durationUnit: {
       type: String,

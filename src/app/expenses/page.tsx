@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import Navigation from "@/components/Navigation";
 import * as XLSX from "xlsx";
 import {
@@ -10,6 +11,10 @@ import {
 } from "lucide-react";
 
 export default function ExpensesPage() {
+  const { data: session } = useSession();
+  const isRajat = session?.user?.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+  const userIdentifier = (session?.user as any)?.id || session?.user?.email || "guest";
+
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -109,67 +114,99 @@ export default function ExpensesPage() {
   };
 
 
-  // 1. Initial load from LocalStorage
+  // 1. Initial load from LocalStorage (scoped per user)
   useEffect(() => {
-    const savedExp = localStorage.getItem("custom_expense_categories");
-    const savedInc = localStorage.getItem("custom_income_categories");
+    if (!session?.user) return;
+    const isRajatUser = session.user.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+    const uId = (session.user as any).id || session.user.email || "guest";
+    const expKey = `custom_expense_categories_${uId}`;
+    const incKey = `custom_income_categories_${uId}`;
+
+    const savedExp = localStorage.getItem(expKey);
+    const savedInc = localStorage.getItem(incKey);
 
     if (savedExp) {
-      try { setExpenseCategories(JSON.parse(savedExp)); } catch {}
+      try {
+        setExpenseCategories(JSON.parse(savedExp));
+      } catch {}
+    } else {
+      if (isRajatUser) {
+        setExpenseCategories(["Home", "Delhi Room", "Swarna", "Ajit", "Travel", "Others"]);
+      } else {
+        setExpenseCategories(["Others"]);
+      }
     }
+
     if (savedInc) {
-      try { setIncomeCategories(JSON.parse(savedInc)); } catch {}
+      try {
+        setIncomeCategories(JSON.parse(savedInc));
+      } catch {}
+    } else {
+      if (isRajatUser) {
+        setIncomeCategories(["Salary", "Bonus", "Others"]);
+      } else {
+        setIncomeCategories(["Others"]);
+      }
     }
-  }, []);
+  }, [session]);
 
-  // 2. Dynamic generation of custom lists based on transaction history (protects user's data from being deleted)
+  // 2. Dynamic generation of custom lists based on transaction history
   useEffect(() => {
-    if (expenses.length === 0) return;
+    if (!session?.user) return;
+    const isRajatUser = session.user.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+    const uId = (session.user as any).id || session.user.email || "guest";
+    const expKey = `custom_expense_categories_${uId}`;
+    const incKey = `custom_income_categories_${uId}`;
 
-    const uniqueExpCats = Array.from(new Set(expenses.filter(e => e.type === "Expense").map(e => e.category)));
-    const uniqueIncCats = Array.from(new Set(expenses.filter(e => e.type === "Income").map(e => e.category)));
+    if (expenses.length === 0) {
+      if (!localStorage.getItem(expKey)) {
+        const initialExp = isRajatUser ? ["Home", "Delhi Room", "Swarna", "Ajit", "Travel", "Others"] : ["Others"];
+        setExpenseCategories(initialExp);
+      }
+      if (!localStorage.getItem(incKey)) {
+        const initialInc = isRajatUser ? ["Salary", "Bonus", "Others"] : ["Others"];
+        setIncomeCategories(initialInc);
+      }
+      return;
+    }
+
+    const uniqueExpCats = Array.from(new Set(expenses.filter(e => e.type === "Expense").map(e => e.category).filter(Boolean)));
+    const uniqueIncCats = Array.from(new Set(expenses.filter(e => e.type === "Income").map(e => e.category).filter(Boolean)));
 
     setExpenseCategories(prev => {
-      const merged = Array.from(new Set([...prev, ...uniqueExpCats, "Others"]));
-      if (!localStorage.getItem("custom_expense_categories")) {
-        // If it's a new user with 0 logged expenses, start fresh with only "Others"
-        if (expenses.filter(e => e.type === "Expense").length === 0) {
-          localStorage.setItem("custom_expense_categories", JSON.stringify(["Others"]));
-          return ["Others"];
-        }
-        localStorage.setItem("custom_expense_categories", JSON.stringify(merged));
-      }
+      const base = isRajatUser && prev.length === 0 ? ["Home", "Delhi Room", "Swarna", "Ajit", "Travel", "Others"] : prev;
+      const merged = Array.from(new Set([...base, ...uniqueExpCats, "Others"]));
+      localStorage.setItem(expKey, JSON.stringify(merged));
       return merged;
     });
 
     setIncomeCategories(prev => {
-      const merged = Array.from(new Set([...prev, ...uniqueIncCats, "Others"]));
-      if (!localStorage.getItem("custom_income_categories")) {
-        if (expenses.filter(e => e.type === "Income").length === 0) {
-          localStorage.setItem("custom_income_categories", JSON.stringify(["Others"]));
-          return ["Others"];
-        }
-        localStorage.setItem("custom_income_categories", JSON.stringify(merged));
-      }
+      const base = isRajatUser && prev.length === 0 ? ["Salary", "Bonus", "Others"] : prev;
+      const merged = Array.from(new Set([...base, ...uniqueIncCats, "Others"]));
+      localStorage.setItem(incKey, JSON.stringify(merged));
       return merged;
     });
-  }, [expenses]);
+  }, [expenses, session]);
 
   const handleAddCustomCategory = (name: string) => {
     const cleanName = name.trim();
     if (!cleanName) return;
 
+    const uId = (session?.user as any)?.id || session?.user?.email || "guest";
+    const expKey = `custom_expense_categories_${uId}`;
+    const incKey = `custom_income_categories_${uId}`;
+
     if (form.type === "Expense") {
       if (expenseCategories.includes(cleanName)) return;
       const updated = [...expenseCategories, cleanName];
       setExpenseCategories(updated);
-      localStorage.setItem("custom_expense_categories", JSON.stringify(updated));
+      localStorage.setItem(expKey, JSON.stringify(updated));
       setForm(prev => ({ ...prev, category: cleanName }));
     } else {
       if (incomeCategories.includes(cleanName)) return;
       const updated = [...incomeCategories, cleanName];
       setIncomeCategories(updated);
-      localStorage.setItem("custom_income_categories", JSON.stringify(updated));
+      localStorage.setItem(incKey, JSON.stringify(updated));
       setForm(prev => ({ ...prev, category: cleanName }));
     }
   };
@@ -182,15 +219,19 @@ export default function ExpensesPage() {
     }
     if (!confirm(`Delete custom category '${target}'? (Existing transactions will remain unchanged)`)) return;
 
+    const uId = (session?.user as any)?.id || session?.user?.email || "guest";
+    const expKey = `custom_expense_categories_${uId}`;
+    const incKey = `custom_income_categories_${uId}`;
+
     if (form.type === "Expense") {
       const updated = expenseCategories.filter(c => c !== target);
       setExpenseCategories(updated);
-      localStorage.setItem("custom_expense_categories", JSON.stringify(updated));
+      localStorage.setItem(expKey, JSON.stringify(updated));
       setForm(prev => ({ ...prev, category: "Others" }));
     } else {
       const updated = incomeCategories.filter(c => c !== target);
       setIncomeCategories(updated);
-      localStorage.setItem("custom_income_categories", JSON.stringify(updated));
+      localStorage.setItem(incKey, JSON.stringify(updated));
       setForm(prev => ({ ...prev, category: "Others" }));
     }
   };
@@ -403,7 +444,12 @@ export default function ExpensesPage() {
       .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes(cat.toLowerCase()) || (e.description || "").toLowerCase().includes(cat.toLowerCase())))
       .reduce((acc, curr) => acc + curr.amount, 0);
     return { category: cat, total };
-  }).filter(item => item.total > 0 || ["Home", "Ajit", "Swarna", "Delhi Room"].includes(item.category));
+  }).filter(item => {
+    if (isRajat) {
+      return item.total > 0 || ["Home", "Ajit", "Swarna", "Delhi Room"].includes(item.category);
+    }
+    return item.total > 0;
+  });
 
   // 3. Filter displayed logs based on active card filters & live search
   const displayedExpenses = monthlyExpenses.filter((exp) => {

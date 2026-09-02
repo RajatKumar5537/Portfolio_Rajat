@@ -2,10 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import Navigation from "@/components/Navigation";
 import { BookOpen, CreditCard, Apple, ArrowUpRight, TrendingUp, Sparkles, Flame, PlusCircle, Loader2, Wallet, FileUp, ChevronLeft, ChevronRight, Plus, TrendingDown, Calendar, Heart } from "lucide-react";
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
+  const isRajat = session?.user?.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+
   const [data, setData] = useState({
     expenses: [] as any[],
     studyLogs: [] as any[],
@@ -149,6 +153,13 @@ export default function DashboardPage() {
   const homeExpenses = filteredTransactions.filter(e => e.category === "Home" && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
   const ajitExpenses = filteredTransactions.filter(e => e.category === "Ajit" && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
   const swarnaExpenses = filteredTransactions.filter(e => e.category === "Swarna" && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
+
+  const topExpenseCategories = Array.from(
+    new Set(filteredTransactions.filter(e => e.type === "Expense").map(e => e.category).filter(Boolean))
+  ).map(cat => ({
+    name: cat,
+    total: filteredTransactions.filter(e => e.category === cat && e.type === "Expense").reduce((a, c) => a + c.amount, 0)
+  })).sort((a, b) => b.total - a.total).slice(0, 3);
 
   const totalStudyMinutes = filteredStudyLogs.reduce((acc, curr) => acc + curr.durationMinutes, 0);
   const totalStudyHours = (totalStudyMinutes / 60).toFixed(1);
@@ -428,9 +439,19 @@ export default function DashboardPage() {
 
               <div className="border-t border-white/5 pt-4 mt-6 flex justify-between items-center">
                 <div className="flex gap-2 text-[9px] text-slate-500 font-mono">
-                  <span>H: ₹{homeExpenses}</span>
-                  <span>A: ₹{ajitExpenses}</span>
-                  <span>S: ₹{swarnaExpenses}</span>
+                  {isRajat ? (
+                    <>
+                      <span>H: ₹{homeExpenses}</span>
+                      <span>A: ₹{ajitExpenses}</span>
+                      <span>S: ₹{swarnaExpenses}</span>
+                    </>
+                  ) : topExpenseCategories.length > 0 ? (
+                    topExpenseCategories.map((c) => (
+                      <span key={c.name}>{c.name.slice(0, 1).toUpperCase()}: ₹{c.total}</span>
+                    ))
+                  ) : (
+                    <span>No expense records</span>
+                  )}
                 </div>
                 <Link
                   href="/expenses"

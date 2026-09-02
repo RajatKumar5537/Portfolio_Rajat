@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import Navigation from "@/components/Navigation";
 import { BookOpen, Play, Calendar, Trash2, Loader2, Sparkles, Flame, Plus, Settings, ChevronLeft, ChevronRight, Pencil, Check, X } from "lucide-react";
 
@@ -26,6 +27,10 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 export default function LearningPage() {
+  const { data: session } = useSession();
+  const isRajat = session?.user?.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+  const userIdentifier = (session?.user as any)?.id || session?.user?.email || "guest";
+
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [quote, setQuote] = useState("");
@@ -51,7 +56,7 @@ export default function LearningPage() {
   // Tabs
   const [activeTab, setActiveTab] = useState<"roadmap" | "studied">("roadmap");
 
-  // Editable milestones (loaded from localStorage on mount)
+  // Editable milestones (loaded from database/localStorage on mount)
   const [milestones, setMilestones] = useState<any[]>([]);
   const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(null);
   const [editMilestoneForm, setEditMilestoneForm] = useState({ name: "", desc: "" });
@@ -75,10 +80,11 @@ export default function LearningPage() {
 
   // Settings State
   const [showSettings, setShowSettings] = useState(false);
-  const [goalStartDate, setGoalStartDate] = useState<Date>(DEFAULT_START_DATE);
-  const [goalEndDate, setGoalEndDate] = useState<Date>(DEFAULT_END_DATE);
-  const [inputStartDate, setInputStartDate] = useState("2026-08-25");
-  const [inputDuration, setInputDuration] = useState<number>(6);
+  const [isGoalSet, setIsGoalSet] = useState(false);
+  const [goalStartDate, setGoalStartDate] = useState<Date | null>(null);
+  const [goalEndDate, setGoalEndDate] = useState<Date | null>(null);
+  const [inputStartDate, setInputStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [inputDuration, setInputDuration] = useState<number>(1);
   const [inputDurationUnit, setInputDurationUnit] = useState<"months" | "days">("months");
 
   const months = [
@@ -87,8 +93,6 @@ export default function LearningPage() {
   ];
 
   useEffect(() => {
-
-
     setMounted(true);
     setCurrentTime(new Date());
     setQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
@@ -96,6 +100,9 @@ export default function LearningPage() {
     // Fetch roadmap from database
     const fetchRoadmapData = async () => {
       try {
+        const isRajatUser = session?.user?.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+        const uId = (session?.user as any)?.id || session?.user?.email || "guest";
+
         const res = await fetch("/api/tracking/study/roadmap");
         if (res.ok) {
           const data = await res.json();
@@ -103,22 +110,26 @@ export default function LearningPage() {
             const start = new Date(data.startDate);
             setGoalStartDate(start);
             setInputStartDate(data.startDate.split("T")[0]);
-            setInputDuration(data.duration);
-            setInputDurationUnit(data.durationUnit);
-            setGoalEndDate(calculateEndDate(start, data.duration, data.durationUnit));
+            setInputDuration(data.duration || 1);
+            setInputDurationUnit(data.durationUnit || "months");
+            setGoalEndDate(calculateEndDate(start, data.duration || 1, data.durationUnit || "months"));
             setMilestones(data.milestones || []);
+            setIsGoalSet(true);
             return;
           }
         }
-        // Fallback to localStorage if default or API fails
-        const savedStart = localStorage.getItem("goal_start_date");
-        const savedDuration = localStorage.getItem("goal_duration");
-        const savedUnit = localStorage.getItem("goal_duration_unit");
-        const savedMilestones = localStorage.getItem("custom_milestones");
+
+        // Fallback to user-scoped localStorage if default or API fails
+        const savedStart = localStorage.getItem(`goal_start_date_${uId}`);
+        const savedDuration = localStorage.getItem(`goal_duration_${uId}`);
+        const savedUnit = localStorage.getItem(`goal_duration_unit_${uId}`);
+        const savedMilestones = localStorage.getItem(`custom_milestones_${uId}`);
 
         let loadedMilestones = [];
         if (savedMilestones) {
           try { loadedMilestones = JSON.parse(savedMilestones); } catch {}
+        } else if (isRajatUser) {
+          loadedMilestones = MILESTONE_TEMPLATES;
         } else {
           loadedMilestones = [];
         }
@@ -133,19 +144,33 @@ export default function LearningPage() {
           setInputDuration(dur);
           setInputDurationUnit(unit);
           setGoalEndDate(calculateEndDate(start, dur, unit));
-        } else {
-          // Initialize defaults
+          setIsGoalSet(true);
+        } else if (isRajatUser) {
+          // Initialize defaults for Rajat
           setGoalStartDate(DEFAULT_START_DATE);
           setInputStartDate("2026-08-25");
           setInputDuration(6);
           setInputDurationUnit("months");
           setGoalEndDate(DEFAULT_END_DATE);
+          setIsGoalSet(true);
+        } else {
+          // Fresh user: goal is not set yet (0/0 days, 00:00:00:00 countdown)
+          const todayStr = new Date().toISOString().split("T")[0];
+          setGoalStartDate(null);
+          setInputStartDate(todayStr);
+          setInputDuration(1);
+          setInputDurationUnit("months");
+          setGoalEndDate(null);
+          setIsGoalSet(false);
         }
       } catch (err) {
         console.error("Error loading roadmap data: ", err);
       }
     };
-    fetchRoadmapData();
+
+    if (session?.user) {
+      fetchRoadmapData();
+    }
     fetchStudyLogs();
 
     // Persistent stopwatch initial load
@@ -252,13 +277,13 @@ export default function LearningPage() {
     ])
   ).sort((a, b) => b - a);
 
-  const saveRoadmapToDB = async (start: Date, dur: number, unit: "months" | "days", milestonesList: any[]) => {
+  const saveRoadmapToDB = async (start: Date | null, dur: number, unit: "months" | "days", milestonesList: any[]) => {
     try {
       await fetch("/api/tracking/study/roadmap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          startDate: start.toISOString().split("T")[0],
+          startDate: start ? start.toISOString().split("T")[0] : undefined,
           duration: dur,
           durationUnit: unit,
           milestones: milestonesList
@@ -273,14 +298,16 @@ export default function LearningPage() {
     e.preventDefault();
     const start = new Date(inputStartDate + "T00:00:00");
     const end = calculateEndDate(start, inputDuration, inputDurationUnit);
+    const uId = (session?.user as any)?.id || session?.user?.email || "guest";
 
     setGoalStartDate(start);
     setGoalEndDate(end);
+    setIsGoalSet(true);
     setShowSettings(false);
 
-    localStorage.setItem("goal_start_date", inputStartDate);
-    localStorage.setItem("goal_duration", String(inputDuration));
-    localStorage.setItem("goal_duration_unit", inputDurationUnit);
+    localStorage.setItem(`goal_start_date_${uId}`, inputStartDate);
+    localStorage.setItem(`goal_duration_${uId}`, String(inputDuration));
+    localStorage.setItem(`goal_duration_unit_${uId}`, inputDurationUnit);
 
     saveRoadmapToDB(start, inputDuration, inputDurationUnit, milestones);
   };
@@ -369,27 +396,30 @@ export default function LearningPage() {
   };
 
   const handleMilestoneEditSave = (id: number) => {
+    const uId = (session?.user as any)?.id || session?.user?.email || "guest";
     const updated = milestones.map((m) => m.id === id ? { ...m, ...editMilestoneForm } : m);
     setMilestones(updated);
-    localStorage.setItem("custom_milestones", JSON.stringify(updated));
+    localStorage.setItem(`custom_milestones_${uId}`, JSON.stringify(updated));
     setEditingMilestoneId(null);
     saveRoadmapToDB(goalStartDate, inputDuration, inputDurationUnit, updated);
   };
 
   const handleMilestoneDelete = (id: number) => {
     if (!confirm("Delete this milestone from your roadmap?")) return;
+    const uId = (session?.user as any)?.id || session?.user?.email || "guest";
     const updated = milestones.filter((m) => m.id !== id);
     setMilestones(updated);
-    localStorage.setItem("custom_milestones", JSON.stringify(updated));
+    localStorage.setItem(`custom_milestones_${uId}`, JSON.stringify(updated));
     saveRoadmapToDB(goalStartDate, inputDuration, inputDurationUnit, updated);
   };
 
   const handleMilestoneConfirmAdd = () => {
     if (!newMilestoneForm.name.trim()) return;
+    const uId = (session?.user as any)?.id || session?.user?.email || "guest";
     const nextId = milestones.length > 0 ? Math.max(...milestones.map(m => m.id)) + 1 : 1;
     const updated = [...milestones, { id: nextId, name: newMilestoneForm.name.trim(), desc: newMilestoneForm.desc.trim() }];
     setMilestones(updated);
-    localStorage.setItem("custom_milestones", JSON.stringify(updated));
+    localStorage.setItem(`custom_milestones_${uId}`, JSON.stringify(updated));
     setNewMilestoneForm({ name: "", desc: "" });
     setShowAddMilestoneForm(false);
     saveRoadmapToDB(goalStartDate, inputDuration, inputDurationUnit, updated);
@@ -505,21 +535,21 @@ export default function LearningPage() {
   }
 
   const currentMs = currentTime.getTime();
-  const startMs = goalStartDate.getTime();
-  const endMs = goalEndDate.getTime();
-  const totalGoalTime = endMs - startMs;
-  const elapsed = Math.max(0, currentMs - startMs);
-  const remaining = Math.max(0, endMs - currentMs);
-  const percentProgress = Math.min(100, Math.max(0, (elapsed / totalGoalTime) * 100));
+  const startMs = goalStartDate ? goalStartDate.getTime() : currentMs;
+  const endMs = goalEndDate ? goalEndDate.getTime() : currentMs;
+  const totalGoalTime = Math.max(1, endMs - startMs);
+  const elapsed = isGoalSet ? Math.max(0, currentMs - startMs) : 0;
+  const remaining = isGoalSet ? Math.max(0, endMs - currentMs) : 0;
+  const percentProgress = isGoalSet ? Math.min(100, Math.max(0, (elapsed / totalGoalTime) * 100)) : 0;
 
-  const daysElapsed = Math.floor(elapsed / (1000 * 60 * 60 * 24));
-  const totalDays = Math.floor(totalGoalTime / (1000 * 60 * 60 * 24));
+  const daysElapsed = isGoalSet ? Math.floor(elapsed / (1000 * 60 * 60 * 24)) : 0;
+  const totalDays = isGoalSet ? Math.floor(totalGoalTime / (1000 * 60 * 60 * 24)) : 0;
 
   // Countdown calculations
-  const remainingDays = Math.floor(remaining / (1000 * 60 * 60 * 24));
-  const remainingHours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
-  const remainingMins = Math.floor((remaining / (1000 * 60)) % 60);
-  const remainingSecs = Math.floor((remaining / 1000) % 60);
+  const remainingDays = isGoalSet ? Math.floor(remaining / (1000 * 60 * 60 * 24)) : 0;
+  const remainingHours = isGoalSet ? Math.floor((remaining / (1000 * 60 * 60)) % 24) : 0;
+  const remainingMins = isGoalSet ? Math.floor((remaining / (1000 * 60)) % 60) : 0;
+  const remainingSecs = isGoalSet ? Math.floor((remaining / 1000) % 60) : 0;
 
   const padZero = (num: number) => String(num).padStart(2, "0");
 
@@ -533,7 +563,7 @@ export default function LearningPage() {
 
   const radius = 70;
   const strokeDash = 2 * Math.PI * radius;
-  const strokeOffset = strokeDash - (percentProgress / 100) * strokeDash;
+  const strokeOffset = isGoalSet ? strokeDash - (percentProgress / 100) * strokeDash : strokeDash;
 
   // Streak calculations (based on overall logs)
   const completedDates = new Set(
@@ -848,9 +878,11 @@ export default function LearningPage() {
                         </svg>
                         <div className="absolute text-center">
                           <span className="text-2xl font-black font-mono text-slate-100 light:text-slate-900">{percentProgress.toFixed(1)}%</span>
-                          <p className="text-[9px] uppercase tracking-widest text-slate-400 light:text-slate-600 mt-0.5 font-bold">COMPLETED</p>
+                          <p className="text-[9px] uppercase tracking-widest text-slate-400 light:text-slate-600 mt-0.5 font-bold">
+                            {isGoalSet ? "COMPLETED" : "NOT SET"}
+                          </p>
                           <p className="text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-500 mt-0.5 font-mono font-bold">
-                            {daysElapsed}/{totalDays} DAYS
+                            {isGoalSet ? `${daysElapsed}/${totalDays} DAYS` : "0/0 DAYS"}
                           </p>
                         </div>
                       </div>
@@ -919,7 +951,7 @@ export default function LearningPage() {
                       activeTab === "roadmap" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-300"
                     }`}
                   >
-                    {milestones.length}-Month Roadmap
+                    {milestones.length > 0 ? `${milestones.length}-Month Roadmap` : "Roadmap"}
                   </button>
                   <button
                     onClick={() => setActiveTab("studied")}
