@@ -2688,133 +2688,133 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   <Send size={16} />
                 </button>
               </form>
-
-              {/* ========================================================= */}
-              {/* CONTACT PROFILE & SETTINGS OVERLAY (Inside Right Pane) */}
-              {/* ========================================================= */}
-              {showProfileModal && (
-                <div 
-                  onClick={(e) => {
-                    if (e.target === e.currentTarget) {
-                      e.stopPropagation();
-                      setShowProfileModal(false);
-                      setMobileView("chat");
-                    }
-                  }}
-                  className="absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150 overflow-y-auto"
-                >
-                  <div 
-                    onClick={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
-                    className="bg-[#0b0b1a] border border-white/15 rounded-3xl p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl relative max-h-[90%] overflow-y-auto overscroll-contain light:bg-white light:border-slate-300 light:text-slate-900 my-auto"
-                  >
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3 light:border-slate-200">
-                      <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 light:text-slate-900">
-                        <User size={16} className="text-teal-400" /> Contact Details
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowProfileModal(false);
-                          setMobileView("chat");
-                        }}
-                        className="p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200 active:scale-95 touch-manipulation"
-                        title="Close Details & Return to Chat"
-                      >
-                        <X size={18} />
-                      </button>
-                    </div>
-
-                    {/* Profile Card Summary */}
-                    <div className="flex flex-col items-center text-center space-y-2 pt-1">
-                      <div className="relative">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-xl sm:text-2xl flex items-center justify-center shadow-xl border-2 border-white/20">
-                          {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
-                        </div>
-                        {isFriendOnline && (
-                          <span className="absolute bottom-0 right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-500 border-2 border-[#0b0b1a] light:border-white shadow-sm"></span>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-sm sm:text-base font-bold text-white light:text-slate-900">{selectedFriend.partnerName}</h4>
-                        {selectedFriend.partnerEmail && (
-                          <p className="text-xs text-slate-400 flex items-center justify-center gap-1 light:text-slate-600">
-                            <Mail size={12} /> {selectedFriend.partnerEmail}
-                          </p>
-                        )}
-                        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-[10px] text-teal-300 font-mono light:bg-teal-50 light:border-teal-300 light:text-teal-800">
-                          <ShieldCheck size={12} /> End-to-End Encrypted (AES-256)
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Disappearing Messages Setting */}
-                    <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2.5 light:bg-slate-100 light:border-slate-300">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Clock size={15} className="text-teal-400 light:text-teal-600" />
-                          <h5 className="text-xs font-bold text-white light:text-slate-900">Disappearing Messages</h5>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold text-teal-400 light:text-teal-700">
-                          {retentionHours === 0 ? "Off" : `${retentionHours}h timer`}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed light:text-slate-600">
-                        New messages in this chat will self-destruct for both participants after the selected duration.
-                      </p>
-                      {/* Option Pills */}
-                      <div className="grid grid-cols-4 gap-1.5 pt-1">
-                        {[
-                          { label: "Off", hours: 0 },
-                          { label: "12 Hours", hours: 12 },
-                          { label: "24 Hours", hours: 24 },
-                          { label: "7 Days", hours: 168 },
-                        ].map((opt) => (
-                          <button
-                            key={opt.hours}
-                            type="button"
-                            onClick={() => handleUpdateRetention(opt.hours)}
-                            className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center active:scale-95 touch-manipulation ${
-                              retentionHours === opt.hours
-                                ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md border border-teal-400/40"
-                                : "bg-white/[0.06] border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 light:bg-white light:border-slate-300 light:text-slate-700 light:hover:bg-slate-50"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Actions: Clear Chat & Remove Connection */}
-                    <div className="space-y-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleClearAll}
-                        disabled={messages.length === 0}
-                        className="w-full py-2.5 px-3 bg-white/[0.06] hover:bg-amber-500/15 border border-white/10 hover:border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 touch-manipulation light:bg-amber-50 light:border-amber-300 light:text-amber-800 light:hover:bg-amber-100"
-                      >
-                        <Trash2 size={14} /> Clear Messages History
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
-                        className="w-full py-2.5 px-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 touch-manipulation light:bg-red-50 light:border-red-300 light:text-red-700 light:hover:bg-red-100"
-                      >
-                        <UserMinus size={14} /> Remove {selectedFriend.partnerName} from Friends
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
       </div>
+
+      {/* ========================================================= */}
+      {/* CONTACT PROFILE & SETTINGS MODAL (Global Dialog Level) */}
+      {/* ========================================================= */}
+      {showProfileModal && selectedFriend && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              e.stopPropagation();
+              setShowProfileModal(false);
+              setMobileView("chat");
+            }
+          }}
+          className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150 overflow-y-auto"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="bg-[#0b0b1a] border border-white/15 rounded-3xl p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl relative max-h-[85vh] overflow-y-auto overscroll-contain light:bg-white light:border-slate-300 light:text-slate-900 my-auto"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 light:border-slate-200">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 light:text-slate-900">
+                <User size={16} className="text-teal-400" /> Contact Details
+              </h3>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowProfileModal(false);
+                  setMobileView("chat");
+                }}
+                className="p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200 active:scale-95 touch-manipulation"
+                title="Close Details & Return to Chat"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Profile Card Summary */}
+            <div className="flex flex-col items-center text-center space-y-2 pt-1">
+              <div className="relative">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-xl sm:text-2xl flex items-center justify-center shadow-xl border-2 border-white/20">
+                  {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
+                </div>
+                {isFriendOnline && (
+                  <span className="absolute bottom-0 right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-500 border-2 border-[#0b0b1a] light:border-white shadow-sm"></span>
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm sm:text-base font-bold text-white light:text-slate-900">{selectedFriend.partnerName}</h4>
+                {selectedFriend.partnerEmail && (
+                  <p className="text-xs text-slate-400 flex items-center justify-center gap-1 light:text-slate-600">
+                    <Mail size={12} /> {selectedFriend.partnerEmail}
+                  </p>
+                )}
+                <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-[10px] text-teal-300 font-mono light:bg-teal-50 light:border-teal-300 light:text-teal-800">
+                  <ShieldCheck size={12} /> End-to-End Encrypted (AES-256)
+                </div>
+              </div>
+            </div>
+
+            {/* Disappearing Messages Setting */}
+            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2.5 light:bg-slate-100 light:border-slate-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock size={15} className="text-teal-400 light:text-teal-600" />
+                  <h5 className="text-xs font-bold text-white light:text-slate-900">Disappearing Messages</h5>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-teal-400 light:text-teal-700">
+                  {retentionHours === 0 ? "Off" : `${retentionHours}h timer`}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed light:text-slate-600">
+                New messages in this chat will self-destruct for both participants after the selected duration.
+              </p>
+              {/* Option Pills */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { label: "Off", hours: 0 },
+                  { label: "12 Hours", hours: 12 },
+                  { label: "24 Hours", hours: 24 },
+                  { label: "7 Days", hours: 168 },
+                ].map((opt) => (
+                  <button
+                    key={opt.hours}
+                    type="button"
+                    onClick={() => handleUpdateRetention(opt.hours)}
+                    className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center active:scale-95 touch-manipulation ${
+                      retentionHours === opt.hours
+                        ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md border border-teal-400/40"
+                        : "bg-white/[0.06] border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 light:bg-white light:border-slate-300 light:text-slate-700 light:hover:bg-slate-50"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions: Clear Chat & Remove Connection */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={handleClearAll}
+                disabled={messages.length === 0}
+                className="w-full py-2.5 px-3 bg-white/[0.06] hover:bg-amber-500/15 border border-white/10 hover:border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 touch-manipulation light:bg-amber-50 light:border-amber-300 light:text-amber-800 light:hover:bg-amber-100"
+              >
+                <Trash2 size={14} /> Clear Messages History
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
+                className="w-full py-2.5 px-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 touch-manipulation light:bg-red-50 light:border-red-300 light:text-red-700 light:hover:bg-red-100"
+              >
+                <UserMinus size={14} /> Remove {selectedFriend.partnerName} from Friends
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Media Lightbox Zoom Modal */}
       {lightboxMedia && (
