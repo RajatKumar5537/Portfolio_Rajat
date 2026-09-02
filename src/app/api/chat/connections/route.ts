@@ -72,11 +72,17 @@ export async function GET() {
             lastMessageText = "🎥 Video";
           } else if (lastMsg.content) {
             try {
-              lastMessageText = decryptMessage({
+              const plain = decryptMessage({
                 content: lastMsg.content,
                 iv: lastMsg.iv || "",
                 authTag: lastMsg.authTag || "",
               });
+              if (plain.startsWith("{") && plain.endsWith("}")) {
+                const parsed = JSON.parse(plain);
+                lastMessageText = parsed.text || (parsed.mediaType === "image" ? "📷 Photo" : parsed.mediaType === "video" ? "🎥 Video" : plain);
+              } else {
+                lastMessageText = plain;
+              }
             } catch {
               lastMessageText = "Encrypted message";
             }

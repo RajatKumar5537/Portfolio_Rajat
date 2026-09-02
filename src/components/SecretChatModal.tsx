@@ -173,6 +173,20 @@ function formatWhatsAppTime(dateString?: string | null) {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
+function cleanPreviewText(rawText?: string | null): string {
+  if (!rawText) return "";
+  const trimmed = rawText.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return parsed.text || (parsed.mediaType === "image" ? "📷 Photo" : parsed.mediaType === "video" ? "🎥 Video" : trimmed);
+    } catch (_) {
+      return trimmed;
+    }
+  }
+  return trimmed;
+}
+
 interface SecretChatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -199,7 +213,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   // WhatsApp Layout States
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "requests">("all");
-  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [mobileView, setMobileView] = useState<"list" | "chat">("chat");
   const mobileViewRef = useRef<"list" | "chat">(mobileView);
   mobileViewRef.current = mobileView;
   
@@ -294,13 +308,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       window.visualViewport?.removeEventListener("resize", updateViewport);
       window.visualViewport?.removeEventListener("scroll", updateViewport);
     };
-  }, [isOpen]);
-
-  // Initial mobile view reset when modal opens
-  useEffect(() => {
-    if (isOpen && typeof window !== "undefined" && window.innerWidth < 768) {
-      setMobileView("list");
-    }
   }, [isOpen]);
 
   // Handle mobile browser back button to close chat modal gracefully without leaving page
@@ -1391,8 +1398,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         {/* LEFT SIDEBAR: WhatsApp Web Contact List (Chats, Search, Tabs) */}
         {/* ========================================================= */}
         <div 
-          className={`w-full md:w-[320px] lg:w-[360px] border-r border-white/10 flex flex-col flex-shrink-0 bg-[#070712] light:bg-[#f0f2f5] light:border-slate-200 transition-all ${
-            mobileView === "chat" && selectedFriend ? "hidden md:flex" : "flex"
+          className={`w-full sm:w-[300px] md:w-[330px] lg:w-[360px] border-r border-white/10 flex flex-col flex-shrink-0 bg-[#070712] light:bg-[#f0f2f5] light:border-slate-200 transition-all ${
+            mobileView === "chat" ? "hidden sm:flex" : "flex"
           }`}
         >
           {/* Sidebar Top Header */}
@@ -1638,6 +1645,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     const pPresence = activeUsers.find((u) => !u.isMe && (u.userId === p.partnerId || u.userName.toLowerCase() === p.partnerName.toLowerCase()));
                     const isPOnline = pPresence?.isOnline ?? false;
                     const isPTyping = pPresence?.isTyping ?? false;
+                    const previewText = cleanPreviewText(p.lastMessage?.text);
 
                     return (
                       <div
@@ -1647,6 +1655,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         onClick={() => {
                           setSelectedFriend(p);
                           setMobileView("chat");
+                          fetchMessagesForPartner(p, true);
                         }}
                         className={`group flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all border-b border-white/[0.04] light:border-slate-200/60 relative select-none touch-manipulation active:bg-white/[0.08] ${
                           isSelected
@@ -1679,14 +1688,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                             <p className="text-xs text-slate-400 truncate light:text-slate-600 flex items-center gap-1 min-w-0">
                               {isPTyping ? (
                                 <span className="text-teal-400 font-bold animate-pulse light:text-teal-600">✍️ typing...</span>
-                              ) : p.lastMessage ? (
+                              ) : previewText ? (
                                 <>
-                                  {p.lastMessage.isMe && (
-                                    <span className={p.lastMessage.isRead ? "text-teal-400" : "text-slate-500"}>
+                                  {p.lastMessage?.isMe && (
+                                    <span className={p.lastMessage?.isRead ? "text-teal-400" : "text-slate-500"}>
                                       <CheckCheck size={13} className="inline flex-shrink-0" />
                                     </span>
                                   )}
-                                  <span className="truncate">{p.lastMessage.text}</span>
+                                  <span className="truncate">{previewText}</span>
                                 </>
                               ) : (
                                 <span className="italic text-slate-500">No messages yet</span>
@@ -1730,7 +1739,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         {/* ========================================================= */}
         <div 
           className={`flex-1 flex flex-col h-full bg-[#030308] light:bg-[#efeae2] relative min-w-0 ${
-            mobileView === "list" && !selectedFriend ? "hidden md:flex" : mobileView === "list" ? "hidden md:flex" : "flex"
+            mobileView === "list" ? "hidden sm:flex" : "flex"
           }`}
         >
           {!selectedFriend ? (
@@ -1762,10 +1771,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       e.stopPropagation();
                       setMobileView("list");
                     }}
-                    className="md:hidden p-1.5 -ml-1 text-slate-300 hover:text-white cursor-pointer light:text-slate-700 active:scale-95 touch-manipulation"
-                    title="Back to chats"
+                    className="sm:hidden p-1.5 -ml-1 text-slate-300 hover:text-white cursor-pointer light:text-slate-700 active:scale-95 touch-manipulation flex items-center gap-1 text-xs font-bold"
+                    title="Back to chats list"
                   >
-                    <ArrowLeft size={19} />
+                    <ArrowLeft size={20} />
                   </button>
 
                   {/* Avatar & Online Presence */}
