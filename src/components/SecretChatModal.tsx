@@ -518,8 +518,18 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   };
 
-  // Web Audio Ringtone Synthesizer
-  const playRingtone = (type: "outgoing" | "incoming") => {
+  const ringtoneIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Stop Ringtone Loop
+  const stopRingtone = useCallback(() => {
+    if (ringtoneIntervalRef.current) {
+      clearInterval(ringtoneIntervalRef.current);
+      ringtoneIntervalRef.current = null;
+    }
+  }, []);
+
+  // Web Audio Ringtone Synthesizer Burst
+  const playSingleRingtoneBurst = useCallback((type: "outgoing" | "incoming") => {
     try {
       if (!audioContextRef.current) {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -530,34 +540,114 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         ctx.resume();
       }
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
 
       if (type === "outgoing") {
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(440, ctx.currentTime);
-        gain.gain.setValueAtTime(0.12, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
-        osc.start();
-        osc.stop(ctx.currentTime + 1.2);
+        // Outgoing classic soft dual-frequency ringback tone (440Hz + 480Hz)
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc1.type = "sine";
+        osc2.type = "sine";
+        osc1.frequency.setValueAtTime(440, now);
+        osc2.frequency.setValueAtTime(480, now);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.setValueAtTime(0.08, now + 1.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 1.4);
+        osc2.stop(now + 1.4);
       } else {
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
-        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15);
-        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.3);
-        osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.45);
-        gain.gain.setValueAtTime(0.18, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.8);
+        // Incoming melodic chime ringtone (Pleasant WhatsApp / iPhone style arpeggio)
+        const notes = [
+          { freq: 659.25, time: 0.00, dur: 0.12 }, // E5
+          { freq: 830.61, time: 0.13, dur: 0.12 }, // G#5
+          { freq: 987.77, time: 0.26, dur: 0.12 }, // B5
+          { freq: 1318.51, time: 0.39, dur: 0.22 }, // E6
+          { freq: 987.77, time: 0.65, dur: 0.12 }, // B5
+          { freq: 1318.51, time: 0.78, dur: 0.35 }, // E6
+        ];
+
+        notes.forEach(({ freq, time, dur }) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + time);
+
+          gain.gain.setValueAtTime(0.18, now + time);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + time + dur);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now + time);
+          osc.stop(now + time + dur);
+        });
+
+        // Secondary echoing chime in the second half of the burst
+        const echoNotes = [
+          { freq: 659.25, time: 1.15, dur: 0.12 },
+          { freq: 830.61, time: 1.28, dur: 0.12 },
+          { freq: 987.77, time: 1.41, dur: 0.12 },
+          { freq: 1318.51, time: 1.54, dur: 0.38 },
+        ];
+
+        echoNotes.forEach(({ freq, time, dur }) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + time);
+
+          gain.gain.setValueAtTime(0.16, now + time);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + time + dur);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now + time);
+          osc.stop(now + time + dur);
+        });
       }
     } catch (_) {}
-  };
+  }, []);
+
+  // Continuous Ringtone Scheduler
+  const startRingtone = useCallback((type: "outgoing" | "incoming") => {
+    stopRingtone();
+    playSingleRingtoneBurst(type);
+    const intervalTime = type === "incoming" ? 2600 : 3500;
+    ringtoneIntervalRef.current = setInterval(() => {
+      playSingleRingtoneBurst(type);
+    }, intervalTime);
+  }, [stopRingtone, playSingleRingtoneBurst]);
+
+  // Reactive Ringtone Controller: Rings continuously when incoming or calling, stops when connected/ended
+  useEffect(() => {
+    if (activeCall?.status === "incoming") {
+      startRingtone("incoming");
+    } else if (activeCall?.status === "calling") {
+      startRingtone("outgoing");
+    } else {
+      stopRingtone();
+    }
+    return () => {
+      stopRingtone();
+    };
+  }, [activeCall?.status, startRingtone, stopRingtone]);
 
   // Stop WebRTC and reset call states
   const cleanupCall = useCallback(() => {
+    stopRingtone();
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
       callTimerRef.current = null;
@@ -576,7 +666,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
     processedCandidatesRef.current.clear();
     setActiveCall(null);
-  }, []);
+  }, [stopRingtone]);
 
   // Fetch 1-on-1 messages strictly isolated by connection room
   const fetchMessagesForPartner = useCallback(async (friend: AcceptedFriend | null, markRead = true) => {
