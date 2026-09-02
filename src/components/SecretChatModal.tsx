@@ -654,6 +654,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   // Stop WebRTC and reset call states
   const cleanupCall = useCallback(() => {
     stopRingtone();
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    isTypingRef.current = false;
+    syncPresence(false);
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
       callTimerRef.current = null;
@@ -850,6 +853,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   // Initiate Outgoing WebRTC Call (Voice or Video)
   const handleStartCall = async (type: "audio" | "video") => {
     if (!selectedFriend || activeCall) return;
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    isTypingRef.current = false;
+    syncPresence(false);
 
     try {
       const isVideo = type === "video";
@@ -1247,15 +1254,24 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   // Typing event handler with debounce
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputText(e.target.value);
+    const val = e.target.value;
+    setInputText(val);
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    if (!val.trim()) {
+      isTypingRef.current = false;
+      syncPresence(false);
+      return;
+    }
+
     isTypingRef.current = true;
     syncPresence(true);
 
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       isTypingRef.current = false;
       syncPresence(false);
-    }, 2500);
+    }, 2000);
   };
 
   const handleInsertEmoji = (emoji: string) => {
@@ -1512,6 +1528,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     focusInput();
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    isTypingRef.current = false;
     syncPresence(false);
 
     try {
@@ -2136,7 +2153,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         <ChevronDown size={13} className="text-slate-400 group-hover:text-teal-300 transition-colors flex-shrink-0" />
                       </div>
                       <p className="text-[9px] sm:text-[10px] tracking-wide truncate mt-0.5">
-                        {friendPresence?.isTyping ? (
+                        {activeCall ? (
+                          <span className="text-teal-400 font-bold flex items-center gap-1 light:text-teal-600 animate-pulse">
+                            📞 {activeCall.status === "connected" ? "In Call" : activeCall.status === "calling" ? "Calling..." : "Incoming Call..."}
+                          </span>
+                        ) : friendPresence?.isTyping ? (
                           <span className="text-teal-400 font-bold flex items-center gap-1 animate-pulse light:text-teal-600">
                             ✍️ typing...
                           </span>
@@ -2706,6 +2727,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   type="text"
                   value={inputText}
                   onChange={handleInputChange}
+                  onBlur={() => {
+                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                    isTypingRef.current = false;
+                    syncPresence(false);
+                  }}
                   placeholder={`Message ${selectedFriend.partnerName} securely...`}
                   className="flex-1 bg-white/[0.07] border border-white/10 rounded-xl px-3 py-2 text-base sm:text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
                   autoFocus
