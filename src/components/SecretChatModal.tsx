@@ -1542,6 +1542,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       if (res.ok) {
         setEditingId(null);
         setEditText("");
+        if (typeof window !== "undefined") {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollLeft = 0;
+          document.body.scrollLeft = 0;
+        }
         await fetchMessagesForPartner(selectedFriend, true);
         await fetchConnections();
       }
@@ -1666,7 +1671,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 md:p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 md:p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden w-full max-w-full overflow-x-hidden"
       style={
         viewportHeight && typeof window !== "undefined" && window.innerWidth < 640
           ? {
@@ -1683,7 +1688,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       <audio ref={remoteAudioRef} autoPlay />
 
       <div 
-        className="w-full sm:max-w-5xl md:max-w-6xl bg-[#030308]/98 backdrop-blur-2xl border-0 sm:border border-white/10 sm:rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_40px_rgba(20,184,166,0.12)] light:bg-white light:border-slate-200 light:shadow-2xl overflow-hidden flex flex-row h-full sm:h-[680px] sm:max-h-[92vh] relative font-sans transition-colors"
+        className="w-full max-w-full sm:max-w-5xl md:max-w-6xl bg-[#030308]/98 backdrop-blur-2xl border-0 sm:border border-white/10 sm:rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_40px_rgba(20,184,166,0.12)] light:bg-white light:border-slate-200 light:shadow-2xl overflow-hidden overflow-x-hidden flex flex-row h-full sm:h-[680px] sm:max-h-[92vh] relative font-sans transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ========================================================= */}
@@ -2057,11 +2062,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   </button>
 
                   {/* Clickable Profile Section (Opens Contact Info Modal) */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setShowProfileModal(true)}
-                    className="flex items-center gap-2.5 cursor-pointer group py-1 px-1.5 -mx-1.5 rounded-xl hover:bg-white/[0.06] light:hover:bg-slate-200/70 transition-all select-none touch-manipulation active:scale-[0.98]"
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowProfileModal(true);
+                    }}
+                    className="flex items-center gap-2.5 cursor-pointer group py-1 px-1.5 -mx-1.5 rounded-xl hover:bg-white/[0.06] light:hover:bg-slate-200/70 transition-all select-none touch-manipulation active:scale-[0.98] text-left border-0 bg-transparent"
                     title="View Contact Info, Disappearing Messages & Settings"
                   >
                     {/* Avatar & Online Presence */}
@@ -2103,10 +2110,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         )}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 </div>
 
-                {/* Header Right Action Buttons: Voice Call, Video Call, Panic Close */}
+                {/* Header Right Action Buttons: Voice Call, Video Call, Details, Panic Close */}
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                   {/* Voice Call Button */}
                   <button
@@ -2404,13 +2411,20 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                                   type="text"
                                   value={editText}
                                   onChange={(e) => setEditText(e.target.value)}
-                                  className="w-full bg-white/10 border border-teal-400/40 rounded px-2 py-1 text-xs text-white outline-none focus:border-teal-400 light:bg-slate-100 light:border-teal-600 light:text-slate-900"
+                                  className="w-full bg-white/10 border border-teal-400/40 rounded px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-teal-400 light:bg-slate-100 light:border-teal-600 light:text-slate-900"
                                   autoFocus
                                 />
                                 <div className="flex gap-1 justify-end">
                                   <button
                                     type="button"
-                                    onClick={() => setEditingId(null)}
+                                    onClick={() => {
+                                      setEditingId(null);
+                                      if (typeof window !== "undefined") {
+                                        window.scrollTo(0, 0);
+                                        document.documentElement.scrollLeft = 0;
+                                        document.body.scrollLeft = 0;
+                                      }
+                                    }}
                                     className="px-2 py-0.5 text-[10px] bg-white/10 hover:bg-white/20 rounded text-slate-300 light:bg-slate-200 light:text-slate-700"
                                   >
                                     Cancel
@@ -2647,7 +2661,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   value={inputText}
                   onChange={handleInputChange}
                   placeholder={`Message ${selectedFriend.partnerName} securely...`}
-                  className="flex-1 bg-white/[0.07] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
+                  className="flex-1 bg-white/[0.07] border border-white/10 rounded-xl px-3 py-2 text-base sm:text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
                   autoFocus
                 />
 
@@ -2661,120 +2675,129 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   <Send size={16} />
                 </button>
               </form>
+
+              {/* ========================================================= */}
+              {/* CONTACT PROFILE & SETTINGS OVERLAY (Inside Right Pane) */}
+              {/* ========================================================= */}
+              {showProfileModal && (
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowProfileModal(false);
+                    setMobileView("chat");
+                  }}
+                  className="absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150 overflow-y-auto"
+                >
+                  <div 
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-[#0b0b1a] border border-white/15 rounded-3xl p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl relative max-h-[90%] overflow-y-auto overscroll-contain light:bg-white light:border-slate-300 light:text-slate-900 my-auto"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3 light:border-slate-200">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 light:text-slate-900">
+                        <User size={16} className="text-teal-400" /> Contact Details
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowProfileModal(false);
+                          setMobileView("chat");
+                        }}
+                        className="p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200 active:scale-95 touch-manipulation"
+                        title="Close Details & Return to Chat"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    {/* Profile Card Summary */}
+                    <div className="flex flex-col items-center text-center space-y-2 pt-1">
+                      <div className="relative">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-xl sm:text-2xl flex items-center justify-center shadow-xl border-2 border-white/20">
+                          {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
+                        </div>
+                        {isFriendOnline && (
+                          <span className="absolute bottom-0 right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-500 border-2 border-[#0b0b1a] light:border-white shadow-sm"></span>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-sm sm:text-base font-bold text-white light:text-slate-900">{selectedFriend.partnerName}</h4>
+                        {selectedFriend.partnerEmail && (
+                          <p className="text-xs text-slate-400 flex items-center justify-center gap-1 light:text-slate-600">
+                            <Mail size={12} /> {selectedFriend.partnerEmail}
+                          </p>
+                        )}
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-[10px] text-teal-300 font-mono light:bg-teal-50 light:border-teal-300 light:text-teal-800">
+                          <ShieldCheck size={12} /> End-to-End Encrypted (AES-256)
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Disappearing Messages Setting */}
+                    <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2.5 light:bg-slate-100 light:border-slate-300">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock size={15} className="text-teal-400 light:text-teal-600" />
+                          <h5 className="text-xs font-bold text-white light:text-slate-900">Disappearing Messages</h5>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold text-teal-400 light:text-teal-700">
+                          {retentionHours === 0 ? "Off" : `${retentionHours}h timer`}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed light:text-slate-600">
+                        New messages in this chat will self-destruct for both participants after the selected duration.
+                      </p>
+                      {/* Option Pills */}
+                      <div className="grid grid-cols-4 gap-1.5 pt-1">
+                        {[
+                          { label: "Off", hours: 0 },
+                          { label: "12 Hours", hours: 12 },
+                          { label: "24 Hours", hours: 24 },
+                          { label: "7 Days", hours: 168 },
+                        ].map((opt) => (
+                          <button
+                            key={opt.hours}
+                            type="button"
+                            onClick={() => handleUpdateRetention(opt.hours)}
+                            className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center active:scale-95 touch-manipulation ${
+                              retentionHours === opt.hours
+                                ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md border border-teal-400/40"
+                                : "bg-white/[0.06] border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 light:bg-white light:border-slate-300 light:text-slate-700 light:hover:bg-slate-50"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Actions: Clear Chat & Remove Connection */}
+                    <div className="space-y-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleClearAll}
+                        disabled={messages.length === 0}
+                        className="w-full py-2.5 px-3 bg-white/[0.06] hover:bg-amber-500/15 border border-white/10 hover:border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 touch-manipulation light:bg-amber-50 light:border-amber-300 light:text-amber-800 light:hover:bg-amber-100"
+                      >
+                        <Trash2 size={14} /> Clear Messages History
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
+                        className="w-full py-2.5 px-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 touch-manipulation light:bg-red-50 light:border-red-300 light:text-red-700 light:hover:bg-red-100"
+                      >
+                        <UserMinus size={14} /> Remove {selectedFriend.partnerName} from Friends
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
-
-      {/* ========================================================= */}
-      {/* CONTACT PROFILE & SETTINGS MODAL (Opened by clicking profile) */}
-      {/* ========================================================= */}
-      {showProfileModal && selectedFriend && (
-        <div 
-          onClick={() => setShowProfileModal(false)}
-          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150 overflow-y-auto"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#0b0b1a] border border-white/15 rounded-3xl p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl relative max-h-[85vh] overflow-y-auto overscroll-contain light:bg-white light:border-slate-300 light:text-slate-900 my-auto"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 light:border-slate-200">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 light:text-slate-900">
-                <User size={16} className="text-teal-400" /> Contact Details
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(false)}
-                className="p-1.5 rounded-xl bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Profile Card Summary */}
-            <div className="flex flex-col items-center text-center space-y-2 pt-1">
-              <div className="relative">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-xl sm:text-2xl flex items-center justify-center shadow-xl border-2 border-white/20">
-                  {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
-                </div>
-                {isFriendOnline && (
-                  <span className="absolute bottom-0 right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-500 border-2 border-[#0b0b1a] light:border-white shadow-sm"></span>
-                )}
-              </div>
-              <div>
-                <h4 className="text-sm sm:text-base font-bold text-white light:text-slate-900">{selectedFriend.partnerName}</h4>
-                {selectedFriend.partnerEmail && (
-                  <p className="text-xs text-slate-400 flex items-center justify-center gap-1 light:text-slate-600">
-                    <Mail size={12} /> {selectedFriend.partnerEmail}
-                  </p>
-                )}
-                <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-[10px] text-teal-300 font-mono light:bg-teal-50 light:border-teal-300 light:text-teal-800">
-                  <ShieldCheck size={12} /> End-to-End Encrypted (AES-256)
-                </div>
-              </div>
-            </div>
-
-            {/* Disappearing Messages Setting */}
-            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2.5 light:bg-slate-100 light:border-slate-300">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock size={15} className="text-teal-400 light:text-teal-600" />
-                  <h5 className="text-xs font-bold text-white light:text-slate-900">Disappearing Messages</h5>
-                </div>
-                <span className="text-[10px] font-mono font-bold text-teal-400 light:text-teal-700">
-                  {retentionHours === 0 ? "Off" : `${retentionHours}h timer`}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed light:text-slate-600">
-                New messages in this chat will self-destruct for both participants after the selected duration.
-              </p>
-              {/* Option Pills */}
-              <div className="grid grid-cols-4 gap-1.5 pt-1">
-                {[
-                  { label: "Off", hours: 0 },
-                  { label: "12 Hours", hours: 12 },
-                  { label: "24 Hours", hours: 24 },
-                  { label: "7 Days", hours: 168 },
-                ].map((opt) => (
-                  <button
-                    key={opt.hours}
-                    type="button"
-                    onClick={() => handleUpdateRetention(opt.hours)}
-                    className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center active:scale-95 touch-manipulation ${
-                      retentionHours === opt.hours
-                        ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md border border-teal-400/40"
-                        : "bg-white/[0.06] border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 light:bg-white light:border-slate-300 light:text-slate-700 light:hover:bg-slate-50"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions: Clear Chat & Remove Connection */}
-            <div className="space-y-2 pt-1">
-              <button
-                type="button"
-                onClick={handleClearAll}
-                disabled={messages.length === 0}
-                className="w-full py-2.5 px-3 bg-white/[0.06] hover:bg-amber-500/15 border border-white/10 hover:border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 touch-manipulation light:bg-amber-50 light:border-amber-300 light:text-amber-800 light:hover:bg-amber-100"
-              >
-                <Trash2 size={14} /> Clear Messages History
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
-                className="w-full py-2.5 px-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 touch-manipulation light:bg-red-50 light:border-red-300 light:text-red-700 light:hover:bg-red-100"
-              >
-                <UserMinus size={14} /> Remove {selectedFriend.partnerName} from Friends
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Media Lightbox Zoom Modal */}
       {lightboxMedia && (
