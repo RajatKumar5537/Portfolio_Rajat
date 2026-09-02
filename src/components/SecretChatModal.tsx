@@ -821,7 +821,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               isVideoOff: false,
               durationSec: 0,
             });
-            playRingtone("incoming");
           }
         }
       }
@@ -926,7 +925,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           isVideoOff: false,
           durationSec: 0,
         });
-        playRingtone("outgoing");
 
         if (pendingCandidates.length > 0) {
           for (const cand of pendingCandidates) {
