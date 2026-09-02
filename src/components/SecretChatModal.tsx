@@ -272,11 +272,42 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const processedCandidatesRef = useRef<Set<string>>(new Set());
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const attachMediaStreams = useCallback(() => {
+    if (localVideoRef.current && localStreamRef.current) {
+      if (localVideoRef.current.srcObject !== localStreamRef.current) {
+        localVideoRef.current.srcObject = localStreamRef.current;
+        localVideoRef.current.play().catch(() => {});
+      }
+    }
+    if (remoteVideoRef.current && remoteStreamRef.current) {
+      if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+        remoteVideoRef.current.play().catch(() => {});
+      }
+    }
+    if (remoteAudioRef.current && remoteStreamRef.current) {
+      if (remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
+        remoteAudioRef.current.srcObject = remoteStreamRef.current;
+        remoteAudioRef.current.play().catch(() => {});
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeCall?.status === "connected") {
+      attachMediaStreams();
+      const interval = setInterval(attachMediaStreams, 800);
+      return () => clearInterval(interval);
+    }
+  }, [activeCall?.status, activeCall?.callType, attachMediaStreams]);
 
   // Ref anchors for stable callback references across renders
   const onCloseRef = useRef(onClose);
@@ -535,10 +566,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       localStreamRef.current.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
     }
+    if (remoteStreamRef.current) {
+      remoteStreamRef.current.getTracks().forEach((t) => t.stop());
+      remoteStreamRef.current = null;
+    }
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
+    processedCandidatesRef.current.clear();
     setActiveCall(null);
   }, []);
 
@@ -643,13 +679,34 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 fetchMessagesForPartner(selectedFriendRef.current, true);
               }
             } else if (callData.status === "accepted" && currentCall.status === "calling" && callData.answer) {
-              if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== "stable") {
+              const pc = peerConnectionRef.current;
+              if (pc && pc.signalingState !== "stable") {
                 try {
                   const sdpAnswer = JSON.parse(callData.answer);
-                  await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(sdpAnswer));
+                  await pc.setRemoteDescription(new RTCSessionDescription(sdpAnswer));
                   setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : null));
+                  setTimeout(attachMediaStreams, 100);
                 } catch (e) {
                   console.error("Error setting remote SDP answer:", e);
+                }
+              }
+            }
+
+            // Ingest new remote ICE candidates
+            const pc = peerConnectionRef.current;
+            if (pc && pc.remoteDescription) {
+              const isCaller = currentCall.callerId === currentUserId;
+              const remoteCandidates = isCaller ? callData.recipientCandidates : callData.callerCandidates;
+              if (remoteCandidates && Array.isArray(remoteCandidates)) {
+                for (const candStr of remoteCandidates) {
+                  if (!processedCandidatesRef.current.has(candStr)) {
+                    processedCandidatesRef.current.add(candStr);
+                    try {
+                      await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(candStr)));
+                    } catch (e) {
+                      console.error("Error adding remote ICE candidate:", e);
+                    }
+                  }
                 }
               }
             }
@@ -681,7 +738,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     } catch (err) {
       console.error("Call status check error:", err);
     }
-  }, [cleanupCall, fetchMessagesForPartner]);
+  }, [cleanupCall, fetchMessagesForPartner, attachMediaStreams, currentUserId]);
 
   // Initiate Outgoing WebRTC Call (Voice or Video)
   const handleStartCall = async (type: "audio" | "video") => {
@@ -689,16 +746,17 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
     try {
       const isVideo = type === "video";
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } : false,
+      });
       localStreamRef.current = stream;
-
-      if (isVideo && localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      remoteStreamRef.current = new MediaStream();
+      processedCandidatesRef.current.clear();
 
       const pc = new RTCPeerConnection({
         iceServers: [
-          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
+          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302", "stun:stun3.l.google.com:19302"] }
         ]
       });
       peerConnectionRef.current = pc;
@@ -706,26 +764,48 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
-        if (isVideo) {
-          if (remoteVideoRef.current && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-          }
-        } else {
-          if (remoteAudioRef.current && event.streams[0]) {
-            remoteAudioRef.current.srcObject = event.streams[0];
+        if (!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
+        if (event.streams && event.streams[0]) {
+          event.streams[0].getTracks().forEach((t) => {
+            if (!remoteStreamRef.current?.getTracks().some((x) => x.id === t.id)) {
+              remoteStreamRef.current?.addTrack(t);
+            }
+          });
+        } else if (event.track) {
+          if (!remoteStreamRef.current.getTracks().some((x) => x.id === event.track.id)) {
+            remoteStreamRef.current.addTrack(event.track);
           }
         }
+        attachMediaStreams();
       };
 
-      const candidatesList: any[] = [];
-      pc.onicecandidate = (event) => {
+      let pendingCandidates: any[] = [];
+      let callSessionId: string | null = null;
+
+      pc.onicecandidate = async (event) => {
         if (event.candidate) {
-          candidatesList.push(event.candidate);
+          if (callSessionId) {
+            try {
+              await fetch("/api/chat/call", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  callId: callSessionId,
+                  action: "ice-candidate",
+                  candidate: JSON.stringify(event.candidate),
+                }),
+              });
+            } catch (_) {}
+          } else {
+            pendingCandidates.push(event.candidate);
+          }
         }
       };
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       const res = await fetch("/api/chat/call", {
         method: "POST",
@@ -735,13 +815,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           recipientName: selectedFriend.partnerName,
           recipientEmail: selectedFriend.partnerEmail,
           callType: type,
-          offer: JSON.stringify(offer),
-          candidates: candidatesList,
+          offer: JSON.stringify(pc.localDescription || offer),
+          candidates: pendingCandidates,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
+        callSessionId = data.callId;
         setActiveCall({
           callId: data.callId,
           callerId: currentUserId,
@@ -756,6 +837,22 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           durationSec: 0,
         });
         playRingtone("outgoing");
+
+        if (pendingCandidates.length > 0) {
+          for (const cand of pendingCandidates) {
+            try {
+              await fetch("/api/chat/call", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  callId: data.callId,
+                  action: "ice-candidate",
+                  candidate: JSON.stringify(cand),
+                }),
+              });
+            } catch (_) {}
+          }
+        }
       }
     } catch (err: any) {
       alert(`${type === "video" ? "Camera and Microphone" : "Microphone"} access is required: ` + (err.message || err));
@@ -773,16 +870,17 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       const callData = (await callRes.json()).call;
       if (!callData || !callData.offer) return;
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } : false,
+      });
       localStreamRef.current = stream;
-
-      if (isVideo && localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      remoteStreamRef.current = new MediaStream();
+      processedCandidatesRef.current.clear();
 
       const pc = new RTCPeerConnection({
         iceServers: [
-          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
+          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302", "stun:stun3.l.google.com:19302"] }
         ]
       });
       peerConnectionRef.current = pc;
@@ -790,20 +888,54 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
-        if (isVideo) {
-          if (remoteVideoRef.current && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
+        if (!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
+        if (event.streams && event.streams[0]) {
+          event.streams[0].getTracks().forEach((t) => {
+            if (!remoteStreamRef.current?.getTracks().some((x) => x.id === t.id)) {
+              remoteStreamRef.current?.addTrack(t);
+            }
+          });
+        } else if (event.track) {
+          if (!remoteStreamRef.current.getTracks().some((x) => x.id === event.track.id)) {
+            remoteStreamRef.current.addTrack(event.track);
           }
-        } else {
-          if (remoteAudioRef.current && event.streams[0]) {
-            remoteAudioRef.current.srcObject = event.streams[0];
-          }
+        }
+        attachMediaStreams();
+      };
+
+      pc.onicecandidate = async (event) => {
+        if (event.candidate && activeCallRef.current?.callId) {
+          try {
+            await fetch("/api/chat/call", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                callId: activeCallRef.current.callId,
+                action: "ice-candidate",
+                candidate: JSON.stringify(event.candidate),
+              }),
+            });
+          } catch (_) {}
         }
       };
 
       await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(callData.offer)));
+
+      if (callData.callerCandidates && Array.isArray(callData.callerCandidates)) {
+        for (const candStr of callData.callerCandidates) {
+          if (!processedCandidatesRef.current.has(candStr)) {
+            processedCandidatesRef.current.add(candStr);
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(candStr)));
+            } catch (_) {}
+          }
+        }
+      }
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       await fetch("/api/chat/call", {
         method: "PUT",
@@ -811,13 +943,16 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         body: JSON.stringify({
           callId: activeCall.callId,
           action: "answer",
-          answer: JSON.stringify(answer),
+          answer: JSON.stringify(pc.localDescription || answer),
         }),
       });
 
       setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : null));
+      setTimeout(attachMediaStreams, 100);
 
-      const matchingFriend = acceptedFriends.find((f) => f.partnerId === activeCall.callerId || f.partnerName.toLowerCase() === activeCall.callerName.toLowerCase());
+      const matchingFriend = acceptedFriends.find(
+        (f) => f.partnerId === activeCall.callerId || f.partnerName.toLowerCase() === activeCall.callerName.toLowerCase()
+      );
       if (matchingFriend) {
         setSelectedFriend(matchingFriend);
       }
@@ -2023,7 +2158,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
                   {/* Remote video stream */}
                   <video 
-                    ref={remoteVideoRef} 
+                    ref={(el) => {
+                      remoteVideoRef.current = el;
+                      if (el && remoteStreamRef.current && el.srcObject !== remoteStreamRef.current) {
+                        el.srcObject = remoteStreamRef.current;
+                        el.play().catch(() => {});
+                      }
+                    }}
                     autoPlay 
                     playsInline 
                     className="w-full h-full object-cover" 
@@ -2031,7 +2172,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   {/* Picture-in-Picture Local Camera */}
                   <div className="absolute top-4 right-4 w-28 h-36 sm:w-36 sm:h-48 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-30">
                     <video 
-                      ref={localVideoRef} 
+                      ref={(el) => {
+                        localVideoRef.current = el;
+                        if (el && localStreamRef.current && el.srcObject !== localStreamRef.current) {
+                          el.srcObject = localStreamRef.current;
+                          el.play().catch(() => {});
+                        }
+                      }}
                       autoPlay 
                       playsInline 
                       muted 

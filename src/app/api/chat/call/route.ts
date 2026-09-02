@@ -149,12 +149,10 @@ export async function PUT(req: Request) {
     if (action === "ice-candidate") {
       if (candidate) {
         const candidateStr = typeof candidate === "string" ? candidate : JSON.stringify(candidate);
-        if (isCaller) {
-          call.callerCandidates.push(candidateStr);
-        } else {
-          call.recipientCandidates.push(candidateStr);
-        }
-        await call.save();
+        const updateQuery = isCaller 
+          ? { $addToSet: { callerCandidates: candidateStr } } 
+          : { $addToSet: { recipientCandidates: candidateStr } };
+        await ChatCall.findByIdAndUpdate(callId, updateQuery);
       }
       return NextResponse.json({ success: true });
     }
