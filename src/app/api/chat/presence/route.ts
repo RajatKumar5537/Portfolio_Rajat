@@ -22,31 +22,42 @@ export async function GET() {
 
     const presences = await ChatPresence.find({
       lastSeenAt: { $gt: weekThreshold },
-    }).lean();
+    })
+      .sort({ lastSeenAt: -1 })
+      .lean();
 
     const now = Date.now();
+    const seenMap = new Map<string, boolean>();
+    const activeUsers: any[] = [];
 
-    const activeUsers = presences.map((p: any) => {
+    for (const p of presences as any[]) {
+      const pEmail = p.userEmail?.toLowerCase().trim() || (p.userId.includes("@") ? p.userId.toLowerCase().trim() : "");
+      const key = pEmail || p.userId;
+
+      // Deduplicate to always retain the most recent presence record per user
+      if (key && seenMap.has(key)) continue;
+      if (key) seenMap.set(key, true);
+
       const lastSeenDate = p.lastSeenAt ? new Date(p.lastSeenAt) : null;
-      // Consider online if heartbeat was within the last 15 seconds
-      const isOnline = lastSeenDate ? (now - lastSeenDate.getTime()) < 15000 : false;
-      const pEmail = p.userEmail?.toLowerCase().trim();
+      // Consider online if heartbeat was within the last 45 seconds (resilient to mobile background throttling)
+      const isOnline = lastSeenDate ? (now - lastSeenDate.getTime()) < 45000 : false;
 
       const isMe = 
         p.userId === currentUserId || 
         p.userId === currentUserEmail ||
-        (currentUserEmail && pEmail && pEmail === currentUserEmail);
+        (currentUserEmail && pEmail && pEmail === currentUserEmail) ||
+        (currentUser && p.userId === currentUser._id.toString());
 
-      return {
+      activeUsers.push({
         userId: p.userId,
-        userEmail: pEmail || "",
+        userEmail: pEmail,
         userName: p.userName,
         isTyping: isOnline && !!p.isTyping,
         isOnline: isOnline,
         isMe,
         lastSeenAt: lastSeenDate ? lastSeenDate.toISOString() : null,
-      };
-    });
+      });
+    }
 
     return NextResponse.json({ activeUsers });
   } catch (error: any) {
@@ -71,10 +82,12 @@ export async function POST(req: Request) {
     const defaultName = currentUser?.name || session.user.name || currentUserEmail.split("@")[0] || "User";
     const userName = customName && customName.trim() ? customName.trim() : defaultName;
 
-    // Safe lookup and update avoiding MongoServerError on $or upsert
-    let presence: any = await ChatPresence.findOne({
-      $or: [{ userId: currentUserId }, { userEmail: currentUserEmail }],
-    });
+    const lookupQuery = [
+      ...(currentUserId ? [{ userId: currentUserId }] : []),
+      ...(currentUserEmail ? [{ userId: currentUserEmail }, { userEmail: currentUserEmail }] : []),
+    ];
+
+    let presence: any = await ChatPresence.findOne({ $or: lookupQuery });
 
     if (presence) {
       presence.userId = currentUserId;
