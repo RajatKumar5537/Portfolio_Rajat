@@ -8,7 +8,7 @@ import {
   Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete, Info,
   Paperclip, Image as ImageIcon, Film, Download, Loader2, CornerDownRight,
   Search, Phone, PhoneCall, PhoneIncoming, PhoneOff, Mic, MicOff, Volume2, ArrowLeft,
-  UserX, Clock, AlertTriangle
+  UserX, Clock, AlertTriangle, Video, VideoOff, Settings, ShieldCheck, Mail
 } from "lucide-react";
 
 interface ReplyToData {
@@ -87,8 +87,10 @@ interface CallSession {
   recipientId: string;
   recipientName: string;
   roomId: string;
+  callType: "audio" | "video";
   status: "calling" | "incoming" | "connected";
   isMuted: boolean;
+  isVideoOff: boolean;
   durationSec: number;
 }
 
@@ -219,13 +221,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   
   // UI Panels
   const [showAddFriendForm, setShowAddFriendForm] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [requestEmailInput, setRequestEmailInput] = useState("");
   const [requestStatusMsg, setRequestStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [inputText, setInputText] = useState("");
-  const [retentionHours, setRetentionHours] = useState<12 | 24>(24);
+  const [retentionHours, setRetentionHours] = useState<number>(24);
   const [replyingTo, setReplyingTo] = useState<ReplyToData | null>(null);
   
   // Online presence & typing state
@@ -262,7 +265,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // WebRTC Voice Calling State & References
+  // WebRTC Voice & Video Calling State & References
   const [activeCall, setActiveCall] = useState<CallSession | null>(null);
   const activeCallRef = useRef<CallSession | null>(null);
   activeCallRef.current = activeCall;
@@ -270,6 +273,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -322,7 +327,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
 
     const handlePopState = () => {
-      if (mobileViewRef.current === "chat") {
+      if (showProfileModal) {
+        setShowProfileModal(false);
+      } else if (mobileViewRef.current === "chat") {
         setMobileView("list");
       } else {
         onCloseRef.current();
@@ -337,7 +344,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         window.history.back();
       }
     };
-  }, [isOpen]);
+  }, [isOpen, showProfileModal]);
 
   // Universal Gesture Swipe for Laptop (Mouse / Trackpad) and Mobile (Touch)
   const [swipingId, setSwipingId] = useState<string | null>(null);
@@ -619,7 +626,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   }, [currentSender]);
 
-  // Voice Call Signaling Poller
+  // Voice & Video Call Signaling Poller
   const checkIncomingAndCallStatus = useCallback(async () => {
     try {
       const currentCall = activeCallRef.current;
@@ -661,8 +668,10 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               recipientId: inc.recipientId,
               recipientName: inc.recipientName,
               roomId: inc.roomId,
+              callType: inc.callType === "video" ? "video" : "audio",
               status: "incoming",
               isMuted: false,
+              isVideoOff: false,
               durationSec: 0,
             });
             playRingtone("incoming");
@@ -674,13 +683,18 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   }, [cleanupCall, fetchMessagesForPartner]);
 
-  // Initiate Outgoing WebRTC Voice Call
-  const handleStartVoiceCall = async () => {
+  // Initiate Outgoing WebRTC Call (Voice or Video)
+  const handleStartCall = async (type: "audio" | "video") => {
     if (!selectedFriend || activeCall) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const isVideo = type === "video";
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
       localStreamRef.current = stream;
+
+      if (isVideo && localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
 
       const pc = new RTCPeerConnection({
         iceServers: [
@@ -692,8 +706,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
-        if (remoteAudioRef.current && event.streams[0]) {
-          remoteAudioRef.current.srcObject = event.streams[0];
+        if (isVideo) {
+          if (remoteVideoRef.current && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+          }
+        } else {
+          if (remoteAudioRef.current && event.streams[0]) {
+            remoteAudioRef.current.srcObject = event.streams[0];
+          }
         }
       };
 
@@ -714,6 +734,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           recipientId: selectedFriend.partnerId,
           recipientName: selectedFriend.partnerName,
           recipientEmail: selectedFriend.partnerEmail,
+          callType: type,
           offer: JSON.stringify(offer),
           candidates: candidatesList,
         }),
@@ -728,29 +749,36 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           recipientId: selectedFriend.partnerId,
           recipientName: selectedFriend.partnerName,
           roomId: data.call.roomId,
+          callType: type,
           status: "calling",
           isMuted: false,
+          isVideoOff: false,
           durationSec: 0,
         });
         playRingtone("outgoing");
       }
     } catch (err: any) {
-      alert("Microphone access is required for voice calls: " + (err.message || err));
+      alert(`${type === "video" ? "Camera and Microphone" : "Microphone"} access is required: ` + (err.message || err));
       cleanupCall();
     }
   };
 
-  // Accept Incoming WebRTC Voice Call
-  const handleAcceptVoiceCall = async () => {
+  // Accept Incoming WebRTC Call
+  const handleAcceptCall = async () => {
     if (!activeCall) return;
 
     try {
+      const isVideo = activeCall.callType === "video";
       const callRes = await fetch(`/api/chat/call?callId=${activeCall.callId}`);
       const callData = (await callRes.json()).call;
       if (!callData || !callData.offer) return;
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
       localStreamRef.current = stream;
+
+      if (isVideo && localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
 
       const pc = new RTCPeerConnection({
         iceServers: [
@@ -762,8 +790,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
-        if (remoteAudioRef.current && event.streams[0]) {
-          remoteAudioRef.current.srcObject = event.streams[0];
+        if (isVideo) {
+          if (remoteVideoRef.current && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+          }
+        } else {
+          if (remoteAudioRef.current && event.streams[0]) {
+            remoteAudioRef.current.srcObject = event.streams[0];
+          }
         }
       };
 
@@ -788,13 +822,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         setSelectedFriend(matchingFriend);
       }
     } catch (err: any) {
-      console.error("Error accepting voice call:", err);
+      console.error("Error accepting call:", err);
       cleanupCall();
     }
   };
 
-  // Decline Incoming Voice Call
-  const handleDeclineVoiceCall = async () => {
+  // Decline Incoming Call
+  const handleDeclineCall = async () => {
     if (!activeCall) return;
     const callId = activeCall.callId;
     cleanupCall();
@@ -810,8 +844,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     } catch (_) {}
   };
 
-  // End Active Voice Call
-  const handleEndVoiceCall = async () => {
+  // End Active Call
+  const handleEndCall = async () => {
     if (!activeCall) return;
     const callId = activeCall.callId;
     const duration = activeCall.durationSec;
@@ -835,6 +869,17 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setActiveCall((prev) => (prev ? { ...prev, isMuted: !audioTrack.enabled } : null));
+      }
+    }
+  };
+
+  // Toggle Camera in Video Call
+  const handleToggleVideo = () => {
+    if (localStreamRef.current) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setActiveCall((prev) => (prev ? { ...prev, isVideoOff: !videoTrack.enabled } : null));
       }
     }
   };
@@ -915,7 +960,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onCloseRef.current();
+        if (showProfileModal) {
+          setShowProfileModal(false);
+        } else {
+          onCloseRef.current();
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -928,13 +977,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, checkIncomingAndCallStatus]);
+  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, checkIncomingAndCallStatus, showProfileModal]);
 
   // When selected friend changes, reload messages and retention
   useEffect(() => {
     if (isOpen && selectedFriend) {
-      if (selectedFriend.retentionHours) {
-        setRetentionHours(selectedFriend.retentionHours as 12 | 24);
+      if (selectedFriend.retentionHours !== undefined) {
+        setRetentionHours(selectedFriend.retentionHours);
       }
       setLoading(true);
       fetchMessagesForPartner(selectedFriend, true);
@@ -1034,6 +1083,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
       if (res.ok) {
         await fetchConnections();
+        setShowProfileModal(false);
         if (selectedFriend?.connectionId === connectionId) {
           setSelectedFriend(null);
           setMessages([]);
@@ -1277,6 +1327,24 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   };
 
+  // Delete a single message for everyone
+  const handleDeleteSingleMessage = async (msgId: string) => {
+    if (!confirm("Delete this message for everyone?")) return;
+    try {
+      const res = await fetch(`/api/chat/messages?id=${msgId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        if (selectedFriend) {
+          await fetchMessagesForPartner(selectedFriend, true);
+          await fetchConnections();
+        }
+      }
+    } catch (err) {
+      console.error("Error deleting message:", err);
+    }
+  };
+
   // Clear conversation for me
   const handleClearAll = async () => {
     if (!selectedFriend || !confirm(`Clear all messages in your conversation with ${selectedFriend.partnerName}?`)) return;
@@ -1296,14 +1364,15 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       if (res.ok) {
         setMessages([]);
         await fetchConnections();
+        setShowProfileModal(false);
       }
     } catch (err) {
       console.error("Error clearing chat:", err);
     }
   };
 
-  // Update disappearing message retention
-  const handleUpdateRetention = async (hours: 12 | 24) => {
+  // Update disappearing message retention (0 = Off / Keep forever, 12 = 12h, 24 = 24h, 168 = 7d)
+  const handleUpdateRetention = async (hours: number) => {
     if (!selectedFriend) return;
     setRetentionHours(hours);
 
@@ -1387,7 +1456,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           : undefined
       }
     >
-      {/* Hidden audio element for remote WebRTC voice call stream */}
+      {/* Hidden audio element for remote WebRTC audio stream */}
       <audio ref={remoteAudioRef} autoPlay />
 
       <div 
@@ -1709,19 +1778,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                                   {p.unreadCount}
                                 </span>
                               )}
-
-                              {/* Quick Remove Contact Button */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRemoveConnection(p.connectionId, p.partnerName);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all touch-manipulation active:scale-95"
-                                title={`Remove ${p.partnerName} & delete chat history`}
-                              >
-                                <UserMinus size={13} />
-                              </button>
                             </div>
                           </div>
                         </div>
@@ -1754,14 +1810,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   Select a contact from the sidebar or click <strong>+</strong> to start an end-to-end encrypted private conversation.
                 </p>
                 <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-teal-400 font-mono font-medium light:text-teal-700">
-                  <Lock size={12} /> 12h / 24h Disappearing Messages Enabled
+                  <Lock size={12} /> Disappearing Messages & E2EE Calling Enabled
                 </div>
               </div>
             </div>
           ) : (
             /* Active 1-on-1 Chat Conversation */
             <>
-              {/* Top Chat Header */}
+              {/* Top Chat Header: Clean & Spacious */}
               <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-white/10 bg-[#070712]/90 backdrop-blur-xl light:bg-[#f0f2f5] light:border-slate-200 flex-shrink-0 pt-[max(0.625rem,env(safe-area-inset-top))] transition-colors">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   {/* Mobile Back Button */}
@@ -1771,144 +1827,127 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       e.stopPropagation();
                       setMobileView("list");
                     }}
-                    className="sm:hidden p-1.5 -ml-1 text-slate-300 hover:text-white cursor-pointer light:text-slate-700 active:scale-95 touch-manipulation flex items-center gap-1 text-xs font-bold"
+                    className="sm:hidden p-1.5 -ml-1 text-slate-300 hover:text-white cursor-pointer light:text-slate-700 active:scale-95 touch-manipulation"
                     title="Back to chats list"
                   >
                     <ArrowLeft size={20} />
                   </button>
 
-                  {/* Avatar & Online Presence */}
-                  <div className="relative flex-shrink-0">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 font-bold text-xs sm:text-sm shadow-inner flex items-center justify-center light:bg-teal-100 light:border-teal-300 light:text-teal-700">
-                      {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
-                    </div>
-                    {isFriendOnline && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm"></span>
-                    )}
-                  </div>
-
-                  {/* Contact Name & Live Status */}
-                  <div className="min-w-0">
-                    <h3 className="text-xs sm:text-sm font-bold text-white truncate light:text-slate-900">
-                      {selectedFriend.partnerName}
-                    </h3>
-                    <p className="text-[9px] sm:text-[10px] tracking-wide truncate mt-0.5">
-                      {friendPresence?.isTyping ? (
-                        <span className="text-teal-400 font-bold flex items-center gap-1 animate-pulse light:text-teal-600">
-                          ✍️ typing...
-                        </span>
-                      ) : isFriendOnline ? (
-                        <span className="text-emerald-400 font-medium flex items-center gap-1 light:text-emerald-600">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping flex-shrink-0"></span>
-                          Online
-                        </span>
-                      ) : friendPresence?.lastSeenAt ? (
-                        <span className="text-slate-400 truncate block light:text-slate-500">
-                          last seen {formatLastSeen(friendPresence.lastSeenAt)}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 truncate block light:text-slate-500">
-                          Encrypted • {retentionHours}h
-                        </span>
+                  {/* Clickable Profile Section (Opens Contact Info Modal) */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setShowProfileModal(true)}
+                    className="flex items-center gap-2.5 cursor-pointer group py-1 px-1.5 -mx-1.5 rounded-xl hover:bg-white/[0.06] light:hover:bg-slate-200/70 transition-all select-none touch-manipulation active:scale-[0.98]"
+                    title="View Contact Info, Disappearing Messages & Settings"
+                  >
+                    {/* Avatar & Online Presence */}
+                    <div className="relative flex-shrink-0">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 font-bold text-xs sm:text-sm shadow-inner flex items-center justify-center light:bg-teal-100 light:border-teal-300 light:text-teal-700">
+                        {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
+                      </div>
+                      {isFriendOnline && (
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm"></span>
                       )}
-                    </p>
+                    </div>
+
+                    {/* Contact Name & Live Status with chevron cue */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1">
+                        <h3 className="text-xs sm:text-sm font-bold text-white truncate light:text-slate-900 group-hover:text-teal-300 light:group-hover:text-teal-700 transition-colors">
+                          {selectedFriend.partnerName}
+                        </h3>
+                        <ChevronDown size={13} className="text-slate-400 group-hover:text-teal-300 transition-colors flex-shrink-0" />
+                      </div>
+                      <p className="text-[9px] sm:text-[10px] tracking-wide truncate mt-0.5">
+                        {friendPresence?.isTyping ? (
+                          <span className="text-teal-400 font-bold flex items-center gap-1 animate-pulse light:text-teal-600">
+                            ✍️ typing...
+                          </span>
+                        ) : isFriendOnline ? (
+                          <span className="text-emerald-400 font-medium flex items-center gap-1 light:text-emerald-600">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping flex-shrink-0"></span>
+                            Online
+                          </span>
+                        ) : friendPresence?.lastSeenAt ? (
+                          <span className="text-slate-400 truncate block light:text-slate-500">
+                            last seen {formatLastSeen(friendPresence.lastSeenAt)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 truncate block light:text-slate-500">
+                            {retentionHours > 0 ? `Disappearing • ${retentionHours}h` : "Encrypted Chat"}
+                          </span>
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Header Action Buttons (Voice Call, Retention Toggle, Remove Connection, Clear, Close) */}
-                <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                {/* Header Right Action Buttons: Voice Call, Video Call, Panic Close */}
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                   {/* Voice Call Button */}
                   <button
                     type="button"
-                    onClick={handleStartVoiceCall}
+                    onClick={() => handleStartCall("audio")}
                     disabled={Boolean(activeCall)}
-                    className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation ${
-                      activeCall
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                        : "bg-white/[0.07] border-white/10 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-400 light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-emerald-700"
+                    className={`p-2 sm:px-3 sm:py-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 touch-manipulation ${
+                      activeCall && activeCall.callType === "audio"
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                        : "bg-white/[0.07] border-white/10 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-400 light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-emerald-700 shadow-sm"
                     }`}
                     title="Start Encrypted Voice Call"
                   >
-                    <Phone size={14} />
-                    <span className="hidden sm:inline text-[10px] font-bold">Call</span>
+                    <Phone size={15} />
+                    <span className="hidden md:inline text-xs font-bold">Audio</span>
                   </button>
 
-                  {/* Disappearing Messages Retention Toggle */}
-                  <div className="flex items-center bg-white/[0.07] border border-white/10 rounded-xl p-0.5 text-[8px] sm:text-[9px] font-mono light:bg-slate-200 light:border-slate-300">
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateRetention(12)}
-                      className={`px-1.5 py-0.5 rounded-lg transition-all cursor-pointer touch-manipulation ${
-                        retentionHours === 12 
-                          ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs" 
-                          : "text-slate-300 hover:text-white light:text-slate-700"
-                      }`}
-                      title="Self-destruct in 12 hours"
-                    >
-                      12h
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateRetention(24)}
-                      className={`px-1.5 py-0.5 rounded-lg transition-all cursor-pointer touch-manipulation ${
-                        retentionHours === 24 
-                          ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs" 
-                          : "text-slate-300 hover:text-white light:text-slate-700"
-                      }`}
-                      title="Self-destruct in 24 hours"
-                    >
-                      24h
-                    </button>
-                  </div>
-
-                  {/* Clear Chat Button */}
+                  {/* Video Call Button */}
                   <button
                     type="button"
-                    onClick={handleClearAll}
-                    disabled={messages.length === 0}
-                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed light:bg-slate-200 light:border-slate-300 light:text-slate-700 active:scale-95 touch-manipulation"
-                    title="Clear chat messages for me"
+                    onClick={() => handleStartCall("video")}
+                    disabled={Boolean(activeCall)}
+                    className={`p-2 sm:px-3 sm:py-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 touch-manipulation ${
+                      activeCall && activeCall.callType === "video"
+                        ? "bg-teal-500/20 text-teal-400 border-teal-500/40"
+                        : "bg-white/[0.07] border-white/10 hover:bg-teal-500/20 text-slate-200 hover:text-teal-400 light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-teal-700 shadow-sm"
+                    }`}
+                    title="Start Encrypted Video Call"
                   >
-                    <Trash2 size={14} />
-                  </button>
-
-                  {/* Remove Friend Connection Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
-                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 active:scale-95 touch-manipulation"
-                    title={`Remove ${selectedFriend.partnerName} from connected friends`}
-                  >
-                    <UserMinus size={14} />
+                    <Video size={16} />
+                    <span className="hidden md:inline text-xs font-bold">Video</span>
                   </button>
 
                   {/* Panic / Close Button */}
                   <button
                     onClick={onClose}
-                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 active:scale-95 touch-manipulation"
-                    title="Close"
+                    className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 active:scale-95 touch-manipulation ml-1"
+                    title="Close (Esc)"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 </div>
               </div>
 
-              {/* In-Call Active Floating Overlay Bar */}
+              {/* In-Call Active Floating Overlay Bar (Audio / Video) */}
               {activeCall && (
-                <div className="p-3 bg-gradient-to-r from-teal-950/90 via-emerald-950/90 to-teal-950/90 border-b border-teal-500/30 backdrop-blur-xl flex items-center justify-between gap-2 z-20 animate-in slide-in-from-top duration-200">
+                <div className="p-3 bg-gradient-to-r from-teal-950/95 via-emerald-950/95 to-teal-950/95 border-b border-teal-500/40 backdrop-blur-xl flex items-center justify-between gap-2 z-20 animate-in slide-in-from-top duration-200">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-emerald-500 text-black flex items-center justify-center animate-bounce flex-shrink-0">
-                      <PhoneCall size={16} />
+                      {activeCall.callType === "video" ? <Video size={16} /> : <PhoneCall size={16} />}
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-white truncate flex items-center gap-1.5">
-                        <span>{activeCall.status === "calling" ? `Calling ${activeCall.recipientName}...` : activeCall.status === "incoming" ? `Incoming call from ${activeCall.callerName}...` : `In call with ${selectedFriend.partnerName}`}</span>
+                        <span>
+                          {activeCall.status === "calling"
+                            ? `Calling ${activeCall.recipientName}...`
+                            : activeCall.status === "incoming"
+                            ? `Incoming ${activeCall.callType === "video" ? "Video" : "Voice"} Call from ${activeCall.callerName}...`
+                            : `In ${activeCall.callType === "video" ? "Video" : "Voice"} Call with ${selectedFriend.partnerName}`}
+                        </span>
                       </h4>
                       <p className="text-[10px] text-emerald-300 font-mono">
                         {activeCall.status === "connected" ? (
                           <span>🟢 Active Call: {Math.floor(activeCall.durationSec / 60)}:{String(activeCall.durationSec % 60).padStart(2, "0")}</span>
-                        ) : activeCall.status === "calling" ? (
-                          "Ringing..."
                         ) : (
                           "Ringing..."
                         )}
@@ -1921,14 +1960,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       <>
                         <button
                           type="button"
-                          onClick={handleAcceptVoiceCall}
+                          onClick={handleAcceptCall}
                           className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
                         >
-                          <Phone size={13} /> Accept
+                          {activeCall.callType === "video" ? <Video size={13} /> : <Phone size={13} />} Accept
                         </button>
                         <button
                           type="button"
-                          onClick={handleDeclineVoiceCall}
+                          onClick={handleDeclineCall}
                           className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
                         >
                           <PhoneOff size={13} /> Decline
@@ -1937,25 +1976,41 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     ) : (
                       <>
                         {activeCall.status === "connected" && (
-                          <button
-                            type="button"
-                            onClick={handleToggleMute}
-                            className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation ${
-                              activeCall.isMuted
-                                ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
-                                : "bg-white/10 text-white hover:bg-white/20"
-                            }`}
-                            title={activeCall.isMuted ? "Unmute Mic" : "Mute Mic"}
-                          >
-                            {activeCall.isMuted ? <MicOff size={15} /> : <Mic size={15} />}
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleToggleMute}
+                              className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation ${
+                                activeCall.isMuted
+                                  ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
+                                  : "bg-white/10 text-white hover:bg-white/20"
+                              }`}
+                              title={activeCall.isMuted ? "Unmute Mic" : "Mute Mic"}
+                            >
+                              {activeCall.isMuted ? <MicOff size={15} /> : <Mic size={15} />}
+                            </button>
+                            {activeCall.callType === "video" && (
+                              <button
+                                type="button"
+                                onClick={handleToggleVideo}
+                                className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation ${
+                                  activeCall.isVideoOff
+                                    ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
+                                    : "bg-white/10 text-white hover:bg-white/20"
+                                }`}
+                                title={activeCall.isVideoOff ? "Turn On Camera" : "Turn Off Camera"}
+                              >
+                                {activeCall.isVideoOff ? <VideoOff size={15} /> : <Video size={15} />}
+                              </button>
+                            )}
+                          </>
                         )}
                         <button
                           type="button"
-                          onClick={handleEndVoiceCall}
+                          onClick={handleEndCall}
                           className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
                         >
-                          <PhoneOff size={13} /> End Call
+                          <PhoneOff size={13} /> End
                         </button>
                       </>
                     )}
@@ -1963,215 +2018,273 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 </div>
               )}
 
-              {/* Message Feed Container */}
-              <div 
-                ref={chatFeedRef}
-                onClick={() => setActiveActionMenuId(null)}
-                className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-[#030308] bg-radial-[at_top_right] from-teal-950/15 via-[#030308] to-[#030308] light:bg-[#efeae2] light:bg-none overscroll-contain touch-pan-y transition-colors"
-              >
-                {loading ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-2 light:text-slate-500">
-                    <RefreshCw size={20} className="animate-spin text-teal-400 light:text-teal-600" />
-                    <p className="text-xs font-mono">Decrypting communications with {selectedFriend.partnerName}...</p>
+              {/* Video Call Full-Pane Viewport when Video Call Connected */}
+              {activeCall && activeCall.callType === "video" && activeCall.status === "connected" && (
+                <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
+                  {/* Remote video stream */}
+                  <video 
+                    ref={remoteVideoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-full object-cover" 
+                  />
+                  {/* Picture-in-Picture Local Camera */}
+                  <div className="absolute top-4 right-4 w-28 h-36 sm:w-36 sm:h-48 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-30">
+                    <video 
+                      ref={localVideoRef} 
+                      autoPlay 
+                      playsInline 
+                      muted 
+                      className="w-full h-full object-cover" 
+                    />
                   </div>
-                ) : messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center min-h-[140px] my-auto text-center space-y-2 p-4 sm:p-6 border border-dashed border-white/10 rounded-2xl bg-white/[0.04] backdrop-blur-md light:border-slate-300 light:bg-white/70">
-                    <div className="p-2.5 rounded-full bg-teal-500/20 text-teal-400 light:bg-teal-500/15 light:text-teal-600">
-                      <Sparkles size={20} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono light:text-slate-800">
-                        Conversation with {selectedFriend.partnerName}
-                      </h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5 max-w-sm light:text-slate-600">
-                        Messages are end-to-end encrypted with AES-256 and self-destruct in {retentionHours} hours.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  messages.map((msg) => {
-                    const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
-                    const isEditing = editingId === msg._id;
-                    const isCopied = copiedId === msg._id;
-                    const isMenuOpen = activeActionMenuId === msg._id;
+                </div>
+              )}
 
-                    return (
-                      <div
-                        id={`chat-msg-${msg._id}`}
-                        key={msg._id}
-                        className={`flex flex-col relative transition-all duration-300 rounded-2xl p-0.5 ${
-                          isMe ? "items-end" : "items-start"
-                        } ${
-                          highlightedMsgId === msg._id
-                            ? "ring-2 ring-teal-300 bg-teal-500/25 shadow-[0_0_20px_rgba(20,184,166,0.6)] scale-[1.02]"
-                            : ""
-                        }`}
-                      >
-                        {/* Quoted Message Preview if Reply */}
-                        {msg.replyTo && (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleJumpToMessage(msg.replyTo?.id, msg.replyTo?.text);
-                            }}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 mb-1 text-[10px] rounded-lg border cursor-pointer max-w-[85%] sm:max-w-md ${
-                              isMe
-                                ? "bg-teal-950/60 border-teal-500/30 text-teal-300 mr-1"
-                                : "bg-white/[0.06] border-white/10 text-slate-300 ml-1"
-                            }`}
-                          >
-                            <CornerDownRight size={11} className="flex-shrink-0" />
-                            <span className="font-bold">{msg.replyTo.sender}:</span>
-                            <span className="truncate">{msg.replyTo.text}</span>
-                          </div>
-                        )}
+              {/* Message Feed Container (Hidden during full-screen video call) */}
+              {!(activeCall && activeCall.callType === "video" && activeCall.status === "connected") && (
+                <div 
+                  ref={chatFeedRef}
+                  onClick={() => setActiveActionMenuId(null)}
+                  className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-[#030308] bg-radial-[at_top_right] from-teal-950/15 via-[#030308] to-[#030308] light:bg-[#efeae2] light:bg-none overscroll-contain touch-pan-y transition-colors"
+                >
+                  {loading ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-2 light:text-slate-500">
+                      <RefreshCw size={20} className="animate-spin text-teal-400 light:text-teal-600" />
+                      <p className="text-xs font-mono">Decrypting communications with {selectedFriend.partnerName}...</p>
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center min-h-[140px] my-auto text-center space-y-2 p-4 sm:p-6 border border-dashed border-white/10 rounded-2xl bg-white/[0.04] backdrop-blur-md light:border-slate-300 light:bg-white/70">
+                      <div className="p-2.5 rounded-full bg-teal-500/20 text-teal-400 light:bg-teal-500/15 light:text-teal-600">
+                        <Sparkles size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono light:text-slate-800">
+                          Conversation with {selectedFriend.partnerName}
+                        </h4>
+                        <p className="text-[10px] text-slate-400 mt-0.5 max-w-sm light:text-slate-600">
+                          {retentionHours > 0
+                            ? `Messages are end-to-end encrypted and self-destruct in ${retentionHours} hours.`
+                            : "Messages are end-to-end encrypted with AES-256 GCM."}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    messages.map((msg) => {
+                      const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
+                      const isEditing = editingId === msg._id;
+                      const isCopied = copiedId === msg._id;
+                      const isMenuOpen = activeActionMenuId === msg._id;
 
-                        {/* Swipeable Message Container */}
+                      return (
                         <div
-                          onPointerDown={(e) => handlePointerDown(e, msg._id)}
-                          onPointerMove={handlePointerMove}
-                          onPointerUp={(e) => handlePointerUp(e, msg)}
-                          onPointerCancel={handlePointerCancel}
-                          style={{
-                            transform: swipingId === msg._id ? `translateX(${swipeOffset}px)` : "none",
-                            transition: swipingId === msg._id ? "none" : "transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)",
-                          }}
-                          className={`relative max-w-[88%] sm:max-w-md group rounded-2xl p-2.5 sm:p-3 text-xs shadow-md transition-shadow select-none touch-pan-y ${
-                            isMe
-                              ? "bg-gradient-to-r from-teal-900/80 to-emerald-900/80 border border-teal-500/30 text-teal-50 rounded-tr-xs light:bg-gradient-to-r light:from-[#d9fdd3] light:to-[#d9fdd3] light:border-transparent light:text-slate-900"
-                              : "bg-[#101026] border border-white/10 text-slate-100 rounded-tl-xs light:bg-white light:border-slate-200 light:text-slate-900"
+                          id={`chat-msg-${msg._id}`}
+                          key={msg._id}
+                          className={`flex flex-col relative transition-all duration-300 rounded-2xl p-0.5 group ${
+                            isMe ? "items-end" : "items-start"
+                          } ${
+                            highlightedMsgId === msg._id
+                              ? "ring-2 ring-teal-300 bg-teal-500/25 shadow-[0_0_20px_rgba(20,184,166,0.6)] scale-[1.02]"
+                              : ""
                           }`}
                         >
-                          {/* Sender Alias Header */}
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className={`text-[10px] font-bold ${isMe ? "text-teal-300 light:text-teal-700" : "text-emerald-400 light:text-emerald-700"}`}>
-                              {msg.sender}
-                            </span>
-                          </div>
+                          {/* Quoted Message Preview if Reply */}
+                          {msg.replyTo && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleJumpToMessage(msg.replyTo?.id, msg.replyTo?.text);
+                              }}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 mb-1 text-[10px] rounded-lg border cursor-pointer max-w-[85%] sm:max-w-md ${
+                                isMe
+                                  ? "bg-teal-950/60 border-teal-500/30 text-teal-300 mr-1"
+                                  : "bg-white/[0.06] border-white/10 text-slate-300 ml-1"
+                              }`}
+                            >
+                              <CornerDownRight size={11} className="flex-shrink-0" />
+                              <span className="font-bold">{msg.replyTo.sender}:</span>
+                              <span className="truncate">{msg.replyTo.text}</span>
+                            </div>
+                          )}
 
-                          {/* Media Attachment (Photo / Video) */}
-                          {msg.mediaData && (
-                            <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-black/40">
-                              {msg.mediaType === "image" ? (
-                                <img
-                                  src={msg.mediaData}
-                                  alt={msg.mediaName || "Shared image"}
-                                  onClick={() => setLightboxMedia({ type: "image", url: msg.mediaData!, name: msg.mediaName || "image.jpg", msgId: msg._id, isMe })}
-                                  className="max-h-60 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                          {/* Swipeable Message Container */}
+                          <div
+                            onPointerDown={(e) => handlePointerDown(e, msg._id)}
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={(e) => handlePointerUp(e, msg)}
+                            onPointerCancel={handlePointerCancel}
+                            style={{
+                              transform: swipingId === msg._id ? `translateX(${swipeOffset}px)` : "none",
+                              transition: swipingId === msg._id ? "none" : "transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)",
+                            }}
+                            className={`relative max-w-[88%] sm:max-w-md rounded-2xl p-2.5 sm:p-3 text-xs shadow-md transition-shadow select-none touch-pan-y ${
+                              isMe
+                                ? "bg-gradient-to-r from-teal-900/80 to-emerald-900/80 border border-teal-500/30 text-teal-50 rounded-tr-xs light:bg-gradient-to-r light:from-[#d9fdd3] light:to-[#d9fdd3] light:border-transparent light:text-slate-900"
+                                : "bg-[#101026] border border-white/10 text-slate-100 rounded-tl-xs light:bg-white light:border-slate-200 light:text-slate-900"
+                            }`}
+                          >
+                            {/* Sender Alias Header */}
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className={`text-[10px] font-bold ${isMe ? "text-teal-300 light:text-teal-700" : "text-emerald-400 light:text-emerald-700"}`}>
+                                {msg.sender}
+                              </span>
+                            </div>
+
+                            {/* Media Attachment (Photo / Video) */}
+                            {msg.mediaData && !msg.isDeleted && (
+                              <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                                {msg.mediaType === "image" ? (
+                                  <img
+                                    src={msg.mediaData}
+                                    alt={msg.mediaName || "Shared image"}
+                                    onClick={() => setLightboxMedia({ type: "image", url: msg.mediaData!, name: msg.mediaName || "image.jpg", msgId: msg._id, isMe })}
+                                    className="max-h-60 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                                  />
+                                ) : (
+                                  <video
+                                    src={msg.mediaData}
+                                    controls
+                                    className="max-h-60 w-full object-cover rounded-xl"
+                                  />
+                                )}
+                              </div>
+                            )}
+
+                            {/* Message Body Text or Inline Edit */}
+                            {msg.isDeleted ? (
+                              <p className="italic text-slate-400 light:text-slate-500 flex items-center gap-1 text-[11px] sm:text-[12px]">
+                                <Ban size={13} className="text-slate-500 flex-shrink-0" />
+                                <span>This message was deleted</span>
+                              </p>
+                            ) : isEditing ? (
+                              <div className="space-y-1.5 my-1">
+                                <input
+                                  type="text"
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  className="w-full bg-white/10 border border-teal-400/40 rounded px-2 py-1 text-xs text-white outline-none focus:border-teal-400"
+                                  autoFocus
                                 />
-                              ) : (
-                                <video
-                                  src={msg.mediaData}
-                                  controls
-                                  className="max-h-60 w-full object-cover rounded-xl"
-                                />
+                                <div className="flex gap-1 justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingId(null)}
+                                    className="px-2 py-0.5 text-[10px] bg-white/10 hover:bg-white/20 rounded text-slate-300"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveEdit(msg._id)}
+                                    className="px-2 py-0.5 text-[10px] bg-teal-600 hover:bg-teal-500 rounded text-white font-bold"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap break-words leading-relaxed text-[12px] sm:text-[13px]">
+                                {msg.text}
+                              </p>
+                            )}
+
+                            {/* Timestamp & Status Footer */}
+                            <div className="flex items-center justify-end gap-1.5 mt-1 pt-0.5 text-[9px] text-slate-400 light:text-slate-500">
+                              {msg.isEdited && !msg.isDeleted && <span className="italic text-[8px] opacity-80">(edited)</span>}
+                              <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                              {isMe && !msg.isDeleted && (
+                                <span className={msg.isRead ? "text-teal-400 light:text-teal-600" : "text-slate-500"}>
+                                  <CheckCheck size={12} />
+                                </span>
                               )}
                             </div>
-                          )}
-
-                          {/* Message Body Text or Inline Edit */}
-                          {isEditing ? (
-                            <div className="space-y-1.5 my-1">
-                              <input
-                                type="text"
-                                value={editText}
-                                onChange={(e) => setEditText(e.target.value)}
-                                className="w-full bg-white/10 border border-teal-400/40 rounded px-2 py-1 text-xs text-white outline-none focus:border-teal-400"
-                                autoFocus
-                              />
-                              <div className="flex gap-1 justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingId(null)}
-                                  className="px-2 py-0.5 text-[10px] bg-white/10 hover:bg-white/20 rounded text-slate-300"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveEdit(msg._id)}
-                                  className="px-2 py-0.5 text-[10px] bg-teal-600 hover:bg-teal-500 rounded text-white font-bold"
-                                >
-                                  Save
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="whitespace-pre-wrap break-words leading-relaxed text-[12px] sm:text-[13px]">
-                              {msg.text}
-                            </p>
-                          )}
-
-                          {/* Timestamp & Status Footer */}
-                          <div className="flex items-center justify-end gap-1.5 mt-1 pt-0.5 text-[9px] text-slate-400 light:text-slate-500">
-                            {msg.isEdited && <span className="italic text-[8px] opacity-80">(edited)</span>}
-                            <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                            {isMe && (
-                              <span className={msg.isRead ? "text-teal-400 light:text-teal-600" : "text-slate-500"}>
-                                <CheckCheck size={12} />
-                              </span>
-                            )}
                           </div>
-                        </div>
 
-                        {/* Actions Toolbar on Hover / Click */}
-                        {isMenuOpen && (
-                          <div className="flex items-center gap-1 mt-1 p-1 rounded-xl bg-[#0c0c1e] border border-white/15 shadow-lg z-10 animate-in fade-in zoom-in-95 duration-100">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
-                                setActiveActionMenuId(null);
-                                focusInput();
-                              }}
-                              className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
-                              title="Reply"
-                            >
-                              <Reply size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleCopyMessage(msg._id, msg.text);
-                                setActiveActionMenuId(null);
-                              }}
-                              className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
-                              title="Copy"
-                            >
-                              {isCopied ? <Check size={13} className="text-teal-400" /> : <Copy size={13} />}
-                            </button>
-                            {isMe && (
+                          {/* Message Actions Toolbar (Hover on Desktop / Tap on Mobile) */}
+                          {!msg.isDeleted && (
+                            <div className={`flex items-center gap-0.5 mt-1 p-0.5 rounded-xl bg-[#0c0c1e]/90 border border-white/15 shadow-lg z-10 transition-all ${
+                              isMenuOpen 
+                                ? "flex opacity-100 scale-100" 
+                                : "hidden group-hover:flex opacity-0 group-hover:opacity-100"
+                            }`}>
+                              {/* Reply */}
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setEditingId(msg._id);
-                                  setEditText(msg.text);
+                                  setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
+                                  setActiveActionMenuId(null);
+                                  focusInput();
+                                }}
+                                className="p-1 rounded-lg hover:bg-white/15 text-slate-300 hover:text-teal-300 transition-colors"
+                                title="Reply"
+                              >
+                                <Reply size={13} />
+                              </button>
+
+                              {/* Copy */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleCopyMessage(msg._id, msg.text);
                                   setActiveActionMenuId(null);
                                 }}
-                                className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
-                                title="Edit"
+                                className="p-1 rounded-lg hover:bg-white/15 text-slate-300 hover:text-white transition-colors"
+                                title="Copy"
                               >
-                                <Pencil size={13} />
+                                {isCopied ? <Check size={13} className="text-teal-400" /> : <Copy size={13} />}
                               </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedInfoMsg(msg);
-                                setActiveActionMenuId(null);
-                              }}
-                              className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
-                              title="Info"
-                            >
-                              <Info size={13} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+
+                              {/* Edit (only for my messages) */}
+                              {isMe && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingId(msg._id);
+                                    setEditText(msg.text);
+                                    setActiveActionMenuId(null);
+                                  }}
+                                  className="p-1 rounded-lg hover:bg-white/15 text-slate-300 hover:text-amber-300 transition-colors"
+                                  title="Edit"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                              )}
+
+                              {/* Delete Single Message (only for my messages) */}
+                              {isMe && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleDeleteSingleMessage(msg._id);
+                                    setActiveActionMenuId(null);
+                                  }}
+                                  className="p-1 rounded-lg hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors"
+                                  title="Delete message for everyone"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+
+                              {/* Info Diagnostics */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedInfoMsg(msg);
+                                  setActiveActionMenuId(null);
+                                }}
+                                className="p-1 rounded-lg hover:bg-white/15 text-slate-300 hover:text-teal-400 transition-colors"
+                                title="Message Info"
+                              >
+                                <Info size={13} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
 
               {/* Replying Preview Bar */}
               {replyingTo && (
@@ -2184,7 +2297,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   <button
                     type="button"
                     onClick={() => setReplyingTo(null)}
-                    className="text-slate-400 hover:text-white text-xs p-0.5"
+                    className="text-slate-400 hover:text-white text-xs p-0.5 cursor-pointer"
                   >
                     ✕
                   </button>
@@ -2305,11 +2418,121 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         </div>
       </div>
 
+      {/* ========================================================= */}
+      {/* CONTACT PROFILE & SETTINGS MODAL (Opened by clicking profile) */}
+      {/* ========================================================= */}
+      {showProfileModal && selectedFriend && (
+        <div 
+          onClick={() => setShowProfileModal(false)}
+          className="fixed inset-0 z-60 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#0b0b1a] border border-white/15 rounded-3xl p-5 sm:p-6 max-w-md w-full space-y-5 shadow-2xl relative overflow-hidden light:bg-white light:border-slate-200"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 light:border-slate-200">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 light:text-slate-900">
+                <User size={16} className="text-teal-400" /> Contact Details
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowProfileModal(false)}
+                className="p-1 rounded-xl bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer light:bg-slate-100 light:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Profile Card Summary */}
+            <div className="flex flex-col items-center text-center space-y-2 pt-1">
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-2xl flex items-center justify-center shadow-xl border-2 border-white/20">
+                  {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
+                </div>
+                {isFriendOnline && (
+                  <span className="absolute bottom-0 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0b0b1a] light:border-white shadow-sm"></span>
+                )}
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-white light:text-slate-900">{selectedFriend.partnerName}</h4>
+                {selectedFriend.partnerEmail && (
+                  <p className="text-xs text-slate-400 flex items-center justify-center gap-1 light:text-slate-500">
+                    <Mail size={12} /> {selectedFriend.partnerEmail}
+                  </p>
+                )}
+                <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-[10px] text-teal-300 font-mono">
+                  <ShieldCheck size={12} /> End-to-End Encrypted (AES-256)
+                </div>
+              </div>
+            </div>
+
+            {/* Disappearing Messages Setting */}
+            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2.5 light:bg-slate-50 light:border-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock size={15} className="text-teal-400" />
+                  <h5 className="text-xs font-bold text-white light:text-slate-900">Disappearing Messages</h5>
+                </div>
+                <span className="text-[10px] font-mono font-bold text-teal-400">
+                  {retentionHours === 0 ? "Off" : `${retentionHours}h timer`}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed light:text-slate-600">
+                New messages in this chat will self-destruct for both participants after the selected duration.
+              </p>
+              {/* Option Pills */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { label: "Off", hours: 0 },
+                  { label: "12 Hours", hours: 12 },
+                  { label: "24 Hours", hours: 24 },
+                  { label: "7 Days", hours: 168 },
+                ].map((opt) => (
+                  <button
+                    key={opt.hours}
+                    type="button"
+                    onClick={() => handleUpdateRetention(opt.hours)}
+                    className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center active:scale-95 touch-manipulation ${
+                      retentionHours === opt.hours
+                        ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md border border-teal-400/40"
+                        : "bg-white/[0.06] border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 light:bg-white light:border-slate-200 light:text-slate-700"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions: Clear Chat & Remove Connection */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={handleClearAll}
+                disabled={messages.length === 0}
+                className="w-full py-2.5 px-3 bg-white/[0.06] hover:bg-amber-500/15 border border-white/10 hover:border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 touch-manipulation"
+              >
+                <Trash2 size={14} /> Clear Messages History
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
+                className="w-full py-2.5 px-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 touch-manipulation"
+              >
+                <UserMinus size={14} /> Remove {selectedFriend.partnerName} from Friends
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Media Lightbox Zoom Modal */}
       {lightboxMedia && (
         <div 
           onClick={() => setLightboxMedia(null)}
-          className="fixed inset-0 z-60 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-70 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-150"
         >
           <div className="absolute top-4 right-4 flex items-center gap-3">
             <a
@@ -2341,7 +2564,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       {selectedInfoMsg && (
         <div 
           onClick={() => setSelectedInfoMsg(null)}
-          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-70 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
         >
           <div 
             onClick={(e) => e.stopPropagation()}

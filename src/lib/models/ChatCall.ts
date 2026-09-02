@@ -38,6 +38,11 @@ const ChatCallSchema = new Schema(
       required: true,
       index: true,
     },
+    callType: {
+      type: String,
+      enum: ["audio", "video"],
+      default: "audio",
+    },
     status: {
       type: String,
       enum: ["ringing", "accepted", "declined", "ended", "missed"],

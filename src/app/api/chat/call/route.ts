@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { recipientId, recipientName, recipientEmail, offer, candidates } = await req.json();
+    const { recipientId, recipientName, recipientEmail, offer, candidates, callType } = await req.json();
     if (!recipientId && !recipientEmail) {
       return NextResponse.json({ error: "Recipient is required" }, { status: 400 });
     }
@@ -93,6 +93,7 @@ export async function POST(req: Request) {
       recipientName: targetUserName,
       recipientEmail: targetEmail,
       roomId,
+      callType: callType === "video" ? "video" : "audio",
       status: "ringing",
       offer: offer || "",
       callerCandidates: candidates ? (Array.isArray(candidates) ? candidates.map((c: any) => typeof c === "string" ? c : JSON.stringify(c)) : [JSON.stringify(candidates)]) : [],
@@ -165,7 +166,9 @@ export async function PUT(req: Request) {
 
       // Log missed call in chat
       try {
-        const encrypted = encryptMessage("📞 Missed voice call");
+        const isVideo = call.callType === "video";
+        const iconAndLabel = isVideo ? "🎥 Missed video call" : "📞 Missed voice call";
+        const encrypted = encryptMessage(iconAndLabel);
         await ChatMessage.create({
           senderId: call.callerId,
           recipientId: call.recipientId,
@@ -202,10 +205,12 @@ export async function PUT(req: Request) {
 
       // Log completed call in chat
       try {
+        const isVideo = call.callType === "video";
+        const prefix = isVideo ? "🎥 Video call" : "📞 Voice call";
         const mins = Math.floor(call.durationSec / 60);
         const secs = call.durationSec % 60;
         const durText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-        const logText = call.durationSec > 0 ? `📞 Voice call • ${durText}` : `📞 Voice call ended`;
+        const logText = call.durationSec > 0 ? `${prefix} • ${durText}` : `${prefix} ended`;
 
         const encrypted = encryptMessage(logText);
         await ChatMessage.create({

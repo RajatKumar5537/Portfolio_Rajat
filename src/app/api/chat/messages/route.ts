@@ -362,7 +362,13 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "You can only edit messages you sent" }, { status: 403 });
     }
 
-    const encrypted = encryptMessage(text.trim());
+    const payloadObj = {
+      text: text ? text.trim() : "",
+      mediaType: existing.mediaType || null,
+      mediaData: existing.mediaDataUrl || null,
+      mediaName: existing.mediaName || null,
+    };
+    const encrypted = encryptMessage(JSON.stringify(payloadObj));
 
     existing.content = encrypted.content;
     existing.iv = encrypted.iv;
@@ -376,6 +382,9 @@ export async function PUT(req: Request) {
       recipientId: existing.recipientId,
       sender: existing.sender,
       text: text.trim(),
+      mediaType: existing.mediaType || null,
+      mediaData: existing.mediaDataUrl || null,
+      mediaName: existing.mediaName || null,
       replyTo: existing.replyTo || null,
       isRead: existing.isRead,
       isEdited: true,
