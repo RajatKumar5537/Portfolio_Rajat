@@ -19,6 +19,7 @@ export async function GET(req: Request) {
     const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
     const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
     const currentUserEmail = session.user.email.toLowerCase().trim();
+    const currentUserName = currentUser?.name || session.user.name || currentUserEmail.split("@")[0] || "";
 
     const { searchParams } = new URL(req.url);
     const rawRecipientId = searchParams.get("recipientId")?.trim() || "";
