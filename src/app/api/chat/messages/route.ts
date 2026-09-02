@@ -354,6 +354,7 @@ export async function PUT(req: Request) {
     await dbConnect();
     const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
     const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+    const currentUserEmail = session.user.email.toLowerCase().trim();
 
     const { id, text } = await req.json();
 
