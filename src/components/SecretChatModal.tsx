@@ -200,6 +200,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "requests">("all");
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const mobileViewRef = useRef<"list" | "chat">(mobileView);
+  mobileViewRef.current = mobileView;
   
   // UI Panels
   const [showAddFriendForm, setShowAddFriendForm] = useState(false);
@@ -294,6 +296,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     };
   }, [isOpen]);
 
+  // Initial mobile view reset when modal opens
+  useEffect(() => {
+    if (isOpen && typeof window !== "undefined" && window.innerWidth < 768) {
+      setMobileView("list");
+    }
+  }, [isOpen]);
+
   // Handle mobile browser back button to close chat modal gracefully without leaving page
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
@@ -306,7 +315,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
 
     const handlePopState = () => {
-      if (mobileView === "chat") {
+      if (mobileViewRef.current === "chat") {
         setMobileView("list");
       } else {
         onCloseRef.current();
@@ -321,7 +330,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         window.history.back();
       }
     };
-  }, [isOpen, mobileView]);
+  }, [isOpen]);
 
   // Universal Gesture Swipe for Laptop (Mouse / Trackpad) and Mobile (Touch)
   const [swipingId, setSwipingId] = useState<string | null>(null);
@@ -1410,7 +1419,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <button
                 type="button"
                 onClick={() => setShowAddFriendForm(!showAddFriendForm)}
-                className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs ${
+                className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs active:scale-95 touch-manipulation ${
                   showAddFriendForm
                     ? "bg-teal-600 text-white shadow-sm"
                     : "bg-white/[0.07] border border-white/10 text-slate-200 hover:bg-white/15 light:bg-slate-200 light:border-slate-300 light:text-slate-700"
@@ -1424,7 +1433,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-red-600"
+                className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-red-600 active:scale-95 touch-manipulation"
                 title="Close (Esc)"
               >
                 <X size={15} />
@@ -1459,7 +1468,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <button
                 type="button"
                 onClick={() => setActiveTab("all")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer touch-manipulation active:scale-95 ${
                   activeTab === "all"
                     ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 light:bg-teal-600 light:text-white"
                     : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
@@ -1470,7 +1479,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <button
                 type="button"
                 onClick={() => setActiveTab("unread")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 touch-manipulation active:scale-95 ${
                   activeTab === "unread"
                     ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 light:bg-teal-600 light:text-white"
                     : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
@@ -1486,7 +1495,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <button
                 type="button"
                 onClick={() => setActiveTab("requests")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 touch-manipulation active:scale-95 ${
                   activeTab === "requests"
                     ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 light:bg-amber-600 light:text-white"
                     : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
@@ -1512,7 +1521,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <button
                   type="button"
                   onClick={() => setShowAddFriendForm(false)}
-                  className="text-slate-400 hover:text-white text-xs cursor-pointer"
+                  className="text-slate-400 hover:text-white text-xs cursor-pointer p-1"
                 >
                   ✕
                 </button>
@@ -1529,7 +1538,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <button
                   type="submit"
                   disabled={!requestEmailInput.trim() || isSubmittingRequest}
-                  className="w-full py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+                  className="w-full py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-98 touch-manipulation"
                 >
                   {isSubmittingRequest ? "Sending Request..." : "Send Request"}
                 </button>
@@ -1565,14 +1574,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                       <button
                         type="button"
                         onClick={() => handleRespondRequest(req.connectionId, "accept")}
-                        className="flex-1 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1"
+                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1 active:scale-98 touch-manipulation"
                       >
                         <Check size={12} /> Accept
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRespondRequest(req.connectionId, "decline")}
-                        className="flex-1 py-1 bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1 light:bg-slate-200 light:text-slate-700"
+                        className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1 light:bg-slate-200 light:text-slate-700 active:scale-98 touch-manipulation"
                       >
                         <X size={12} /> Decline
                       </button>
@@ -1597,7 +1606,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     <button
                       type="button"
                       onClick={() => handleRemoveConnection(req.connectionId, req.recipientName || req.recipientEmail, true)}
-                      className="px-2 py-1 bg-red-500/15 hover:bg-red-500/30 text-red-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 flex-shrink-0"
+                      className="px-2 py-1 bg-red-500/15 hover:bg-red-500/30 text-red-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 flex-shrink-0 active:scale-95 touch-manipulation"
                     >
                       <X size={11} /> Cancel
                     </button>
@@ -1618,7 +1627,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     <button
                       type="button"
                       onClick={() => setShowAddFriendForm(true)}
-                      className="text-xs text-teal-400 font-bold hover:underline cursor-pointer"
+                      className="text-xs text-teal-400 font-bold hover:underline cursor-pointer active:scale-95 touch-manipulation"
                     >
                       + Connect with a friend
                     </button>
@@ -1633,11 +1642,13 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     return (
                       <div
                         key={p.connectionId}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                           setSelectedFriend(p);
                           setMobileView("chat");
                         }}
-                        className={`group flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all border-b border-white/[0.04] light:border-slate-200/60 relative ${
+                        className={`group flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all border-b border-white/[0.04] light:border-slate-200/60 relative select-none touch-manipulation active:bg-white/[0.08] ${
                           isSelected
                             ? "bg-teal-500/15 border-l-4 border-l-teal-400 light:bg-slate-200"
                             : "hover:bg-white/[0.04] light:hover:bg-slate-100"
@@ -1697,7 +1708,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                                   e.stopPropagation();
                                   handleRemoveConnection(p.connectionId, p.partnerName);
                                 }}
-                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all touch-manipulation active:scale-95"
                                 title={`Remove ${p.partnerName} & delete chat history`}
                               >
                                 <UserMinus size={13} />
@@ -1743,15 +1754,18 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             <>
               {/* Top Chat Header */}
               <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-white/10 bg-[#070712]/90 backdrop-blur-xl light:bg-[#f0f2f5] light:border-slate-200 flex-shrink-0 pt-[max(0.625rem,env(safe-area-inset-top))] transition-colors">
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   {/* Mobile Back Button */}
                   <button
                     type="button"
-                    onClick={() => setMobileView("list")}
-                    className="md:hidden p-1.5 -ml-1 text-slate-300 hover:text-white cursor-pointer light:text-slate-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMobileView("list");
+                    }}
+                    className="md:hidden p-1.5 -ml-1 text-slate-300 hover:text-white cursor-pointer light:text-slate-700 active:scale-95 touch-manipulation"
                     title="Back to chats"
                   >
-                    <ArrowLeft size={18} />
+                    <ArrowLeft size={19} />
                   </button>
 
                   {/* Avatar & Online Presence */}
@@ -1799,7 +1813,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     type="button"
                     onClick={handleStartVoiceCall}
                     disabled={Boolean(activeCall)}
-                    className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
+                    className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation ${
                       activeCall
                         ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                         : "bg-white/[0.07] border-white/10 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-400 light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-emerald-700"
@@ -1815,7 +1829,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     <button
                       type="button"
                       onClick={() => handleUpdateRetention(12)}
-                      className={`px-1.5 py-0.5 rounded-lg transition-all cursor-pointer ${
+                      className={`px-1.5 py-0.5 rounded-lg transition-all cursor-pointer touch-manipulation ${
                         retentionHours === 12 
                           ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs" 
                           : "text-slate-300 hover:text-white light:text-slate-700"
@@ -1827,7 +1841,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     <button
                       type="button"
                       onClick={() => handleUpdateRetention(24)}
-                      className={`px-1.5 py-0.5 rounded-lg transition-all cursor-pointer ${
+                      className={`px-1.5 py-0.5 rounded-lg transition-all cursor-pointer touch-manipulation ${
                         retentionHours === 24 
                           ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs" 
                           : "text-slate-300 hover:text-white light:text-slate-700"
@@ -1843,7 +1857,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     type="button"
                     onClick={handleClearAll}
                     disabled={messages.length === 0}
-                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed light:bg-slate-200 light:border-slate-300 light:text-slate-700 active:scale-95 touch-manipulation"
                     title="Clear chat messages for me"
                   >
                     <Trash2 size={14} />
@@ -1853,7 +1867,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   <button
                     type="button"
                     onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
-                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 active:scale-95 touch-manipulation"
                     title={`Remove ${selectedFriend.partnerName} from connected friends`}
                   >
                     <UserMinus size={14} />
@@ -1862,7 +1876,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   {/* Panic / Close Button */}
                   <button
                     onClick={onClose}
-                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 active:scale-95 touch-manipulation"
                     title="Close"
                   >
                     <X size={14} />
@@ -1899,14 +1913,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         <button
                           type="button"
                           onClick={handleAcceptVoiceCall}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
                         >
                           <Phone size={13} /> Accept
                         </button>
                         <button
                           type="button"
                           onClick={handleDeclineVoiceCall}
-                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1"
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
                         >
                           <PhoneOff size={13} /> Decline
                         </button>
@@ -1917,7 +1931,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                           <button
                             type="button"
                             onClick={handleToggleMute}
-                            className={`p-2 rounded-xl transition-all cursor-pointer ${
+                            className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation ${
                               activeCall.isMuted
                                 ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
                                 : "bg-white/10 text-white hover:bg-white/20"
@@ -1930,7 +1944,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                         <button
                           type="button"
                           onClick={handleEndVoiceCall}
-                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1"
+                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
                         >
                           <PhoneOff size={13} /> End Call
                         </button>
@@ -2225,7 +2239,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               )}
 
               {/* Bottom Message Input Bar */}
-              <form onSubmit={handleSend} className="p-2 sm:p-3 border-t border-white/10 bg-[#070712] light:bg-[#f0f2f5] light:border-slate-200 flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              <form onSubmit={handleSend} className="p-2 sm:p-3 border-t border-white/10 bg-[#070712] light:bg-[#f0f2f5] light:border-slate-200 flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 {/* Media Attachment Clip Button */}
                 <input
                   type="file"
@@ -2238,7 +2252,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isCompressingMedia}
-                  className="p-2 rounded-xl text-slate-400 hover:text-teal-400 hover:bg-white/5 transition-all cursor-pointer light:hover:text-teal-700"
+                  className="p-2 rounded-xl text-slate-400 hover:text-teal-400 hover:bg-white/5 transition-all cursor-pointer light:hover:text-teal-700 active:scale-95 touch-manipulation"
                   title="Attach Photo or Video"
                 >
                   {isCompressingMedia ? <Loader2 size={18} className="animate-spin text-teal-400" /> : <Paperclip size={18} />}
@@ -2248,7 +2262,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className={`p-2 rounded-xl transition-all cursor-pointer ${
+                  className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation ${
                     showEmojiPicker ? "text-teal-400 bg-teal-500/20" : "text-slate-400 hover:text-teal-400 hover:bg-white/5"
                   }`}
                   title="Insert Emoji"
@@ -2271,7 +2285,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 <button
                   type="submit"
                   disabled={(!inputText.trim() && !stagedMedia) || sending}
-                  className="p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white transition-all cursor-pointer shadow-md flex-shrink-0"
+                  className="p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white transition-all cursor-pointer shadow-md flex-shrink-0 active:scale-95 touch-manipulation"
                   title="Send Message"
                 >
                   <Send size={16} />
