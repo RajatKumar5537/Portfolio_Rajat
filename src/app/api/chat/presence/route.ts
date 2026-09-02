@@ -25,13 +25,20 @@ export async function GET() {
     const activeUsers = presences.map((p: any) => {
       const lastSeenDate = p.lastSeenAt ? new Date(p.lastSeenAt) : null;
       const isOnline = lastSeenDate ? (Date.now() - lastSeenDate.getTime()) < 8000 : false;
+      const pEmail = p.userEmail?.toLowerCase().trim();
+
+      const isMe = 
+        p.userId === currentUserId || 
+        (currentUserEmail && p.userId.toLowerCase() === currentUserEmail) ||
+        (currentUserEmail && pEmail && pEmail === currentUserEmail);
 
       return {
         userId: p.userId,
+        userEmail: pEmail || "",
         userName: p.userName,
         isTyping: isOnline && !!p.isTyping,
         isOnline: isOnline,
-        isMe: p.userId === currentUserId || (currentUserEmail && p.userId.toLowerCase() === currentUserEmail),
+        isMe,
         lastSeenAt: lastSeenDate ? lastSeenDate.toISOString() : null,
       };
     });
@@ -52,14 +59,17 @@ export async function POST(req: Request) {
 
     const { isTyping = false, customName } = await req.json();
     const userId = (session.user as any).id || session.user.email;
+    const userEmail = session.user.email?.toLowerCase().trim() || "";
     const defaultName = session.user.name || session.user.email?.split("@")[0] || "User";
     const userName = customName && customName.trim() ? customName.trim() : defaultName;
 
     await dbConnect();
 
     await ChatPresence.findOneAndUpdate(
-      { userId },
+      { $or: [{ userId }, { userEmail: userEmail }] },
       {
+        userId,
+        userEmail,
         userName,
         isTyping: !!isTyping,
         lastSeenAt: new Date(),

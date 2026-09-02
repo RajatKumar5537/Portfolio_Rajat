@@ -73,6 +73,7 @@ interface PendingOutgoingRequest {
 
 interface ActiveUser {
   userId: string;
+  userEmail?: string;
   userName: string;
   isTyping: boolean;
   isOnline: boolean;
@@ -235,6 +236,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   
   // Online presence & typing state
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const isTypingRef = useRef<boolean>(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Inline edit state
@@ -744,13 +746,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   }, []);
 
   // Sync presence heartbeat & fetch active users
-  const syncPresence = useCallback(async (isTypingState = false) => {
+  const syncPresence = useCallback(async (isTypingState?: boolean) => {
     try {
+      const typingVal = typeof isTypingState === "boolean" ? isTypingState : isTypingRef.current;
       await fetch("/api/chat/presence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isTyping: isTypingState,
+          isTyping: typingVal,
           customName: currentSender,
         }),
       });
@@ -1168,7 +1171,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       }, msgFreq);
 
       presenceInterval = setInterval(() => {
-        syncPresence(false);
+        syncPresence();
       }, presFreq);
 
       connectionInterval = setInterval(() => {
@@ -1188,7 +1191,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         if (selectedFriendRef.current) {
           fetchMessagesForPartner(selectedFriendRef.current, true);
         }
-        syncPresence(false);
+        syncPresence();
         checkIncomingAndCallStatus();
       }
       startIntervals();
@@ -1245,12 +1248,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   // Typing event handler with debounce
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value);
+    isTypingRef.current = true;
     syncPresence(true);
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
       syncPresence(false);
-    }, 2000);
+    }, 2500);
   };
 
   const handleInsertEmoji = (emoji: string) => {
@@ -1634,10 +1639,36 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
   };
 
-  // Presence & Last Seen calculation for partner
-  const friendPresence = selectedFriend 
-    ? activeUsers.find((u) => !u.isMe && (u.userId === selectedFriend.partnerId || u.userName.toLowerCase() === selectedFriend.partnerName.toLowerCase()))
-    : null;
+  // Robust Presence & Last Seen matcher for any partner
+  const getPartnerPresence = useCallback(
+    (partner: { partnerId?: string; partnerName: string; partnerEmail?: string } | null) => {
+      if (!partner) return null;
+      const pEmail = partner.partnerEmail?.toLowerCase().trim();
+      const pName = partner.partnerName.toLowerCase().trim();
+      const pId = partner.partnerId;
+
+      return (
+        activeUsers.find((u) => {
+          if (u.isMe) return false;
+          const uEmail = u.userEmail?.toLowerCase().trim();
+          const uName = u.userName.toLowerCase().trim();
+
+          // 1. Match by verified user email
+          if (pEmail && uEmail && pEmail === uEmail) return true;
+          // 2. Match by direct user ID
+          if (pId && u.userId === pId) return true;
+          // 3. Match if userId is the email
+          if (pEmail && u.userId.toLowerCase() === pEmail) return true;
+          // 4. Match by name
+          if (pName && uName && (pName === uName || uName.includes(pName) || pName.includes(uName))) return true;
+          return false;
+        }) || null
+      );
+    },
+    [activeUsers]
+  );
+
+  const friendPresence = getPartnerPresence(selectedFriend);
   const isFriendOnline = friendPresence?.isOnline ?? false;
   const myPresence = activeUsers.find((u) => u.isMe);
 
@@ -1954,7 +1985,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 ) : (
                   filteredFriends.map((p) => {
                     const isSelected = selectedFriend?.connectionId === p.connectionId;
-                    const pPresence = activeUsers.find((u) => !u.isMe && (u.userId === p.partnerId || u.userName.toLowerCase() === p.partnerName.toLowerCase()));
+                    const pPresence = getPartnerPresence(p);
                     const isPOnline = pPresence?.isOnline ?? false;
                     const isPTyping = pPresence?.isTyping ?? false;
                     const previewText = cleanPreviewText(p.lastMessage?.text);

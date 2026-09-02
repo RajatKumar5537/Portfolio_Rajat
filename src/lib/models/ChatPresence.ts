@@ -7,6 +7,12 @@ const ChatPresenceSchema = new Schema(
       required: true,
       unique: true,
     },
+    userEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
     userName: {
       type: String,
       required: true,
