@@ -7,7 +7,8 @@ import {
   Sparkles, RefreshCw, Check, Ban, Smile, Copy, CheckCheck,
   Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete, Info,
   Paperclip, Image as ImageIcon, Film, Download, Loader2, CornerDownRight,
-  Search, Phone, PhoneCall, PhoneIncoming, PhoneOff, Mic, MicOff, Volume2, ArrowLeft
+  Search, Phone, PhoneCall, PhoneIncoming, PhoneOff, Mic, MicOff, Volume2, ArrowLeft,
+  UserX, Clock, AlertTriangle
 } from "lucide-react";
 
 interface ReplyToData {
@@ -185,7 +186,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   const currentUserId = (session?.user as any)?.id || session?.user?.email || "";
   const accountName = session?.user?.name || session?.user?.email?.split("@")[0] || "User";
   const [customName, setCustomName] = useState("");
-  const [isEditingName, setIsEditingName] = useState(false);
   const currentSender = customName.trim() || accountName;
 
   // Connections state (Friend Request / Accept model)
@@ -482,7 +482,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       gain.connect(ctx.destination);
 
       if (type === "outgoing") {
-        // WhatsApp style pleasant dual ringback
         osc.type = "sine";
         osc.frequency.setValueAtTime(440, ctx.currentTime);
         gain.gain.setValueAtTime(0.12, ctx.currentTime);
@@ -490,12 +489,11 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         osc.start();
         osc.stop(ctx.currentTime + 1.2);
       } else {
-        // Pleasant melodic incoming chime
         osc.type = "triangle";
-        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15); // E5
-        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.3); // G5
-        osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.45); // C6
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15);
+        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.3);
+        osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.45);
         gain.gain.setValueAtTime(0.18, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
         osc.start();
@@ -521,12 +519,22 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     setActiveCall(null);
   }, []);
 
-  // Fetch 1-on-1 messages for a specific partner ID
-  const fetchMessagesForPartner = useCallback(async (partnerId: string, markRead = true) => {
-    if (!partnerId) return;
+  // Fetch 1-on-1 messages strictly isolated by connection room
+  const fetchMessagesForPartner = useCallback(async (friend: AcceptedFriend | null, markRead = true) => {
+    if (!friend || (!friend.partnerId && !friend.roomId && !friend.connectionId)) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
 
     try {
-      const res = await fetch(`/api/chat/messages?recipientId=${encodeURIComponent(partnerId)}&markRead=${markRead}`);
+      const queryParams = new URLSearchParams();
+      if (friend.connectionId) queryParams.set("connectionId", friend.connectionId);
+      if (friend.roomId) queryParams.set("roomId", friend.roomId);
+      if (friend.partnerId) queryParams.set("recipientId", friend.partnerId);
+      queryParams.set("markRead", markRead ? "true" : "false");
+
+      const res = await fetch(`/api/chat/messages?${queryParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -559,8 +567,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
         setSelectedFriend((prev) => {
           if (accepted.length === 0) return null;
-          if (prev && accepted.some((p) => p.partnerId === prev.partnerId)) {
-            return prev;
+          if (prev && accepted.some((p) => p.connectionId === prev.connectionId)) {
+            const current = accepted.find((p) => p.connectionId === prev.connectionId);
+            return current || prev;
           }
           return accepted[0];
         });
@@ -608,7 +617,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
             if (callData.status === "declined" || callData.status === "ended" || callData.status === "missed") {
               cleanupCall();
               if (selectedFriendRef.current) {
-                fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+                fetchMessagesForPartner(selectedFriendRef.current, true);
               }
             } else if (callData.status === "accepted" && currentCall.status === "calling" && callData.answer) {
               if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== "stable") {
@@ -624,7 +633,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
           }
         }
       } else {
-        // Poll for incoming call if idle
         const res = await fetch("/api/chat/call");
         if (res.ok) {
           const data = await res.json();
@@ -759,7 +767,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
       setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : null));
 
-      // Match selected friend if available
       const matchingFriend = acceptedFriends.find((f) => f.partnerId === activeCall.callerId || f.partnerName.toLowerCase() === activeCall.callerName.toLowerCase());
       if (matchingFriend) {
         setSelectedFriend(matchingFriend);
@@ -782,7 +789,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         body: JSON.stringify({ callId, action: "decline" }),
       });
       if (selectedFriendRef.current) {
-        fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+        fetchMessagesForPartner(selectedFriendRef.current, true);
       }
     } catch (_) {}
   };
@@ -800,7 +807,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         body: JSON.stringify({ callId, action: "end", durationSec: duration }),
       });
       if (selectedFriendRef.current) {
-        fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+        fetchMessagesForPartner(selectedFriendRef.current, true);
       }
     } catch (_) {}
   };
@@ -830,7 +837,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     };
   }, [activeCall?.status]);
 
-  // Main polling interval (Connections, Messages, Presence, Call signaling)
+  // Main polling interval
   useEffect(() => {
     if (!isOpen) return;
 
@@ -857,7 +864,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
       messageInterval = setInterval(() => {
         if (selectedFriendRef.current) {
-          fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+          fetchMessagesForPartner(selectedFriendRef.current, true);
         }
       }, msgFreq);
 
@@ -880,7 +887,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       if (document.visibilityState === "visible") {
         fetchConnections();
         if (selectedFriendRef.current) {
-          fetchMessagesForPartner(selectedFriendRef.current.partnerId, true);
+          fetchMessagesForPartner(selectedFriendRef.current, true);
         }
         syncPresence(false);
         checkIncomingAndCallStatus();
@@ -914,9 +921,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         setRetentionHours(selectedFriend.retentionHours as 12 | 24);
       }
       setLoading(true);
-      fetchMessagesForPartner(selectedFriend.partnerId, true);
+      fetchMessagesForPartner(selectedFriend, true);
     }
-  }, [selectedFriend, isOpen, fetchMessagesForPartner]);
+  }, [selectedFriend?.connectionId, isOpen, fetchMessagesForPartner]);
 
   // Scroll to bottom on message change
   useEffect(() => {
@@ -1205,6 +1212,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         body: JSON.stringify({
           sender: currentSender,
           recipientId: currentPartner.partnerId,
+          connectionId: currentPartner.connectionId,
+          roomId: currentPartner.roomId,
           text: textToSend,
           mediaType: mediaToSend?.type || null,
           mediaData: mediaToSend?.dataUrl || null,
@@ -1215,7 +1224,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       });
 
       if (res.ok) {
-        await fetchMessagesForPartner(currentPartner.partnerId, true);
+        await fetchMessagesForPartner(currentPartner, true);
         await fetchConnections();
         scrollToBottom(false);
       }
@@ -1236,7 +1245,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messageId: msgId,
+          id: msgId,
           text: editText.trim(),
         }),
       });
@@ -1244,7 +1253,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       if (res.ok) {
         setEditingId(null);
         setEditText("");
-        await fetchMessagesForPartner(selectedFriend.partnerId, true);
+        await fetchMessagesForPartner(selectedFriend, true);
         await fetchConnections();
       }
     } catch (err) {
@@ -1257,7 +1266,14 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     if (!selectedFriend || !confirm(`Clear all messages in your conversation with ${selectedFriend.partnerName}?`)) return;
 
     try {
-      const res = await fetch(`/api/chat/messages?clearAll=true&recipientId=${encodeURIComponent(selectedFriend.partnerId)}`, {
+      const queryParams = new URLSearchParams({
+        clearAll: "true",
+        connectionId: selectedFriend.connectionId,
+        roomId: selectedFriend.roomId,
+        recipientId: selectedFriend.partnerId,
+      });
+
+      const res = await fetch(`/api/chat/messages?${queryParams.toString()}`, {
         method: "DELETE",
       });
 
@@ -1336,6 +1352,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   });
 
   const totalUnreadAll = acceptedFriends.reduce((sum, f) => sum + (f.unreadCount || 0), 0);
+  const totalPendingRequests = pendingIncoming.length + pendingOutgoing.length;
 
   if (!isOpen) return null;
 
@@ -1476,9 +1493,9 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 }`}
               >
                 <span>Requests</span>
-                {pendingIncoming.length > 0 && (
+                {totalPendingRequests > 0 && (
                   <span className="w-4 h-4 rounded-full bg-amber-500 text-black text-[9px] font-bold flex items-center justify-center animate-pulse">
-                    {pendingIncoming.length}
+                    {totalPendingRequests}
                   </span>
                 )}
               </button>
@@ -1527,8 +1544,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
           {/* Contacts & Pending Requests List Feed */}
           <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-white/5 light:divide-slate-200">
-            {/* Incoming Requests Banner / Section */}
-            {(activeTab === "requests" || (activeTab === "all" && pendingIncoming.length > 0)) && (
+            {/* Incoming Requests Section */}
+            {(activeTab === "requests" || (activeTab === "all" && pendingIncoming.length > 0)) && pendingIncoming.length > 0 && (
               <div className="p-2.5 bg-amber-500/[0.08] border-b border-amber-500/20 space-y-2 light:bg-amber-500/10">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
                   <Bell size={12} className="animate-bounce" /> Friend Requests ({pendingIncoming.length})
@@ -1565,6 +1582,30 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               </div>
             )}
 
+            {/* Outgoing Pending Requests (in Requests Tab) */}
+            {activeTab === "requests" && pendingOutgoing.length > 0 && (
+              <div className="p-2.5 bg-indigo-500/[0.08] border-b border-indigo-500/20 space-y-2 light:bg-indigo-50">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-400 font-mono">
+                  <Clock size={12} /> Sent Requests ({pendingOutgoing.length})
+                </div>
+                {pendingOutgoing.map((req) => (
+                  <div key={req.connectionId} className="bg-black/40 light:bg-white p-2.5 rounded-xl border border-indigo-500/20 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-bold text-white truncate light:text-slate-900">{req.recipientName || req.recipientEmail}</h4>
+                      <p className="text-[10px] text-slate-400 truncate light:text-slate-500">{req.recipientEmail}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveConnection(req.connectionId, req.recipientName || req.recipientEmail, true)}
+                      className="px-2 py-1 bg-red-500/15 hover:bg-red-500/30 text-red-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 flex-shrink-0"
+                    >
+                      <X size={11} /> Cancel
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Accepted Friends WhatsApp Chat Cards */}
             {activeTab !== "requests" && (
               <>
@@ -1584,19 +1625,19 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   </div>
                 ) : (
                   filteredFriends.map((p) => {
-                    const isSelected = selectedFriend?.partnerId === p.partnerId;
+                    const isSelected = selectedFriend?.connectionId === p.connectionId;
                     const pPresence = activeUsers.find((u) => !u.isMe && (u.userId === p.partnerId || u.userName.toLowerCase() === p.partnerName.toLowerCase()));
                     const isPOnline = pPresence?.isOnline ?? false;
                     const isPTyping = pPresence?.isTyping ?? false;
 
                     return (
                       <div
-                        key={p.partnerId}
+                        key={p.connectionId}
                         onClick={() => {
                           setSelectedFriend(p);
                           setMobileView("chat");
                         }}
-                        className={`flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all border-b border-white/[0.04] light:border-slate-200/60 ${
+                        className={`group flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all border-b border-white/[0.04] light:border-slate-200/60 relative ${
                           isSelected
                             ? "bg-teal-500/15 border-l-4 border-l-teal-400 light:bg-slate-200"
                             : "hover:bg-white/[0.04] light:hover:bg-slate-100"
@@ -1641,12 +1682,27 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                               )}
                             </p>
 
-                            {/* Unread Count Badge */}
-                            {(p.unreadCount || 0) > 0 && (
-                              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-black text-[10px] font-black flex items-center justify-center flex-shrink-0 shadow-sm">
-                                {p.unreadCount}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {/* Unread Count Badge */}
+                              {(p.unreadCount || 0) > 0 && (
+                                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-black text-[10px] font-black flex items-center justify-center shadow-sm">
+                                  {p.unreadCount}
+                                </span>
+                              )}
+
+                              {/* Quick Remove Contact Button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveConnection(p.connectionId, p.partnerName);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                title={`Remove ${p.partnerName} & delete chat history`}
+                              >
+                                <UserMinus size={13} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1736,30 +1792,30 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   </div>
                 </div>
 
-                {/* Header Action Buttons (Voice Call, Retention Toggle, Clear, Close) */}
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                {/* Header Action Buttons (Voice Call, Retention Toggle, Remove Connection, Clear, Close) */}
+                <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
                   {/* Voice Call Button */}
                   <button
                     type="button"
                     onClick={handleStartVoiceCall}
                     disabled={Boolean(activeCall)}
-                    className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
+                    className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
                       activeCall
                         ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                         : "bg-white/[0.07] border-white/10 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-400 light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-emerald-700"
                     }`}
                     title="Start Encrypted Voice Call"
                   >
-                    <Phone size={15} />
+                    <Phone size={14} />
                     <span className="hidden sm:inline text-[10px] font-bold">Call</span>
                   </button>
 
                   {/* Disappearing Messages Retention Toggle */}
-                  <div className="flex items-center bg-white/[0.07] border border-white/10 rounded-xl p-0.5 sm:p-1 text-[8px] sm:text-[9px] font-mono light:bg-slate-200 light:border-slate-300">
+                  <div className="flex items-center bg-white/[0.07] border border-white/10 rounded-xl p-0.5 text-[8px] sm:text-[9px] font-mono light:bg-slate-200 light:border-slate-300">
                     <button
                       type="button"
                       onClick={() => handleUpdateRetention(12)}
-                      className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
+                      className={`px-1.5 py-0.5 rounded-lg transition-all cursor-pointer ${
                         retentionHours === 12 
                           ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs" 
                           : "text-slate-300 hover:text-white light:text-slate-700"
@@ -1771,7 +1827,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     <button
                       type="button"
                       onClick={() => handleUpdateRetention(24)}
-                      className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg transition-all cursor-pointer ${
+                      className={`px-1.5 py-0.5 rounded-lg transition-all cursor-pointer ${
                         retentionHours === 24 
                           ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-xs" 
                           : "text-slate-300 hover:text-white light:text-slate-700"
@@ -1787,19 +1843,29 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                     type="button"
                     onClick={handleClearAll}
                     disabled={messages.length === 0}
-                    className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed light:bg-slate-200 light:border-slate-300 light:text-slate-700"
-                    title="Clear chat for me"
+                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                    title="Clear chat messages for me"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={14} />
+                  </button>
+
+                  {/* Remove Friend Connection Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
+                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                    title={`Remove ${selectedFriend.partnerName} from connected friends`}
+                  >
+                    <UserMinus size={14} />
                   </button>
 
                   {/* Panic / Close Button */}
                   <button
                     onClick={onClose}
-                    className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700"
+                    className="p-1.5 sm:p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700"
                     title="Close"
                   >
-                    <X size={15} />
+                    <X size={14} />
                   </button>
                 </div>
               </div>
