@@ -197,6 +197,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Ref anchors for stable callback references across renders
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const onMessagesReadRef = useRef(onMessagesRead);
+  onMessagesReadRef.current = onMessagesRead;
+
   // Visual Viewport tracking for mobile keyboard with background body locking
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   const [viewportTop, setViewportTop] = useState<number>(0);
@@ -240,22 +246,26 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
 
-    const stateObj = { ...(window.history.state || {}), secretChatModal: true };
-    window.history.pushState(stateObj, "");
+    let isPushed = false;
+    if (!window.history.state?.secretChatModal) {
+      const stateObj = { ...(window.history.state || {}), secretChatModal: true };
+      window.history.pushState(stateObj, "");
+      isPushed = true;
+    }
 
     const handlePopState = () => {
-      onClose();
+      onCloseRef.current();
     };
 
     window.addEventListener("popstate", handlePopState);
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      if (window.history.state?.secretChatModal) {
+      if (isPushed && window.history.state?.secretChatModal) {
         window.history.back();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (viewportHeight && chatFeedRef.current) {
@@ -428,8 +438,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         const data = await res.json();
         if (Array.isArray(data)) {
           setMessages(data);
-          if (markRead && onMessagesRead) {
-            onMessagesRead();
+          if (markRead && onMessagesReadRef.current) {
+            onMessagesReadRef.current();
           }
         }
       }
@@ -438,7 +448,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     } finally {
       setLoading(false);
     }
-  }, [onMessagesRead]);
+  }, []);
 
   // Fetch approved connections and pending requests
   const fetchConnections = useCallback(async () => {
@@ -544,7 +554,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -556,7 +566,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, onClose]);
+  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence]);
 
   // When selected friend changes, reload messages and retention
   useEffect(() => {
@@ -624,8 +634,22 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
       });
 
       if (res.ok) {
-        await fetchConnections();
-        if (onMessagesRead) onMessagesRead();
+        const connRes = await fetch("/api/chat/connections");
+        if (connRes.ok) {
+          const data = await connRes.json();
+          const accepted: AcceptedFriend[] = data.accepted || [];
+          setAcceptedFriends(accepted);
+          setPendingIncoming(data.pendingIncoming || []);
+          setPendingOutgoing(data.pendingOutgoing || []);
+
+          if (action === "accept") {
+            const newlyAccepted = accepted.find((f) => f.connectionId === connectionId) || accepted[accepted.length - 1];
+            if (newlyAccepted) {
+              setSelectedFriend(newlyAccepted);
+            }
+          }
+        }
+        if (onMessagesReadRef.current) onMessagesReadRef.current();
       }
     } catch (err) {
       console.error("Error responding to connection request:", err);
@@ -1038,12 +1062,17 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   setShowAddFriendForm(false);
                 }}
                 className="text-left flex items-center gap-1.5 group cursor-pointer"
+                title={acceptedFriends.length > 1 ? "Click to switch active chat between connected friends" : undefined}
               >
                 <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-teal-400 truncate transition-colors light:text-slate-900 light:group-hover:text-teal-600">
                   {selectedFriend ? selectedFriend.partnerName : "Friend Chat"}
                 </h3>
                 {acceptedFriends.length > 1 && (
-                  <ChevronDown size={14} className="text-slate-400 group-hover:text-teal-400 transition-transform light:text-slate-500 light:group-hover:text-teal-500" />
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-teal-500/20 text-teal-300 border border-teal-500/30 flex items-center gap-0.5 group-hover:bg-teal-500/30 light:bg-teal-100 light:text-teal-700 light:border-teal-200">
+                    <Users size={10} />
+                    <span>{acceptedFriends.length}</span>
+                    <ChevronDown size={11} className="transition-transform group-hover:translate-y-0.5" />
+                  </span>
                 )}
                 <span className="text-[8px] sm:text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-mono font-normal flex-shrink-0 light:bg-emerald-500/10 light:border-emerald-500/25 light:text-emerald-700">
                   AES-256

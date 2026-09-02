@@ -264,6 +264,14 @@ export default function WellnessPage() {
     }
   };
 
+  const handleCloseChat = React.useCallback(() => {
+    setIsChatOpen(false);
+  }, []);
+
+  const handleMessagesRead = React.useCallback(() => {
+    fetchUnreadChatCount();
+  }, []);
+
   // Stealth triple click listener for "Wellness tracker / Exercise sessions" header
   const handleHeaderTitleClick = () => {
     headerClickCountRef.current += 1;
@@ -1574,8 +1582,8 @@ export default function WellnessPage() {
       {/* Stealth Secret Chat Modal */}
       <SecretChatModal
         isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        onMessagesRead={() => setUnreadChatCount(0)}
+        onClose={handleCloseChat}
+        onMessagesRead={handleMessagesRead}
       />
     </div>
   );
