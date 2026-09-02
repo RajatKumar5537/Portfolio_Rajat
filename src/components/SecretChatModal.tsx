@@ -360,7 +360,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     }
 
     const handlePopState = () => {
-      if (showProfileModal) {
+      if (showProfileModalRef.current) {
         setShowProfileModal(false);
       } else if (mobileViewRef.current === "chat") {
         setMobileView("list");
@@ -374,10 +374,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     return () => {
       window.removeEventListener("popstate", handlePopState);
       if (isPushed && window.history.state?.secretChatModal) {
-        window.history.back();
+        try {
+          window.history.back();
+        } catch (_) {}
       }
     };
-  }, [isOpen, showProfileModal]);
+  }, [isOpen]);
 
   // Universal Gesture Swipe for Laptop (Mouse / Trackpad) and Mobile (Touch)
   const [swipingId, setSwipingId] = useState<string | null>(null);
