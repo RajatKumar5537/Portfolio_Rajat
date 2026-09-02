@@ -2928,7 +2928,6 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
               <div className="flex justify-between"><span className="text-slate-500 light:text-slate-500">Sent at:</span> <span className="light:text-slate-900">{new Date(selectedInfoMsg.createdAt).toLocaleString()}</span></div>
               <div className="flex justify-between"><span className="text-slate-500 light:text-slate-500">Delivered:</span> <span className="light:text-slate-900">{selectedInfoMsg.deliveredAt ? new Date(selectedInfoMsg.deliveredAt).toLocaleTimeString() : "Delivered"}</span></div>
               <div className="flex justify-between"><span className="text-slate-500 light:text-slate-500">Read:</span> <span className="light:text-slate-900">{selectedInfoMsg.isRead ? "Read ✓✓" : "Delivered ✓"}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500 light:text-slate-500">Encryption:</span> <span className="text-emerald-400 font-mono light:text-emerald-700">AES-256 GCM</span></div>
             </div>
           </div>
         </div>
