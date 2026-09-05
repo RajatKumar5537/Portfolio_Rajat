@@ -46,16 +46,16 @@ export default function ExpensesPage() {
     employerContribution: 0,
     healthInsuranceDeduction: 0,
     initialCorpus: 0,
-    startMonth: "2024-01",
+    startMonth: "2024-10",
   });
   const [showPfModal, setShowPfModal] = useState(false);
   const [pfForm, setPfForm] = useState({
     enabled: false,
-    employeeContribution: "1800",
-    employerContribution: "1800",
-    healthInsuranceDeduction: "505",
+    employeeContribution: "0",
+    employerContribution: "0",
+    healthInsuranceDeduction: "0",
     initialCorpus: "0",
-    startMonth: "2024-01",
+    startMonth: "2024-10",
   });
 
   useEffect(() => {
@@ -803,7 +803,9 @@ export default function ExpensesPage() {
     .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("sip") || (e.category || "").toLowerCase().includes("mutual") || (e.description || "").toLowerCase().includes("sip") || (e.description || "").toLowerCase().includes("mutual")))
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  const healthDeductionPerMonth = Number(categoryBudgets["Health Insurance"]) || Number(pfSettings.healthInsuranceDeduction) || 505;
+  const healthDeductionPerMonth = pfSettings.enabled
+    ? (Number(pfSettings.healthInsuranceDeduction) || (isRajat ? 505 : 0))
+    : (Number(categoryBudgets["Health Insurance"]) || 0);
 
   const currentMonthHealthInsurance = monthlyExpenses
     .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("health") || (e.category || "").toLowerCase().includes("gmc") || (e.category || "").toLowerCase().includes("mediclaim") || (e.description || "").toLowerCase().includes("health") || (e.description || "").toLowerCase().includes("gmc")))
@@ -820,7 +822,7 @@ export default function ExpensesPage() {
   // Calculate number of active months since startMonth for PF compounding
   const calculatePfMonths = () => {
     try {
-      const start = pfSettings.startMonth ? new Date(pfSettings.startMonth + "-01") : new Date("2024-01-01");
+      const start = pfSettings.startMonth ? new Date(pfSettings.startMonth + "-01") : new Date("2024-10-01");
       const now = new Date();
       const monthsDiff = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()) + 1;
       return Math.max(1, monthsDiff);
@@ -829,7 +831,9 @@ export default function ExpensesPage() {
     }
   };
   const activePfMonths = calculatePfMonths();
-  const totalAccumulatedPF = (activePfMonths * monthlyTotalPF) + (Number(pfSettings.initialCorpus) || 0);
+  const totalAccumulatedPF = pfSettings.enabled
+    ? ((activePfMonths * monthlyTotalPF) + (Number(pfSettings.initialCorpus) || 0))
+    : 0;
 
   // Total Net Worth = Liquid Net Savings + Lifetime SIP + Accumulated PF Corpus
   const totalNetWorth = newSavingBalance + lifetimeSIP + totalAccumulatedPF;
@@ -1574,23 +1578,45 @@ export default function ExpensesPage() {
               </div>
 
               {/* Health Insurance Deduction */}
-              <div className="p-3.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-500/20 flex flex-col justify-between">
+              <div className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+                pfSettings.enabled && healthDeductionPerMonth > 0
+                  ? "bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-500/20"
+                  : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-80"
+              }`}>
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-800 dark:text-cyan-400 flex items-center gap-1">
                       <Shield size={11} />
                       <span>Health Insurance</span>
                     </span>
-                    <span className="text-[8px] font-mono font-bold text-cyan-800 dark:text-cyan-300 bg-cyan-100 dark:bg-cyan-900/40 border border-cyan-200 dark:border-cyan-800 px-1.5 py-0.5 rounded">
-                      ₹{healthDeductionPerMonth.toLocaleString()}/mo
-                    </span>
+                    {pfSettings.enabled && healthDeductionPerMonth > 0 ? (
+                      <span className="text-[8px] font-mono font-bold text-cyan-800 dark:text-cyan-300 bg-cyan-100 dark:bg-cyan-900/40 border border-cyan-200 dark:border-cyan-800 px-1.5 py-0.5 rounded">
+                        ₹{healthDeductionPerMonth.toLocaleString()}/mo
+                      </span>
+                    ) : (
+                      <span className="text-[8px] font-mono text-slate-600 dark:text-slate-400 bg-slate-200/60 dark:bg-white/5 px-1.5 py-0.5 rounded">
+                        Optional
+                      </span>
+                    )}
                   </div>
                   <h3 className="text-xl font-black font-mono text-slate-900 dark:text-slate-100 mt-1">
-                    ₹{(healthDeductionPerMonth * activePfMonths).toLocaleString()}
+                    {pfSettings.enabled && healthDeductionPerMonth > 0
+                      ? `₹${(healthDeductionPerMonth * activePfMonths).toLocaleString()}`
+                      : "Not Active"}
                   </h3>
                 </div>
                 <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2">
-                  ₹{healthDeductionPerMonth}/mo × {activePfMonths} mos Salary Deduction (GMC Cover)
+                  {pfSettings.enabled && healthDeductionPerMonth > 0 ? (
+                    `₹${healthDeductionPerMonth}/mo × ${activePfMonths} mos Salary Deduction (GMC Cover)`
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowPfModal(true)}
+                      className="text-teal-700 dark:text-teal-400 hover:underline cursor-pointer font-bold"
+                    >
+                      + Turn on GMC deduction
+                    </button>
+                  )}
                 </p>
               </div>
             </div>
