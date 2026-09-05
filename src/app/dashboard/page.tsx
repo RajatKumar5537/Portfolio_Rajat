@@ -278,8 +278,9 @@ export default function DashboardPage() {
     const isOver = budget > 0 && total > budget;
     const overAmount = isOver ? total - budget : 0;
     const percentage = totalExpenses > 0 ? (total / totalExpenses) * 100 : 0;
+    const incomeShare = totalIncome > 0 ? (total / totalIncome) * 100 : 0;
     const budgetPercentage = budget > 0 ? (total / budget) * 100 : 0;
-    return { category: cat, total, budget, isOver, overAmount, percentage, budgetPercentage };
+    return { category: cat, total, budget, isOver, overAmount, percentage, incomeShare, budgetPercentage };
   });
 
   const overBudgetCategories = categorySpends.filter(c => c.isOver);
@@ -528,7 +529,7 @@ export default function DashboardPage() {
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     {overBudgetCategories.map((c) => (
                       <span key={c.category} className="text-[10px] font-mono text-slate-800 dark:text-slate-200 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 px-2 py-0.5 rounded-lg">
-                        <strong className="text-red-600 dark:text-red-400">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} ({c.budgetPercentage.toFixed(0)}% • +₹{c.overAmount.toLocaleString()} over)
+                        <strong className="text-red-600 dark:text-red-400">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} ({c.budgetPercentage.toFixed(0)}% Budget • {c.incomeShare.toFixed(1)}% Income • +₹{c.overAmount.toLocaleString()} over)
                       </span>
                     ))}
                   </div>
