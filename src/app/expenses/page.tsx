@@ -366,7 +366,7 @@ export default function ExpensesPage() {
       employerContribution: isEnabled ? (parseFloat(pfForm.employerContribution) || 0) : 0,
       healthInsuranceDeduction: isEnabled ? (parseFloat(pfForm.healthInsuranceDeduction) || 0) : 0,
       initialCorpus: isEnabled ? (parseFloat(pfForm.initialCorpus) || 0) : 0,
-      startMonth: pfForm.startMonth || "2024-01",
+      startMonth: pfForm.startMonth || "2024-10",
     };
     setPfSettings(newPf);
     localStorage.setItem(pfKey, JSON.stringify(newPf));
