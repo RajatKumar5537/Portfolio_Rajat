@@ -225,11 +225,11 @@ def build_pdf():
 
     # 4. 🤍 WELLNESS
     story.append(create_module_card(
-        "Sleep Quality & Daily Habit Routine",
+        "Sleep Quality & Workout / Exercise Tracker",
         "[ 🤍 WELLNESS ]",
         [
-            "<b>Sleep Tracker</b>: Log bedtime, wake-up time, and sleep quality recovery scores.",
-            "<b>Daily Hydration</b>: Monitor your water intake and maintain health discipline."
+            "<b>Sleep Quality Tracker</b>: Log bedtime, wake-up time, total sleep duration (hours & minutes), and recovery rating (Poor, Fair, Good, Excellent).",
+            "<b>Exercise & Workout Sessions</b>: Record physical workouts (Gym, Running, Yoga, Cycling, Walking), duration, intensity levels (Low, Medium, High), and calories burned."
         ]
     ))
     story.append(Spacer(1, 6))

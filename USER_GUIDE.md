@@ -45,9 +45,9 @@
 
 ---
 
-### 🤍 4. [ WELLNESS ] — Sleep Quality & Daily Habits
-- **Sleep Quality Tracker**: Log bedtime, wake-up time, and sleep quality recovery scores.
-- **Daily Hydration & Habits**: Track your daily water intake and habit consistency.
+### 🤍 4. [ WELLNESS ] — Sleep Quality & Workout / Exercise Tracker
+- **Sleep Quality Tracker**: Log bedtime, wake-up time, sleep duration (hours & minutes), and sleep quality recovery scores (Poor, Fair, Good, Excellent).
+- **Exercise & Workout Sessions**: Record physical workouts (Gym, Running, Yoga, Cycling, Walking), duration, intensity levels (Low, Medium, High), and calories burned.
 
 ---
 
