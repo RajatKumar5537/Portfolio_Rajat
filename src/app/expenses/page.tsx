@@ -44,6 +44,7 @@ export default function ExpensesPage() {
     enabled: false,
     employeeContribution: 0,
     employerContribution: 0,
+    healthInsuranceDeduction: 0,
     initialCorpus: 0,
     startMonth: "2024-01",
   });
@@ -52,6 +53,7 @@ export default function ExpensesPage() {
     enabled: false,
     employeeContribution: "1800",
     employerContribution: "1800",
+    healthInsuranceDeduction: "505",
     initialCorpus: "0",
     startMonth: "2024-01",
   });
@@ -149,11 +151,16 @@ export default function ExpensesPage() {
 
     if (savedExp) {
       try {
-        setExpenseCategories(JSON.parse(savedExp));
+        const parsed = JSON.parse(savedExp);
+        if (isRajatUser && !parsed.includes("Health Insurance")) {
+          const idx = parsed.indexOf("Term Insurance");
+          parsed.splice(idx >= 0 ? idx : Math.max(0, parsed.length - 2), 0, "Health Insurance");
+        }
+        setExpenseCategories(parsed);
       } catch {}
     } else {
       if (isRajatUser) {
-        setExpenseCategories(["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Term Insurance", "Travel", "Others"]);
+        setExpenseCategories(["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Health Insurance", "Term Insurance", "Travel", "Others"]);
       } else {
         setExpenseCategories(["Others"]);
       }
@@ -176,6 +183,9 @@ export default function ExpensesPage() {
     if (savedBudgets) {
       try {
         const parsed = JSON.parse(savedBudgets);
+        if (isRajatUser && parsed["Health Insurance"] === undefined) {
+          parsed["Health Insurance"] = 505;
+        }
         setCategoryBudgets(parsed);
         const strForm: { [key: string]: string } = {};
         Object.keys(parsed).forEach(k => strForm[k] = String(parsed[k]));
@@ -183,7 +193,7 @@ export default function ExpensesPage() {
       } catch {}
     } else {
       const defaultBudgets: { [key: string]: number } = isRajatUser
-        ? { "Home": 25000, "Ajit": 15000, "Delhi Room": 12000, "Swarna": 8000, "SIP": 5000, "Term Insurance": 1500, "Travel": 5000, "Others": 8000 }
+        ? { "Home": 25000, "Ajit": 15000, "Delhi Room": 12000, "Swarna": 8000, "SIP": 5000, "Health Insurance": 505, "Term Insurance": 1500, "Travel": 5000, "Others": 8000 }
         : { "Others": 10000 };
       setCategoryBudgets(defaultBudgets);
       localStorage.setItem(budgetKey, JSON.stringify(defaultBudgets));
@@ -198,10 +208,12 @@ export default function ExpensesPage() {
       try {
         const parsed = JSON.parse(savedPf);
         const isEnabled = parsed.enabled ?? isRajatUser;
+        const healthDeduction = Number(parsed.healthInsuranceDeduction) || (isRajatUser ? 505 : 0);
         setPfSettings({
           enabled: isEnabled,
           employeeContribution: Number(parsed.employeeContribution) || (isRajatUser ? 1800 : 0),
           employerContribution: Number(parsed.employerContribution) || (isRajatUser ? 1800 : 0),
+          healthInsuranceDeduction: healthDeduction,
           initialCorpus: Number(parsed.initialCorpus) || 0,
           startMonth: parsed.startMonth || "2024-01",
         });
@@ -209,6 +221,7 @@ export default function ExpensesPage() {
           enabled: isEnabled,
           employeeContribution: String(parsed.employeeContribution ?? (isRajatUser ? "1800" : "1800")),
           employerContribution: String(parsed.employerContribution ?? (isRajatUser ? "1800" : "1800")),
+          healthInsuranceDeduction: String(parsed.healthInsuranceDeduction ?? (isRajatUser ? "505" : "505")),
           initialCorpus: String(parsed.initialCorpus ?? "0"),
           startMonth: parsed.startMonth || "2024-01",
         });
@@ -218,6 +231,7 @@ export default function ExpensesPage() {
         enabled: isRajatUser,
         employeeContribution: isRajatUser ? 1800 : 0,
         employerContribution: isRajatUser ? 1800 : 0,
+        healthInsuranceDeduction: isRajatUser ? 505 : 0,
         initialCorpus: 0,
         startMonth: "2024-01",
       };
@@ -227,6 +241,7 @@ export default function ExpensesPage() {
         enabled: isRajatUser,
         employeeContribution: "1800",
         employerContribution: "1800",
+        healthInsuranceDeduction: "505",
         initialCorpus: "0",
         startMonth: "2024-01",
       });
@@ -243,7 +258,7 @@ export default function ExpensesPage() {
 
     if (expenses.length === 0) {
       if (!localStorage.getItem(expKey)) {
-        const initialExp = isRajatUser ? ["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Term Insurance", "Travel", "Others"] : ["Others"];
+        const initialExp = isRajatUser ? ["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Health Insurance", "Term Insurance", "Travel", "Others"] : ["Others"];
         setExpenseCategories(initialExp);
       }
       if (!localStorage.getItem(incKey)) {
@@ -257,7 +272,7 @@ export default function ExpensesPage() {
     const uniqueIncCats = Array.from(new Set(expenses.filter(e => e.type === "Income").map(e => e.category).filter(Boolean)));
 
     setExpenseCategories(prev => {
-      const base = isRajatUser && prev.length === 0 ? ["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Term Insurance", "Travel", "Others"] : prev;
+      const base = isRajatUser && prev.length === 0 ? ["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Health Insurance", "Term Insurance", "Travel", "Others"] : prev;
       const merged = Array.from(new Set([...base, ...uniqueExpCats, "Others"]));
       localStorage.setItem(expKey, JSON.stringify(merged));
       return merged;
@@ -296,6 +311,7 @@ export default function ExpensesPage() {
       enabled: isEnabled,
       employeeContribution: isEnabled ? (parseFloat(pfForm.employeeContribution) || 0) : 0,
       employerContribution: isEnabled ? (parseFloat(pfForm.employerContribution) || 0) : 0,
+      healthInsuranceDeduction: isEnabled ? (parseFloat(pfForm.healthInsuranceDeduction) || 0) : 0,
       initialCorpus: isEnabled ? (parseFloat(pfForm.initialCorpus) || 0) : 0,
       startMonth: pfForm.startMonth || "2024-01",
     };
@@ -555,6 +571,7 @@ export default function ExpensesPage() {
     }
     const c = (cat || "").toLowerCase();
     if (c.includes("sip") || c.includes("mutual")) return { bar: "bg-emerald-500", text: "text-emerald-400 light:text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-500/20", cardBg: "", alert: false };
+    if (c.includes("health") || c.includes("medical") || c.includes("gmc")) return { bar: "bg-rose-500", text: "text-rose-400 light:text-rose-600", bg: "bg-rose-500/10", border: "border-rose-500/20", cardBg: "", alert: false };
     if (c.includes("insurance") || c.includes("term")) return { bar: "bg-cyan-500", text: "text-cyan-400 light:text-cyan-600", bg: "bg-cyan-500/10", border: "border-cyan-500/20", cardBg: "", alert: false };
     if (c.includes("pf") || c.includes("epf")) return { bar: "bg-teal-500", text: "text-teal-400 light:text-teal-600", bg: "bg-teal-500/10", border: "border-teal-500/20", cardBg: "", alert: false };
     if (c.includes("home")) return { bar: "bg-emerald-500", text: "text-emerald-400 light:text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-500/20", cardBg: "", alert: false };
@@ -661,7 +678,7 @@ export default function ExpensesPage() {
     };
   }).filter(item => {
     if (isRajat) {
-      return item.total > 0 || item.budget > 0 || ["Home", "Ajit", "Swarna", "Delhi Room", "SIP", "Term Insurance"].includes(item.category);
+      return item.total > 0 || item.budget > 0 || ["Home", "Ajit", "Swarna", "Delhi Room", "SIP", "Health Insurance", "Term Insurance"].includes(item.category);
     }
     return item.total > 0 || item.budget > 0;
   });
@@ -678,11 +695,11 @@ export default function ExpensesPage() {
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   const currentMonthInsurance = monthlyExpenses
-    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("insurance") || (e.category || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("insurance") || (e.description || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("lic")))
+    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("insurance") || (e.category || "").toLowerCase().includes("term") || (e.category || "").toLowerCase().includes("health") || (e.category || "").toLowerCase().includes("medical") || (e.category || "").toLowerCase().includes("gmc") || (e.description || "").toLowerCase().includes("insurance") || (e.description || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("lic") || (e.description || "").toLowerCase().includes("health") || (e.description || "").toLowerCase().includes("gmc")))
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   const lifetimeInsurance = expenses
-    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("insurance") || (e.category || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("insurance") || (e.description || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("lic")))
+    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("insurance") || (e.category || "").toLowerCase().includes("term") || (e.category || "").toLowerCase().includes("health") || (e.category || "").toLowerCase().includes("medical") || (e.category || "").toLowerCase().includes("gmc") || (e.description || "").toLowerCase().includes("insurance") || (e.description || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("lic") || (e.description || "").toLowerCase().includes("health") || (e.description || "").toLowerCase().includes("gmc")))
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   // Provident Fund (PF / EPF) Calculations
@@ -1278,7 +1295,7 @@ export default function ExpensesPage() {
                     </span>
                   </h4>
                   <p className="text-[9px] uppercase tracking-wider text-slate-500">
-                    Track long-term wealth: SIP Mutual Funds, Term Insurance, and optional Employer Matched PF (kept separate from liquid savings)
+                    Track long-term wealth: SIP Mutual Funds, Term & Health Insurance, and Employer Matched PF (kept separate from liquid savings)
                   </p>
                 </div>
               </div>
@@ -1290,7 +1307,7 @@ export default function ExpensesPage() {
                   className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border border-teal-300 dark:border-teal-500/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
                 >
                   <Settings2 size={11} />
-                  <span>{pfSettings.enabled ? "Configure PF / SIP" : "+ Enable PF Tracking"}</span>
+                  <span>{pfSettings.enabled ? "Configure PF / Deductions" : "+ Enable PF & Deductions"}</span>
                 </button>
               </div>
             </div>
@@ -1380,19 +1397,26 @@ export default function ExpensesPage() {
                 </p>
               </div>
 
-              {/* Term Insurance & Protection */}
-              <div className="p-3.5 rounded-xl bg-cyan-950/20 light:bg-cyan-50 border border-cyan-500/20 flex flex-col justify-between">
+              {/* Term & Health Insurance Protection */}
+              <div className="p-3.5 rounded-xl bg-cyan-100/60 dark:bg-cyan-950/20 light:bg-cyan-50 border border-cyan-300 dark:border-cyan-500/20 flex flex-col justify-between">
                 <div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-400 light:text-cyan-600 flex items-center gap-1">
-                    <Shield size={11} />
-                    <span>Term Insurance</span>
-                  </span>
-                  <h3 className="text-xl font-black font-mono text-slate-100 light:text-slate-900 mt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-700 dark:text-cyan-400 flex items-center gap-1">
+                      <Shield size={11} />
+                      <span>Insurance & Health</span>
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-200/60 dark:bg-cyan-900/40 px-1.5 py-0.5 rounded">
+                      ₹{((Number(categoryBudgets["Term Insurance"]) || 1500) + (Number(categoryBudgets["Health Insurance"]) || Number(pfSettings.healthInsuranceDeduction) || 505)).toLocaleString()}/mo
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black font-mono text-slate-900 dark:text-slate-100 mt-1">
                     ₹{lifetimeInsurance.toLocaleString()}
                   </h3>
                 </div>
-                <p className="text-[8px] font-mono text-slate-400 light:text-slate-600 mt-2">
-                  {currentMonthInsurance > 0 ? `₹${currentMonthInsurance.toLocaleString()} premium in ${getContextLabel()}` : "Financial life safety net"}
+                <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2">
+                  {currentMonthInsurance > 0
+                    ? `₹${currentMonthInsurance.toLocaleString()} premium logged in ${getContextLabel()}`
+                    : `Term ₹${categoryBudgets["Term Insurance"] || 1500}/mo + Health ₹${categoryBudgets["Health Insurance"] || pfSettings.healthInsuranceDeduction || 505}/mo (GMC)`}
                 </p>
               </div>
             </div>
@@ -2399,7 +2423,7 @@ export default function ExpensesPage() {
                     type="button"
                     onClick={() => {
                       const defaultBudgets: { [key: string]: string } = isRajat
-                        ? { "Home": "25000", "Ajit": "15000", "Delhi Room": "12000", "Swarna": "8000", "SIP": "5000", "Term Insurance": "1500", "Travel": "5000", "Others": "8000" }
+                        ? { "Home": "25000", "Ajit": "15000", "Delhi Room": "12000", "Swarna": "8000", "SIP": "5000", "Health Insurance": "505", "Term Insurance": "1500", "Travel": "5000", "Others": "8000" }
                         : { "Others": "10000" };
                       setBudgetForm(defaultBudgets);
                     }}
@@ -2441,13 +2465,13 @@ export default function ExpensesPage() {
                   </span>
                   <div>
                     <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
-                      <span>Provident Fund (PF) Portfolio</span>
+                      <span>Wealth & Salary Deductions Hub</span>
                       <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/40 px-2 py-0.5 rounded-full uppercase">
                         Dynamic / Optional
                       </span>
                     </h3>
                     <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
-                      Track company PF deductions as a separate locked retirement asset
+                      Configure PF retirement pool & corporate health insurance salary deductions
                     </p>
                   </div>
                 </div>
@@ -2467,10 +2491,10 @@ export default function ExpensesPage() {
                   <div className="p-3.5 rounded-2xl bg-teal-950/40 border border-teal-500/30 flex items-center justify-between">
                     <div>
                       <h5 className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
-                        <span>Enable PF Tracking for Your Profile</span>
+                        <span>Enable PF & Corporate Deductions</span>
                       </h5>
                       <p className="text-[9px] text-slate-400 mt-0.5">
-                        {pfForm.enabled ? "Active — tracking locked EPF retirement fund" : "Disabled — will not calculate PF for your account"}
+                        {pfForm.enabled ? "Active — tracking locked EPF retirement & corporate benefits" : "Disabled — will not calculate PF for your account"}
                       </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -2530,6 +2554,26 @@ export default function ExpensesPage() {
                         <p className="text-[8px] font-mono text-slate-500">Employer match credited into your EPFO pool (Default: ₹1,800)</p>
                       </div>
 
+                      {/* Health Insurance Deduction (Company GMC) */}
+                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                          <span>Corporate Health Insurance / GMC</span>
+                          <span className="text-[9px] font-mono text-rose-400 font-bold">Medical Cover</span>
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="505"
+                            value={pfForm.healthInsuranceDeduction}
+                            onChange={(e) => setPfForm(prev => ({ ...prev, healthInsuranceDeduction: e.target.value }))}
+                            className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                          />
+                        </div>
+                        <p className="text-[8px] font-mono text-slate-500">Monthly office group medical health deduction from salary (Default: ₹505)</p>
+                      </div>
+
                       {/* Start Month */}
                       <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
                         <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
@@ -2569,20 +2613,26 @@ export default function ExpensesPage() {
                       {(() => {
                         const emp = parseFloat(pfForm.employeeContribution) || 0;
                         const comp = parseFloat(pfForm.employerContribution) || 0;
-                        const totalMonthly = emp + comp;
+                        const health = parseFloat(pfForm.healthInsuranceDeduction) || 0;
+                        const totalMonthlyPf = emp + comp;
+                        const totalSalaryDeductions = emp + health;
                         const initial = parseFloat(pfForm.initialCorpus) || 0;
                         const [startYear, startM] = (pfForm.startMonth || "2024-01").split("-").map(Number);
                         const now = new Date();
                         const currYear = now.getFullYear();
                         const currM = now.getMonth() + 1;
                         const elapsed = Math.max(1, (currYear - (startYear || 2024)) * 12 + (currM - (startM || 1)) + 1);
-                        const totalCorpus = initial + (totalMonthly * elapsed);
+                        const totalCorpus = initial + (totalMonthlyPf * elapsed);
 
                         return (
-                          <div className="p-3.5 rounded-2xl bg-teal-950/30 border border-teal-500/20 font-mono space-y-1">
+                          <div className="p-3.5 rounded-2xl bg-teal-950/30 border border-teal-500/20 font-mono space-y-1.5">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-400">Total Monthly Pool:</span>
-                              <strong className="text-teal-400">₹{totalMonthly.toLocaleString()}/mo</strong>
+                              <span className="text-slate-400">Total Salary Deductions (PF + Health):</span>
+                              <strong className="text-rose-400">₹{totalSalaryDeductions.toLocaleString()}/mo</strong>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-400">Monthly PF Pool (You ₹{emp} + Co. ₹{comp}):</span>
+                              <strong className="text-teal-400">₹{totalMonthlyPf.toLocaleString()}/mo</strong>
                             </div>
                             <div className="flex items-center justify-between text-[10px]">
                               <span className="text-slate-400">Elapsed Active Months:</span>
@@ -2616,7 +2666,7 @@ export default function ExpensesPage() {
                     type="submit"
                     className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-teal-600/30 transition-all cursor-pointer"
                   >
-                    Save PF Settings
+                    Save Settings
                   </button>
                 </div>
               </form>

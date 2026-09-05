@@ -32,6 +32,7 @@ export default function DashboardPage() {
     enabled: false,
     employeeContribution: 0,
     employerContribution: 0,
+    healthInsuranceDeduction: 0,
     initialCorpus: 0,
     startMonth: "2024-01",
   });
@@ -46,11 +47,15 @@ export default function DashboardPage() {
     const savedBudgets = localStorage.getItem(budgetKey);
     if (savedBudgets) {
       try {
-        setCategoryBudgets(JSON.parse(savedBudgets));
+        const parsed = JSON.parse(savedBudgets);
+        if (isRajatUser && parsed["Health Insurance"] === undefined) {
+          parsed["Health Insurance"] = 505;
+        }
+        setCategoryBudgets(parsed);
       } catch {}
     } else {
       const defaultBudgets: { [key: string]: number } = isRajatUser
-        ? { "Home": 25000, "Ajit": 15000, "Delhi Room": 12000, "Swarna": 8000, "SIP": 5000, "Term Insurance": 1500, "Travel": 5000, "Others": 8000 }
+        ? { "Home": 25000, "Ajit": 15000, "Delhi Room": 12000, "Swarna": 8000, "SIP": 5000, "Health Insurance": 505, "Term Insurance": 1500, "Travel": 5000, "Others": 8000 }
         : { "Others": 10000 };
       setCategoryBudgets(defaultBudgets);
     }
@@ -63,6 +68,7 @@ export default function DashboardPage() {
           enabled: parsed.enabled ?? isRajatUser,
           employeeContribution: Number(parsed.employeeContribution) || (isRajatUser ? 1800 : 0),
           employerContribution: Number(parsed.employerContribution) || (isRajatUser ? 1800 : 0),
+          healthInsuranceDeduction: Number(parsed.healthInsuranceDeduction) || (isRajatUser ? 505 : 0),
           initialCorpus: Number(parsed.initialCorpus) || 0,
           startMonth: parsed.startMonth || "2024-01",
         });
@@ -72,6 +78,7 @@ export default function DashboardPage() {
         enabled: isRajatUser,
         employeeContribution: isRajatUser ? 1800 : 0,
         employerContribution: isRajatUser ? 1800 : 0,
+        healthInsuranceDeduction: isRajatUser ? 505 : 0,
         initialCorpus: 0,
         startMonth: "2024-01",
       };
@@ -291,7 +298,7 @@ export default function DashboardPage() {
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   const lifetimeInsurance = data.expenses
-    .filter(e => (e.category === "Term Insurance" || e.category?.toLowerCase()?.includes("insurance")) && e.type === "Expense")
+    .filter(e => (e.category === "Term Insurance" || e.category === "Health Insurance" || e.category?.toLowerCase()?.includes("insurance") || e.category?.toLowerCase()?.includes("health") || e.category?.toLowerCase()?.includes("medical") || e.category?.toLowerCase()?.includes("gmc")) && e.type === "Expense")
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   const monthlyTotalPF = pfSettings.enabled
