@@ -1319,7 +1319,7 @@ export default function ExpensesPage() {
                   </span>
                 )}
               </div>
-              <h3 className="text-lg font-black font-mono text-red-700 dark:text-red-400 mt-1">₹${expenseTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono text-red-700 dark:text-red-400 mt-1">₹{expenseTotal.toLocaleString()}</h3>
               <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono text-slate-600 dark:text-slate-400">
                 <div className="flex items-center justify-between">
                   <span>% of Income:</span>
