@@ -6,7 +6,10 @@ const UserSettingsSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true,
+      index: true,
+    },
+    userEmail: {
+      type: String,
       index: true,
     },
     pfSettings: {
@@ -15,7 +18,7 @@ const UserSettingsSchema = new Schema(
       employerContribution: { type: Number, default: 0 },
       healthInsuranceDeduction: { type: Number, default: 0 },
       initialCorpus: { type: Number, default: 0 },
-      startMonth: { type: String, default: "2024-01" },
+      startMonth: { type: String, default: "2024-10" },
     },
     categoryBudgets: {
       type: Schema.Types.Mixed,

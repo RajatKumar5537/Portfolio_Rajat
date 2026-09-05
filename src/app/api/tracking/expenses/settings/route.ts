@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import UserSettings from "@/lib/models/UserSettings";
+import User from "@/lib/models/User";
+import mongoose from "mongoose";
 
 export async function GET() {
   try {
@@ -11,13 +13,25 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = (session.user as any).id;
     const userEmail = session.user.email?.toLowerCase() || "";
     const isRajatUser = userEmail === "kumarrajatpradhan5537@gmail.com";
 
     await dbConnect();
 
-    let settings = await UserSettings.findOne({ userId });
+    let userId = (session.user as any).id;
+    if (!userId && userEmail) {
+      const u = await User.findOne({ email: userEmail });
+      if (u) userId = u._id;
+    }
+
+    const query = {
+      $or: [
+        ...(userId && mongoose.Types.ObjectId.isValid(userId) ? [{ userId: new mongoose.Types.ObjectId(userId) }] : []),
+        ...(userEmail ? [{ userEmail }] : []),
+      ],
+    };
+
+    let settings = query.$or.length > 0 ? await UserSettings.findOne(query) : null;
 
     if (!settings) {
       const defaultPf = {
@@ -26,7 +40,7 @@ export async function GET() {
         employerContribution: isRajatUser ? 1800 : 0,
         healthInsuranceDeduction: isRajatUser ? 505 : 0,
         initialCorpus: 0,
-        startMonth: "2024-01",
+        startMonth: isRajatUser ? "2024-10" : "2024-10",
       };
 
       const defaultBudgets = isRajatUser
@@ -62,7 +76,8 @@ export async function GET() {
         : ["Salary", "Others"];
 
       settings = await UserSettings.create({
-        userId,
+        userId: userId || new mongoose.Types.ObjectId(),
+        userEmail,
         pfSettings: defaultPf,
         categoryBudgets: defaultBudgets,
         expenseCategories: defaultExpenseCats,
@@ -87,20 +102,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = (session.user as any).id;
+    const userEmail = session.user.email?.toLowerCase() || "";
+    await dbConnect();
+
+    let userId = (session.user as any).id;
+    if (!userId && userEmail) {
+      const u = await User.findOne({ email: userEmail });
+      if (u) userId = u._id;
+    }
+
     const body = await req.json();
     const { pfSettings, categoryBudgets, expenseCategories, incomeCategories } = body;
 
-    await dbConnect();
-
-    const updateData: any = {};
+    const updateData: any = {
+      ...(userEmail ? { userEmail } : {}),
+      ...(userId ? { userId } : {}),
+    };
     if (pfSettings !== undefined) updateData.pfSettings = pfSettings;
     if (categoryBudgets !== undefined) updateData.categoryBudgets = categoryBudgets;
     if (expenseCategories !== undefined) updateData.expenseCategories = expenseCategories;
     if (incomeCategories !== undefined) updateData.incomeCategories = incomeCategories;
 
+    const query = {
+      $or: [
+        ...(userId && mongoose.Types.ObjectId.isValid(userId) ? [{ userId: new mongoose.Types.ObjectId(userId) }] : []),
+        ...(userEmail ? [{ userEmail }] : []),
+      ],
+    };
+
     const settings = await UserSettings.findOneAndUpdate(
-      { userId },
+      query.$or.length > 0 ? query : { userEmail },
       { $set: updateData },
       { new: true, upsert: true }
     );

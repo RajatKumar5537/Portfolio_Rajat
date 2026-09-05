@@ -12,10 +12,10 @@ export interface FoodItem {
 
 export const foodDictionary: FoodItem[] = [
   // Breakfast & Daily Routine Items
-  { name: "Milk (₹10 Daily / ~200ml)", defaultUnit: "Pouch", defaultSize: 1, gramsEquivalent: 200, proteinPerBase: 6.4, carbsPerBase: 9.6, fatsPerBase: 6, caloriesPerBase: 120 },
-  { name: "Milk (Weekend 500ml)", defaultUnit: "Pouch", defaultSize: 1, gramsEquivalent: 500, proteinPerBase: 16, carbsPerBase: 24, fatsPerBase: 15, caloriesPerBase: 300 },
-  { name: "Milk (Toned / Standard)", defaultUnit: "ml", defaultSize: 100, gramsEquivalent: 1, proteinPerBase: 3.2, carbsPerBase: 4.8, fatsPerBase: 3, caloriesPerBase: 60 },
-  { name: "Milk (Glass / 250ml)", defaultUnit: "Glass", defaultSize: 1, gramsEquivalent: 250, proteinPerBase: 8, carbsPerBase: 12, fatsPerBase: 7.5, caloriesPerBase: 150 },
+  { name: "Milk (200ml / ₹10 Daily)", defaultUnit: "ml", defaultSize: 200, gramsEquivalent: 1, proteinPerBase: 6.4, carbsPerBase: 9.6, fatsPerBase: 6, caloriesPerBase: 120 },
+  { name: "Milk (500ml / Weekend)", defaultUnit: "ml", defaultSize: 500, gramsEquivalent: 1, proteinPerBase: 16, carbsPerBase: 24, fatsPerBase: 15, caloriesPerBase: 300 },
+  { name: "Milk (250ml / Glass)", defaultUnit: "ml", defaultSize: 250, gramsEquivalent: 1, proteinPerBase: 8, carbsPerBase: 12, fatsPerBase: 7.5, caloriesPerBase: 150 },
+  { name: "Milk", defaultUnit: "ml", defaultSize: 200, gramsEquivalent: 1, proteinPerBase: 6.4, carbsPerBase: 9.6, fatsPerBase: 6, caloriesPerBase: 120 },
   { name: "Sattu Powder", defaultUnit: "Spoons", defaultSize: 1, gramsEquivalent: 15, proteinPerBase: 3, carbsPerBase: 10, fatsPerBase: 0.9, caloriesPerBase: 60 },
   { name: "Khajoor (Dates)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 10, proteinPerBase: 0.2, carbsPerBase: 7.5, fatsPerBase: 0, caloriesPerBase: 28 },
   { name: "Kaju (Cashew)", defaultUnit: "Qty", defaultSize: 1, gramsEquivalent: 1.5, proteinPerBase: 0.3, carbsPerBase: 0.5, fatsPerBase: 0.7, caloriesPerBase: 8 },

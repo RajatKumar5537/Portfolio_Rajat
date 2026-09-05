@@ -209,7 +209,7 @@ export default function ExpensesPage() {
           employerContribution: Number(parsed.employerContribution) || (isRajatUser ? 1800 : 0),
           healthInsuranceDeduction: healthDeduction,
           initialCorpus: Number(parsed.initialCorpus) || 0,
-          startMonth: parsed.startMonth || "2024-01",
+          startMonth: parsed.startMonth || "2024-10",
         });
         setPfForm({
           enabled: isEnabled,
@@ -217,7 +217,7 @@ export default function ExpensesPage() {
           employerContribution: String(parsed.employerContribution ?? (isRajatUser ? "1800" : "1800")),
           healthInsuranceDeduction: String(parsed.healthInsuranceDeduction ?? (isRajatUser ? "505" : "505")),
           initialCorpus: String(parsed.initialCorpus ?? "0"),
-          startMonth: parsed.startMonth || "2024-01",
+          startMonth: parsed.startMonth || "2024-10",
         });
       } catch {}
     } else if (isRajatUser) {
@@ -227,7 +227,7 @@ export default function ExpensesPage() {
         employerContribution: 1800,
         healthInsuranceDeduction: 505,
         initialCorpus: 0,
-        startMonth: "2024-01",
+        startMonth: "2024-10",
       };
       setPfSettings(defaultPf);
       setPfForm({
@@ -236,7 +236,7 @@ export default function ExpensesPage() {
         employerContribution: "1800",
         healthInsuranceDeduction: "505",
         initialCorpus: "0",
-        startMonth: "2024-01",
+        startMonth: "2024-10",
       });
     }
 
@@ -246,13 +246,13 @@ export default function ExpensesPage() {
         const res = await fetch("/api/tracking/expenses/settings");
         if (res.ok) {
           const dbData = await res.json();
-          if (dbData.pfSettings) {
+          if (dbData && dbData.pfSettings) {
             const isEnabled = Boolean(dbData.pfSettings.enabled ?? isRajatUser);
             const employeeContrib = Number(dbData.pfSettings.employeeContribution) || (isRajatUser ? 1800 : 0);
             const employerContrib = Number(dbData.pfSettings.employerContribution) || (isRajatUser ? 1800 : 0);
             const healthDeduct = Number(dbData.pfSettings.healthInsuranceDeduction) || (isRajatUser ? 505 : 0);
             const corpus = Number(dbData.pfSettings.initialCorpus) || 0;
-            const startM = dbData.pfSettings.startMonth || "2024-01";
+            const startM = dbData.pfSettings.startMonth || "2024-10";
 
             const normalizedPf = {
               enabled: isEnabled,

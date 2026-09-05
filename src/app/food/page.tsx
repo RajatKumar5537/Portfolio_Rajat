@@ -568,104 +568,6 @@ export default function FoodPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Form Column */}
             <div className="lg:col-span-1 space-y-6">
-              {/* 🥛 Daily Breakfast Milk Tracker Quick-Action Card */}
-              <div className="glass-card card-glow-teal p-5 rounded-2xl border border-teal-500/20 bg-teal-500/[0.04] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🥛</span>
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-200">
-                        Breakfast Milk Routine
-                      </h4>
-                      <p className="text-[9px] text-slate-400 font-medium">
-                        {isWeekend(form.date) ? "✨ Sat/Sun Weekend: 500ml Milk" : "✨ Weekday Routine: ₹10 Milk (~200ml)"}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-[8px] font-mono font-bold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30 uppercase">
-                    {isWeekend(form.date) ? "Weekend 500ml" : "Daily ₹10"}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const tpl = isWeekend(form.date)
-                        ? foodDictionary.find(f => f.name.includes("Weekend 500ml"))
-                        : foodDictionary.find(f => f.name.includes("₹10 Daily"));
-                      if (tpl) {
-                        setForm(prev => ({
-                          ...prev,
-                          mealType: "Breakfast",
-                          foodName: tpl.name,
-                          portion: String(tpl.defaultSize),
-                          portionUnit: tpl.defaultUnit,
-                          isAvoid: false
-                        }));
-                      }
-                    }}
-                    className="w-full p-2.5 rounded-xl border border-teal-500/40 bg-teal-500/15 hover:bg-teal-500/25 transition-all text-left cursor-pointer shadow-sm group"
-                  >
-                    <div className="flex items-center justify-between text-[10px] font-bold text-teal-300">
-                      <span>{isWeekend(form.date) ? "🥛 Auto-Fill Weekend 500ml Milk" : "🥛 Auto-Fill Daily ₹10 Milk (~200ml)"}</span>
-                      <span className="font-mono text-[9px] text-teal-200 bg-teal-500/20 px-1.5 py-0.5 rounded font-black">
-                        {isWeekend(form.date) ? "16g Prot • 300 kcal" : "6.4g Prot • 120 kcal"}
-                      </span>
-                    </div>
-                    <p className="text-[8px] text-slate-400 mt-1 font-mono">
-                      {isWeekend(form.date)
-                        ? "500ml: 16g Protein | 24g Carbs | 15g Fats | 300 kcal"
-                        : "₹10 Pouch: 6.4g Protein | 9.6g Carbs | 6g Fats | 120 kcal"}
-                    </p>
-                  </button>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tpl = foodDictionary.find(f => f.name.includes("₹10 Daily"));
-                        if (tpl) {
-                          setForm(prev => ({
-                            ...prev,
-                            mealType: "Breakfast",
-                            foodName: tpl.name,
-                            portion: String(tpl.defaultSize),
-                            portionUnit: tpl.defaultUnit,
-                            isAvoid: false
-                          }));
-                        }
-                      }}
-                      className="p-2 rounded-xl border border-white/10 hover:border-teal-500/30 bg-white/[0.02] hover:bg-teal-500/10 text-left cursor-pointer transition-all"
-                    >
-                      <span className="text-[9px] font-bold text-slate-200 block truncate">₹10 Milk (~200ml)</span>
-                      <span className="text-[8px] font-mono text-teal-400 font-bold block mt-0.5">6.4g Protein • 120 kcal</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tpl = foodDictionary.find(f => f.name.includes("Weekend 500ml"));
-                        if (tpl) {
-                          setForm(prev => ({
-                            ...prev,
-                            mealType: "Breakfast",
-                            foodName: tpl.name,
-                            portion: String(tpl.defaultSize),
-                            portionUnit: tpl.defaultUnit,
-                            isAvoid: false
-                          }));
-                        }
-                      }}
-                      className="p-2 rounded-xl border border-white/10 hover:border-teal-500/30 bg-white/[0.02] hover:bg-teal-500/10 text-left cursor-pointer transition-all"
-                    >
-                      <span className="text-[9px] font-bold text-slate-200 block truncate">500ml Milk (Sat/Sun)</span>
-                      <span className="text-[8px] font-mono text-teal-400 font-bold block mt-0.5">16g Protein • 300 kcal</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
               {/* Form */}
               <div className="glass-card card-glow-teal p-6 rounded-2xl border border-white/5 relative">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 mb-6 flex items-center gap-2">
@@ -787,9 +689,37 @@ export default function FoodPage() {
                   {/* Dynamic Portion input */}
                   <div className="grid grid-cols-2 gap-3 animate-fade-in">
                     <div className="space-y-1">
-                      <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">
-                        Portion ({form.portionUnit})
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[9px] uppercase font-bold tracking-widest text-teal-400">
+                          Portion ({form.portionUnit})
+                        </label>
+                        {form.foodName.toLowerCase().includes("milk") && (
+                          <div className="flex items-center gap-1 font-mono text-[8px]">
+                            <button
+                              type="button"
+                              onClick={() => setForm(prev => ({ ...prev, portion: "200" }))}
+                              className={`px-1.5 py-0.5 rounded cursor-pointer border transition-all ${
+                                form.portion === "200"
+                                  ? "bg-teal-500/20 text-teal-300 border-teal-500/40 font-bold"
+                                  : "bg-white/[0.02] text-slate-400 border-white/5 hover:text-slate-200"
+                              }`}
+                            >
+                              200ml
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setForm(prev => ({ ...prev, portion: "500" }))}
+                              className={`px-1.5 py-0.5 rounded cursor-pointer border transition-all ${
+                                form.portion === "500"
+                                  ? "bg-teal-500/20 text-teal-300 border-teal-500/40 font-bold"
+                                  : "bg-white/[0.02] text-slate-400 border-white/5 hover:text-slate-200"
+                              }`}
+                            >
+                              500ml
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <div className="relative">
                         <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-600 font-mono text-[10px]">
                           #
