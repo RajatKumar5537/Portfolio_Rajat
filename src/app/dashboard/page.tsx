@@ -576,8 +576,8 @@ export default function DashboardPage() {
                 key: "savings",
                 label: "Liquid Net Savings",
                 value: `₹${currentPeriodNet.toLocaleString()}`,
-                sub: `Pool: ₹${cumulativeSavings.toLocaleString()} (Prev: ₹${previousBalance.toLocaleString()})`,
-                badge: previousBalance !== 0 ? "Rollover" : undefined,
+                sub: totalIncome > 0 ? `Pool: ₹${cumulativeSavings.toLocaleString()} (${((currentPeriodNet / totalIncome) * 100).toFixed(1)}% Saved • Prev: ₹${previousBalance.toLocaleString()})` : `Pool: ₹${cumulativeSavings.toLocaleString()} (Prev: ₹${previousBalance.toLocaleString()})`,
+                badge: totalIncome > 0 ? `${currentPeriodNet >= 0 ? "+" : ""}${((currentPeriodNet / totalIncome) * 100).toFixed(1)}%` : (previousBalance !== 0 ? "Rollover" : undefined),
                 color: currentPeriodNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
               },
               ...(pfSettings.enabled ? [{

@@ -1232,18 +1232,29 @@ export default function ExpensesPage() {
                   ? "mini-3d-card-active-savings"
                   : ""
               }`}
-              title={`Net Savings (${getContextLabel()}): ₹${currentPeriodBalance.toLocaleString()} | Cumulative Savings Pool: ₹${newSavingBalance.toLocaleString()}`}
+              title={`Net Savings (${getContextLabel()}): ₹${currentPeriodBalance.toLocaleString()} (${incomeTotal > 0 ? ((currentPeriodBalance / incomeTotal) * 100).toFixed(1) : 0}% of Income) | Cumulative Savings Pool: ₹${newSavingBalance.toLocaleString()}`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[9px] uppercase tracking-widest text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
                   <Wallet size={10} />
                   <span>Net Savings</span>
                 </span>
-                {previousBalance !== 0 && (
-                  <span className="text-[8px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 px-1 py-0.5 rounded" title="Includes previous savings rollover">
-                    Rollover
-                  </span>
-                )}
+                <div className="flex items-center gap-1">
+                  {incomeTotal > 0 && (
+                    <span className={`text-[8px] font-mono font-black px-1.5 py-0.5 rounded ${
+                      currentPeriodBalance >= 0
+                        ? "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/40"
+                        : "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40"
+                    }`}>
+                      {currentPeriodBalance >= 0 ? "+" : ""}{((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}%
+                    </span>
+                  )}
+                  {previousBalance !== 0 && (
+                    <span className="text-[7.5px] font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/80 border border-indigo-300 dark:border-indigo-500/30 px-1 py-0.5 rounded" title="Includes previous savings rollover">
+                      Roll
+                    </span>
+                  )}
+                </div>
               </div>
               <h3 className={`text-lg font-black font-mono mt-1 ${currentPeriodBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                 {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
@@ -1255,10 +1266,9 @@ export default function ExpensesPage() {
                     ₹{newSavingBalance.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-[7.5px] text-slate-500 dark:text-slate-400 truncate">
-                  <span>Prev: {previousBalance >= 0 ? "+" : ""}₹{previousBalance.toLocaleString()}</span>
-                  <span>•</span>
-                  <span>Curr: {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}</span>
+                <div className="flex items-center justify-between text-[7.5px] text-slate-500 dark:text-slate-400">
+                  <span>{incomeTotal > 0 ? `${((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}% Saved` : "0% Saved"}</span>
+                  <span className="truncate ml-1">Prev: {previousBalance >= 0 ? "+" : ""}₹{previousBalance.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -1377,8 +1387,8 @@ export default function ExpensesPage() {
                       <Wallet size={11} />
                       <span>Liquid Net Savings</span>
                     </span>
-                    <span className="text-[8px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-200/60 dark:bg-purple-900/40 px-1 py-0.5 rounded">
-                      {getContextLabel()}
+                    <span className="text-[8px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-200/60 dark:bg-purple-900/40 px-1.5 py-0.5 rounded">
+                      {incomeTotal > 0 ? `${currentPeriodBalance >= 0 ? "+" : ""}${((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}% Saved` : getContextLabel()}
                     </span>
                   </div>
                   <div className="flex items-baseline gap-2 mt-1">
@@ -1391,7 +1401,7 @@ export default function ExpensesPage() {
                   </div>
                 </div>
                 <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2 truncate">
-                  Prev: {previousBalance >= 0 ? "+" : ""}₹{previousBalance.toLocaleString()} | Curr Net: {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
+                  Prev: {previousBalance >= 0 ? "+" : ""}₹{previousBalance.toLocaleString()} | Rate: {incomeTotal > 0 ? `${((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}%` : "0%"} ({getContextLabel()})
                 </p>
               </div>
 
