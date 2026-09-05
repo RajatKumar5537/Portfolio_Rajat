@@ -1157,12 +1157,12 @@ export default function ExpensesPage() {
             </div>
           )}
 
-          {/* Grid Overview Cards (Filtered by selected Month & Year, horizontally scrollable on mobile) */}
-          <div className="flex overflow-x-auto lg:grid lg:grid-cols-7 gap-4 mb-6 pb-3 scrollbar-none snap-x snap-mandatory">
+          {/* Grid Overview Cards (Filtered by selected Month & Year, horizontally scrollable on mobile with native momentum) */}
+          <div className="flex overflow-x-auto lg:grid lg:grid-cols-7 gap-3.5 mb-6 pb-3 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none snap-x snap-mandatory touch-pan-x overscroll-x-contain">
             {/* Income Card */}
             <div
               onClick={() => handleCardFilter("Income", null, "Income")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
+              className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[155px] min-w-[155px] sm:w-auto snap-start mini-3d-card transition-all active:scale-[0.98] ${
                 activeFilter.type === "Income" && !activeFilter.category
                   ? "mini-3d-card-active-income"
                   : ""
@@ -1173,20 +1173,26 @@ export default function ExpensesPage() {
                   <TrendingUp size={10} />
                   <span>Income</span>
                 </span>
-                <span className="text-[8px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 px-1 py-0.5 rounded">
+                <span className="text-[8px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded">
                   Inflow
                 </span>
               </div>
               <h3 className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">₹{incomeTotal.toLocaleString()}</h3>
-              <p className="text-[8px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                Total Inflow ({getContextLabel()})
-              </p>
+              <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono text-slate-500 dark:text-slate-400">
+                <div className="flex items-center justify-between">
+                  <span>Total Inflow</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">100%</span>
+                </div>
+                <div className="text-[7.5px] truncate">
+                  {getContextLabel()}
+                </div>
+              </div>
             </div>
 
             {/* Outflow Card with Total % of Income */}
             <div
               onClick={() => handleCardFilter("Expense", null, "Outflow")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[150px] lg:w-auto snap-start mini-3d-card ${
+              className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[155px] min-w-[155px] sm:w-auto snap-start mini-3d-card transition-all active:scale-[0.98] ${
                 activeFilter.type === "Expense" && !activeFilter.category
                   ? "mini-3d-card-active-expense"
                   : ""
@@ -1199,21 +1205,29 @@ export default function ExpensesPage() {
                   <span>Outflow</span>
                 </span>
                 {incomeTotal > 0 && (
-                  <span className="text-[8px] font-mono font-black text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-1.5 py-0.5 rounded" title={`${((expenseTotal / incomeTotal) * 100).toFixed(1)}% of total monthly income`}>
+                  <span className="text-[8px] font-mono font-black text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-1.5 py-0.5 rounded">
                     {((expenseTotal / incomeTotal) * 100).toFixed(1)}%
                   </span>
                 )}
               </div>
               <h3 className="text-lg font-black font-mono text-red-600 dark:text-red-400 mt-1">₹{expenseTotal.toLocaleString()}</h3>
-              <p className="text-[8px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                {incomeTotal > 0 ? `${((expenseTotal / incomeTotal) * 100).toFixed(1)}% of Income (${getContextLabel()})` : `Outflow (${getContextLabel()})`}
-              </p>
+              <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono text-slate-500 dark:text-slate-400">
+                <div className="flex items-center justify-between">
+                  <span>% of Inflow:</span>
+                  <span className="font-bold text-red-600 dark:text-red-400">
+                    {incomeTotal > 0 ? `${((expenseTotal / incomeTotal) * 100).toFixed(1)}%` : "0%"}
+                  </span>
+                </div>
+                <div className="text-[7.5px] truncate">
+                  {getContextLabel()}
+                </div>
+              </div>
             </div>
 
             {/* Net Savings / Rollover Card */}
             <div
               onClick={() => handleCardFilter(null, null, "All")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[170px] lg:w-auto snap-start mini-3d-card relative group ${
+              className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[170px] min-w-[170px] sm:w-auto snap-start mini-3d-card relative group transition-all active:scale-[0.98] ${
                 !activeFilter.type && !activeFilter.category
                   ? "mini-3d-card-active-savings"
                   : ""
@@ -1234,7 +1248,7 @@ export default function ExpensesPage() {
               <h3 className={`text-lg font-black font-mono mt-1 ${currentPeriodBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                 {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
               </h3>
-              <div className="mt-1 pt-1 border-t border-slate-200 dark:border-white/5 flex flex-col gap-0.5 text-[8px] font-mono">
+              <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono">
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
                   <span>Cumulative Pool:</span>
                   <span className={`font-bold ${newSavingBalance >= 0 ? "text-slate-900 dark:text-slate-100" : "text-red-600 dark:text-red-400"}`}>
@@ -1256,7 +1270,7 @@ export default function ExpensesPage() {
                 <div
                   key={item.category}
                   onClick={() => handleCardFilter(null, item.category, item.category)}
-                  className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[160px] lg:w-auto snap-start mini-3d-card transition-all ${
+                  className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[170px] min-w-[170px] sm:w-auto snap-start mini-3d-card transition-all active:scale-[0.98] ${
                     item.isOverBudget ? theme.cardBg : ""
                   } ${
                     activeFilter.category === item.category
@@ -1268,7 +1282,7 @@ export default function ExpensesPage() {
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-[9px] uppercase tracking-widest text-slate-600 dark:text-slate-400 font-bold truncate pr-1">{item.category}</span>
                     {item.isOverBudget ? (
-                      <span className="text-[8px] font-mono font-black text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/20 border border-red-300 dark:border-red-500/30 px-1.5 py-0.5 rounded uppercase shadow-sm whitespace-nowrap" title={`+${item.overflowPercentage.toFixed(1)}% over ₹${item.budget.toLocaleString()} budget limit (${item.incomeShare.toFixed(1)}% of Income)`}>
+                      <span className="text-[8px] font-mono font-black text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-1.5 py-0.5 rounded uppercase shadow-sm whitespace-nowrap" title={`+${item.overflowPercentage.toFixed(1)}% over ₹${item.budget.toLocaleString()} budget limit (${item.incomeShare.toFixed(1)}% of Income)`}>
                         +{item.overflowPercentage.toFixed(0)}% OVER
                       </span>
                     ) : (
@@ -1282,19 +1296,39 @@ export default function ExpensesPage() {
                     ₹{item.total.toLocaleString()}
                   </h3>
 
-                  <p className="text-[8px] font-mono mt-0.5 truncate text-slate-500 dark:text-slate-400">
-                    {item.isOverBudget ? (
-                      <span className="text-red-600 dark:text-red-400 font-bold">
-                        +₹{item.overAmount.toLocaleString()} over (+{item.overflowPercentage.toFixed(0)}% overflow)
-                      </span>
-                    ) : item.budget > 0 ? (
-                      <span>
-                        ₹{item.remainingBudget.toLocaleString()} left of ₹{item.budget.toLocaleString()}
-                      </span>
-                    ) : (
-                      <span>{item.percentage.toFixed(0)}% of Outflow</span>
-                    )}
-                  </p>
+                  {/* Structured 2-line detail for mobile & desktop */}
+                  <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono">
+                    <div className="flex items-center justify-between">
+                      {item.isOverBudget ? (
+                        <span className="text-red-600 dark:text-red-400 font-bold truncate">
+                          +₹{item.overAmount.toLocaleString()} over limit
+                        </span>
+                      ) : item.budget > 0 ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 truncate">
+                          ₹{item.remainingBudget.toLocaleString()} left
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 truncate">
+                          {item.percentage.toFixed(0)}% of Outflow
+                        </span>
+                      )}
+
+                      {item.budget > 0 && (
+                        <span className="text-slate-400 font-medium text-[7.5px] ml-1 whitespace-nowrap">
+                          (Lim: ₹{item.budget.toLocaleString()})
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[7.5px] text-slate-500 dark:text-slate-400">
+                      <span>{item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Outflow`}</span>
+                      {item.isOverBudget && (
+                        <span className="text-red-600 dark:text-red-400 font-bold">
+                          +{item.overflowPercentage.toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
