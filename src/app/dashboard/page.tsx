@@ -287,7 +287,8 @@ export default function DashboardPage() {
     const percentage = totalExpenses > 0 ? (total / totalExpenses) * 100 : 0;
     const incomeShare = totalIncome > 0 ? (total / totalIncome) * 100 : 0;
     const budgetPercentage = budget > 0 ? (total / budget) * 100 : 0;
-    return { category: cat, total, budget, isOver, overAmount, percentage, incomeShare, budgetPercentage };
+    const overflowPercentage = budget > 0 && total > budget ? ((total - budget) / budget) * 100 : 0;
+    return { category: cat, total, budget, isOver, overAmount, percentage, incomeShare, budgetPercentage, overflowPercentage };
   });
 
   const overBudgetCategories = categorySpends.filter(c => c.isOver);
@@ -536,7 +537,7 @@ export default function DashboardPage() {
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     {overBudgetCategories.map((c) => (
                       <span key={c.category} className="text-[10px] font-mono text-slate-800 dark:text-slate-200 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 px-2 py-0.5 rounded-lg">
-                        <strong className="text-red-600 dark:text-red-400">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} ({c.budgetPercentage.toFixed(0)}% Budget • {c.incomeShare.toFixed(1)}% Income • +₹{c.overAmount.toLocaleString()} over)
+                        <strong className="text-red-600 dark:text-red-400">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+{c.overflowPercentage.toFixed(0)}% Overflow • {c.budgetPercentage.toFixed(0)}% Budget • {c.incomeShare.toFixed(1)}% Income • +₹{c.overAmount.toLocaleString()} over)
                       </span>
                     ))}
                   </div>
@@ -555,13 +556,28 @@ export default function DashboardPage() {
           {/* ── Mini Stat Strip (Global totals, liquid savings rollover & optional separate PF) ── */}
           <div className={`grid gap-4 mb-8 ${pfSettings.enabled ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
             {[
-              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, sub: `Period Inflow (${getContextLabel()})`, color: "text-emerald-600 dark:text-emerald-400" },
-              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, sub: `Period Outflow (${getContextLabel()})`, color: "text-red-600 dark:text-red-400" },
+              {
+                key: "income",
+                label: "Income",
+                value: `₹${totalIncome.toLocaleString()}`,
+                sub: `Total Inflow (${getContextLabel()})`,
+                badge: "Inflow",
+                color: "text-emerald-600 dark:text-emerald-400"
+              },
+              {
+                key: "outflow",
+                label: "Outflow",
+                value: `₹${totalExpenses.toLocaleString()}`,
+                sub: totalIncome > 0 ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}% of Income (${getContextLabel()})` : `Period Outflow (${getContextLabel()})`,
+                badge: totalIncome > 0 ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}%` : undefined,
+                color: "text-red-600 dark:text-red-400"
+              },
               {
                 key: "savings",
                 label: "Liquid Net Savings",
                 value: `₹${currentPeriodNet.toLocaleString()}`,
                 sub: `Pool: ₹${cumulativeSavings.toLocaleString()} (Prev: ₹${previousBalance.toLocaleString()})`,
+                badge: previousBalance !== 0 ? "Rollover" : undefined,
                 color: currentPeriodNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
               },
               ...(pfSettings.enabled ? [{
@@ -569,6 +585,7 @@ export default function DashboardPage() {
                 label: "Provident Fund (PF)",
                 value: `₹${totalAccumulatedPF.toLocaleString()}`,
                 sub: `₹${pfSettings.employeeContribution} (You) + ₹${pfSettings.employerContribution} (Co.) × ${activePfMonths} mos`,
+                badge: "Retirement",
                 color: "text-teal-600 dark:text-teal-400"
               }] : []),
             ].map(card => (
@@ -577,14 +594,17 @@ export default function DashboardPage() {
                   <p className="text-[9px] uppercase tracking-widest text-slate-500 font-mono font-bold">
                     {card.label}
                   </p>
-                  {card.key === "savings" && previousBalance !== 0 && (
-                    <span className="text-[8px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 px-1 py-0.5 rounded" title="Includes previous savings rollover">
-                      Rollover
-                    </span>
-                  )}
-                  {card.key === "pf" && (
-                    <span className="text-[8px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/30 px-1 py-0.5 rounded" title="Employer matched locked retirement fund">
-                      Retirement
+                  {card.badge && (
+                    <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                      card.key === "outflow"
+                        ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40"
+                        : card.key === "savings"
+                        ? "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30"
+                        : card.key === "pf"
+                        ? "text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/30"
+                        : "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30"
+                    }`}>
+                      {card.badge}
                     </span>
                   )}
                 </div>
