@@ -242,27 +242,29 @@ export default function DashboardPage() {
   const totalIncome = filteredTransactions.filter(e => e.type === "Income").reduce((acc, curr) => acc + curr.amount, 0);
   const netSavings = totalIncome - totalExpenses;
 
-  // Calculate prior transactions before active period for rolling savings balance
-  const previousTransactions = data.expenses.filter((exp) => {
-    const tx = parseTxDate(exp.date);
-    if (selectedDate) {
-      return tx.dateStr < selectedDate;
-    }
-    if (selectedMonth === -1 && selectedYear === -1) {
-      return false; // Lifetime view
-    }
-    if (selectedMonth === -1 && selectedYear !== -1) {
-      return tx.year < selectedYear;
-    }
-    if (selectedYear === -1 && selectedMonth !== -1) {
-      return false;
-    }
-    return tx.year < selectedYear || (tx.year === selectedYear && tx.month < selectedMonth);
-  });
-
-  const prevIncome = previousTransactions.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const prevExpenses = previousTransactions.filter(e => e.type === "Expense").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const previousBalance = prevIncome - prevExpenses;
+  // Calculate prior month/period net savings to carry forward into the active period
+  let previousBalance = 0;
+  if (selectedDate) {
+    const prevTx = data.expenses.filter((exp) => parseTxDate(exp.date).dateStr < selectedDate);
+    const pInc = prevTx.filter(e => e.type === "Income").reduce((a, c) => a + (Number(c.amount) || 0), 0);
+    const pExp = prevTx.filter(e => e.type === "Expense").reduce((a, c) => a + (Number(c.amount) || 0), 0);
+    previousBalance = pInc - pExp;
+  } else if (selectedMonth !== -1) {
+    const prevMonthNum = selectedMonth === 0 ? 11 : selectedMonth - 1;
+    const prevMonthYear = selectedMonth === 0 ? (selectedYear === -1 ? new Date().getFullYear() - 1 : selectedYear - 1) : (selectedYear === -1 ? new Date().getFullYear() : selectedYear);
+    const prevTx = data.expenses.filter((exp) => {
+      const tx = parseTxDate(exp.date);
+      return tx.month === prevMonthNum && tx.year === prevMonthYear;
+    });
+    const pInc = prevTx.filter(e => e.type === "Income").reduce((a, c) => a + (Number(c.amount) || 0), 0);
+    const pExp = prevTx.filter(e => e.type === "Expense").reduce((a, c) => a + (Number(c.amount) || 0), 0);
+    previousBalance = pInc - pExp;
+  } else if (selectedYear !== -1) {
+    const prevTx = data.expenses.filter((exp) => parseTxDate(exp.date).year === selectedYear - 1);
+    const pInc = prevTx.filter(e => e.type === "Income").reduce((a, c) => a + (Number(c.amount) || 0), 0);
+    const pExp = prevTx.filter(e => e.type === "Expense").reduce((a, c) => a + (Number(c.amount) || 0), 0);
+    previousBalance = pInc - pExp;
+  }
   const currentPeriodNet = totalIncome - totalExpenses;
   const cumulativeSavings = previousBalance + currentPeriodNet;
 

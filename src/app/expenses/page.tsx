@@ -622,28 +622,44 @@ export default function ExpensesPage() {
     return monthMatches && yearMatches;
   });
 
-  // Calculate prior transactions before the active filter period to carry forward savings
-  const previousExpenses = expenses.filter((exp) => {
-    const tx = parseTxDate(exp.date);
-    if (filterMode === "range") {
-      if (!startDate) return false;
-      return tx.dateStr < startDate;
-    }
-    if (selectedMonth === -1 && selectedYear === -1) {
-      return false; // Lifetime view
-    }
-    if (selectedMonth === -1 && selectedYear !== -1) {
-      return tx.year < selectedYear;
-    }
-    if (selectedYear === -1 && selectedMonth !== -1) {
-      return false;
-    }
-    return tx.year < selectedYear || (tx.year === selectedYear && tx.month < selectedMonth);
-  });
+  // Calculate prior month/period net savings to carry forward into the active period
+  let previousBalance = 0;
+  let previousExpenses: any[] = [];
 
-  const prevIncomeTotal = previousExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const prevExpenseTotal = previousExpenses.filter(e => e.type === "Expense").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const previousBalance = prevIncomeTotal - prevExpenseTotal;
+  if (filterMode === "range") {
+    if (startDate) {
+      previousExpenses = expenses.filter((exp) => {
+        const tx = parseTxDate(exp.date);
+        return tx.dateStr < startDate;
+      });
+      const prevInc = previousExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const prevExp = previousExpenses.filter(e => e.type === "Expense").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      previousBalance = prevInc - prevExp;
+    }
+  } else {
+    // Month Mode: carry forward the immediate previous month's net savings
+    if (selectedMonth !== -1) {
+      const prevMonthNum = selectedMonth === 0 ? 11 : selectedMonth - 1;
+      const prevMonthYear = selectedMonth === 0 ? (selectedYear === -1 ? new Date().getFullYear() - 1 : selectedYear - 1) : (selectedYear === -1 ? new Date().getFullYear() : selectedYear);
+      
+      previousExpenses = expenses.filter((exp) => {
+        const tx = parseTxDate(exp.date);
+        return tx.month === prevMonthNum && tx.year === prevMonthYear;
+      });
+      const prevInc = previousExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const prevExp = previousExpenses.filter(e => e.type === "Expense").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      previousBalance = prevInc - prevExp;
+    } else if (selectedYear !== -1) {
+      // All months of selected year: carry forward previous year net
+      previousExpenses = expenses.filter((exp) => {
+        const tx = parseTxDate(exp.date);
+        return tx.year === selectedYear - 1;
+      });
+      const prevInc = previousExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const prevExp = previousExpenses.filter(e => e.type === "Expense").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      previousBalance = prevInc - prevExp;
+    }
+  }
 
   // 2. Calculations based on Monthly/Yearly/Range data
   const incomeTotal = monthlyExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
