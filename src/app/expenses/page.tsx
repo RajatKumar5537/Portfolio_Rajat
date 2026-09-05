@@ -712,12 +712,14 @@ export default function ExpensesPage() {
     .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("sip") || (e.category || "").toLowerCase().includes("mutual") || (e.description || "").toLowerCase().includes("sip") || (e.description || "").toLowerCase().includes("mutual")))
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  const currentMonthInsurance = monthlyExpenses
-    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("insurance") || (e.category || "").toLowerCase().includes("term") || (e.category || "").toLowerCase().includes("health") || (e.category || "").toLowerCase().includes("medical") || (e.category || "").toLowerCase().includes("gmc") || (e.description || "").toLowerCase().includes("insurance") || (e.description || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("lic") || (e.description || "").toLowerCase().includes("health") || (e.description || "").toLowerCase().includes("gmc")))
+  const healthDeductionPerMonth = Number(categoryBudgets["Health Insurance"]) || Number(pfSettings.healthInsuranceDeduction) || 505;
+
+  const currentMonthHealthInsurance = monthlyExpenses
+    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("health") || (e.category || "").toLowerCase().includes("gmc") || (e.category || "").toLowerCase().includes("mediclaim") || (e.description || "").toLowerCase().includes("health") || (e.description || "").toLowerCase().includes("gmc")))
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  const lifetimeInsurance = expenses
-    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("insurance") || (e.category || "").toLowerCase().includes("term") || (e.category || "").toLowerCase().includes("health") || (e.category || "").toLowerCase().includes("medical") || (e.category || "").toLowerCase().includes("gmc") || (e.description || "").toLowerCase().includes("insurance") || (e.description || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("lic") || (e.description || "").toLowerCase().includes("health") || (e.description || "").toLowerCase().includes("gmc")))
+  const lifetimeHealthInsurance = expenses
+    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("health") || (e.category || "").toLowerCase().includes("gmc") || (e.category || "").toLowerCase().includes("mediclaim") || (e.description || "").toLowerCase().includes("health") || (e.description || "").toLowerCase().includes("gmc")))
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   // Provident Fund (PF / EPF) Calculations
@@ -814,7 +816,7 @@ export default function ExpensesPage() {
       : "Personal Ledger";
 
     if (typeToFilter === "All") {
-      targetName += (activeFilter.category || searchQuery.trim()) ? " (All Inflows & Outflows)" : " (Income & Expenses Combined)";
+      targetName += (activeFilter.category || searchQuery.trim()) ? " (All Income & Expenses)" : " (Income & Expenses Combined)";
     } else {
       targetName += ` (${typeToFilter}s)`;
     }
@@ -888,14 +890,14 @@ export default function ExpensesPage() {
       ["Generated Date:", new Date().toLocaleString()],
       ["Total Transactions:", data.totalCount],
       ["Opening / Previous Balance (INR):", data.openingBalance],
-      ["Total Inflow / Income (INR):", data.totalIncome],
-      ["Total Outflow / Expense (INR):", data.totalExpense],
-      ["Current Period Net Cash Flow (INR):", data.netBalance],
-      ["Closing / New Saving Balance (INR):", data.cumulativeBalance],
+      ["Total Income (INR):", data.totalIncome],
+      ["Total Expenses (INR):", data.totalExpense],
+      ["Current Period Net Savings (INR):", data.netBalance],
+      ["Closing / Total Savings Pool (INR):", data.cumulativeBalance],
       ["Savings Rollover Formula:", `Previous (₹${data.openingBalance}) + Current Net (₹${data.netBalance}) = Closing Savings (₹${data.cumulativeBalance})`],
       [],
       ["CATEGORY SPEND & SHARE BREAKDOWN"],
-      ["Category Name", "Outflow (INR)", "% of Total Outflow", "% of Total Inflow"]
+      ["Category Name", "Expense Amount (INR)", "% of Total Expenses", "% of Total Income"]
     ];
 
     data.categoryBreakdown.forEach((cat) => {
@@ -927,20 +929,20 @@ export default function ExpensesPage() {
 
     // Grand total row
     wsData.push([]);
-    wsData.push(["Total Inflow (Income)", "", "", "", data.totalIncome]);
-    wsData.push(["Total Outflow (Expense)", "", "", "", -data.totalExpense]);
+    wsData.push(["Total Income", "", "", "", data.totalIncome]);
+    wsData.push(["Total Expenses", "", "", "", -data.totalExpense]);
     wsData.push(["Current Period Net", "", "", "", data.netBalance]);
     wsData.push(["Opening Previous Balance", "", "", "", data.openingBalance]);
-    wsData.push(["Closing New Saving Balance", "", "", "", data.cumulativeBalance]);
+    wsData.push(["Closing Total Savings Pool", "", "", "", data.cumulativeBalance]);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     // Set Column Widths
     ws["!cols"] = [
       { wch: 18 }, // Date / Category
-      { wch: 40 }, // Description / Outflow
-      { wch: 22 }, // Category / % Outflow
-      { wch: 18 }, // Type / % Inflow
+      { wch: 40 }, // Description / Expense
+      { wch: 22 }, // Category / % Expenses
+      { wch: 18 }, // Type / % Income
       { wch: 18 }  // Amount
     ];
 
@@ -971,7 +973,7 @@ export default function ExpensesPage() {
     });
 
     const categoryLines = data.categoryBreakdown.map(
-      (c) => `# Category: ${c.category}, Spend: ₹${c.total}, Share: ${c.percentage.toFixed(1)}% of Outflow`
+      (c) => `# Category: ${c.category}, Spend: ₹${c.total}, Share: ${c.percentage.toFixed(1)}% of Expenses`
     ).join("\n");
 
     const metaComments = [
@@ -981,17 +983,17 @@ export default function ExpensesPage() {
       `# Generated On: ${new Date().toLocaleString()}`,
       `# Total Transactions: ${data.totalCount}`,
       `# Opening / Previous Balance: ₹${data.openingBalance}`,
-      `# Total Inflow (Income): +₹${data.totalIncome}`,
-      `# Total Outflow (Expense): -₹${data.totalExpense}`,
+      `# Total Income: +₹${data.totalIncome}`,
+      `# Total Expenses: -₹${data.totalExpense}`,
       `# Current Period Net: ₹${data.netBalance}`,
-      `# Closing / New Saving Balance: ₹${data.cumulativeBalance}`,
+      `# Closing Total Savings Pool: ₹${data.cumulativeBalance}`,
       `# Equation: Previous (₹${data.openingBalance}) + Current Net (₹${data.netBalance}) = Closing Savings (₹${data.cumulativeBalance})`,
       `# --- Category Spend Distribution ---`,
       categoryLines,
       ``
     ].join("\n");
 
-    const csvContent = metaComments + headers.join(",") + "\n" + rows.join("\n") + `\nTotal Inflow,,,,${data.totalIncome}\nTotal Outflow,,,,-${data.totalExpense}\nPeriod Net Balance,,,,${data.netBalance}\nOpening Balance,,,,${data.openingBalance}\nNew Saving Balance,,,,${data.cumulativeBalance}`;
+    const csvContent = metaComments + headers.join(",") + "\n" + rows.join("\n") + `\nTotal Income,,,,${data.totalIncome}\nTotal Expenses,,,,-${data.totalExpense}\nPeriod Net Balance,,,,${data.netBalance}\nOpening Balance,,,,${data.openingBalance}\nClosing Total Savings Pool,,,,${data.cumulativeBalance}`;
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1205,20 +1207,20 @@ export default function ExpensesPage() {
               </div>
             </div>
 
-            {/* Outflow Card with Total % of Income */}
+            {/* Expenses Card with Total % of Income */}
             <div
-              onClick={() => handleCardFilter("Expense", null, "Outflow")}
+              onClick={() => handleCardFilter("Expense", null, "Expense")}
               className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[155px] min-w-[155px] sm:w-auto snap-start mini-3d-card transition-all active:scale-[0.98] ${
                 activeFilter.type === "Expense" && !activeFilter.category
                   ? "mini-3d-card-active-expense"
                   : ""
               }`}
-              title={`Total Outflow: ₹${expenseTotal.toLocaleString()} (${incomeTotal > 0 ? ((expenseTotal / incomeTotal) * 100).toFixed(1) : 0}% of Monthly Income)`}
+              title={`Total Expenses: ₹${expenseTotal.toLocaleString()} (${incomeTotal > 0 ? ((expenseTotal / incomeTotal) * 100).toFixed(1) : 0}% of Monthly Income)`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[9px] uppercase tracking-widest text-red-700 dark:text-red-400 font-bold flex items-center gap-1">
                   <TrendingDown size={10} />
-                  <span>Outflow</span>
+                  <span>Expenses</span>
                 </span>
                 {incomeTotal > 0 && (
                   <span className="text-[8px] font-mono font-black text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-1.5 py-0.5 rounded">
@@ -1226,10 +1228,10 @@ export default function ExpensesPage() {
                   </span>
                 )}
               </div>
-              <h3 className="text-lg font-black font-mono text-red-700 dark:text-red-400 mt-1">₹{expenseTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono text-red-700 dark:text-red-400 mt-1">₹${expenseTotal.toLocaleString()}</h3>
               <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono text-slate-600 dark:text-slate-400">
                 <div className="flex items-center justify-between">
-                  <span>% of Inflow:</span>
+                  <span>% of Income:</span>
                   <span className="font-bold text-red-700 dark:text-red-400">
                     {incomeTotal > 0 ? `${((expenseTotal / incomeTotal) * 100).toFixed(1)}%` : "0%"}
                   </span>
@@ -1248,7 +1250,7 @@ export default function ExpensesPage() {
                   ? "mini-3d-card-active-savings"
                   : ""
               }`}
-              title={`Net Savings (${getContextLabel()}): ₹${currentPeriodBalance.toLocaleString()} (${incomeTotal > 0 ? ((currentPeriodBalance / incomeTotal) * 100).toFixed(1) : 0}% of Income) | Cumulative Savings Pool: ₹${newSavingBalance.toLocaleString()}`}
+              title={`Net Savings (${getContextLabel()}): ₹${currentPeriodBalance.toLocaleString()} (${incomeTotal > 0 ? ((currentPeriodBalance / incomeTotal) * 100).toFixed(1) : 0}% of Income) | Total Savings Pool: ₹${newSavingBalance.toLocaleString()}`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[9px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-bold flex items-center gap-1">
@@ -1277,7 +1279,7 @@ export default function ExpensesPage() {
               </h3>
               <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono">
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                  <span>Cumulative Pool:</span>
+                  <span>Total Savings Pool:</span>
                   <span className={`font-bold ${newSavingBalance >= 0 ? "text-slate-900 dark:text-slate-100" : "text-red-700 dark:text-red-400"}`}>
                     ₹{newSavingBalance.toLocaleString()}
                   </span>
@@ -1313,7 +1315,7 @@ export default function ExpensesPage() {
                           ? "text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border-red-300 dark:border-red-500/40 font-black"
                           : `${theme.bg} ${theme.border} ${theme.text}`
                       }`}
-                      title={`${item.category}: ${item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Outflow`}${item.isOverBudget ? ` (+${item.overflowPercentage.toFixed(0)}% over budget)` : ""}`}
+                      title={`${item.category}: ${item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Expenses`}${item.isOverBudget ? ` (+${item.overflowPercentage.toFixed(0)}% over budget)` : ""}`}
                     >
                       {item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}%` : `${item.percentage.toFixed(1)}%`}
                     </span>
@@ -1336,7 +1338,7 @@ export default function ExpensesPage() {
                         </span>
                       ) : (
                         <span className="text-slate-600 dark:text-slate-400 truncate">
-                          {item.percentage.toFixed(0)}% of Outflow
+                          {item.percentage.toFixed(0)}% of Expenses
                         </span>
                       )}
 
@@ -1349,17 +1351,13 @@ export default function ExpensesPage() {
 
                     <div className="flex items-center justify-between text-[7.5px]">
                       <span className="text-slate-600 dark:text-slate-400">
-                        {item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Outflow`}
+                        {item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Expenses`}
                       </span>
-                      {item.isOverBudget ? (
+                      {item.isOverBudget && (
                         <span className="text-red-700 dark:text-red-400 font-bold whitespace-nowrap ml-1">
                           +{item.overflowPercentage.toFixed(0)}% Over
                         </span>
-                      ) : item.budget > 0 ? (
-                        <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-1 font-medium">
-                          {item.budgetPercentage.toFixed(0)}% Budget
-                        </span>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1371,44 +1369,43 @@ export default function ExpensesPage() {
           {/* ── 🏛️ WEALTH, INVESTMENTS & PROVIDENT FUND (PF) HUB ── */}
           <div className="glass-card card-glow-teal p-5 rounded-2xl border border-teal-200 dark:border-teal-500/20 mb-8 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/5 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-500/10 border border-teal-300 dark:border-teal-500/20 text-teal-700 dark:text-teal-400">
-                  <Landmark size={15} />
-                </span>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400">
+                  <Landmark size={18} />
+                </div>
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-200 flex items-center gap-2">
-                    <span>Wealth, Investments & Provident Fund (PF) Hub</span>
-                    <span className="text-[9px] font-mono font-bold text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/40 px-2 py-0.5 rounded-full uppercase">
-                      Asset Growth
+                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <span>Wealth, SIP & Provident Fund Hub</span>
+                    <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-500/20 text-teal-800 dark:text-teal-300 border border-teal-300 dark:border-teal-500/30">
+                      Total: ₹{totalNetWorth.toLocaleString()}
                     </span>
-                  </h4>
-                  <p className="text-[9px] uppercase tracking-wider text-slate-600 dark:text-slate-400 font-medium">
-                    Track long-term wealth: SIP Mutual Funds, Term & Health Insurance, and Employer Matched PF (kept separate from liquid savings)
+                  </h3>
+                  <p className="text-[10px] text-slate-600 dark:text-slate-400">
+                    Track long-term wealth: SIP Mutual Funds, Health Insurance, and Employer Matched PF (kept separate from monthly savings)
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPfModal(true)}
-                  className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-100 bg-teal-100 hover:bg-teal-200 dark:bg-teal-500/10 dark:hover:bg-teal-500/20 border border-teal-300 dark:border-teal-500/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
-                >
-                  <Settings2 size={11} />
-                  <span>{pfSettings.enabled ? "Configure PF / Deductions" : "+ Enable PF & Deductions"}</span>
-                </button>
-              </div>
+              {/* Configure PF & Salary Deductions Button */}
+              <button
+                type="button"
+                onClick={() => setShowPfModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-500/10 hover:bg-teal-100 dark:hover:bg-teal-500/20 border border-teal-200 dark:border-teal-500/30 text-teal-800 dark:text-teal-300 text-xs font-bold transition-all cursor-pointer shadow-sm"
+              >
+                <SlidersHorizontal size={13} />
+                <span>Configure PF & Insurance</span>
+              </button>
             </div>
 
-            {/* 4 Wealth Portfolio KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Liquid Cumulative Savings (Pure Cash, Never mixed with PF) */}
+            {/* 4 Wealth Pillars Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Cumulative Net Savings */}
               <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-500/20 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-purple-800 dark:text-purple-400 flex items-center gap-1">
                       <Wallet size={11} />
-                      <span>Liquid Net Savings</span>
+                      <span>Net Savings</span>
                     </span>
                     <span className="text-[8px] font-mono font-bold text-purple-800 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded">
                       {incomeTotal > 0 ? `${currentPeriodBalance >= 0 ? "+" : ""}${((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}% Saved` : getContextLabel()}
@@ -1419,12 +1416,12 @@ export default function ExpensesPage() {
                       {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
                     </h3>
                     <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-semibold">
-                      (Pool: ₹{newSavingBalance.toLocaleString()})
+                      (Total Pool: ₹{newSavingBalance.toLocaleString()})
                     </span>
                   </div>
                 </div>
                 <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2 truncate">
-                  Prev: {previousBalance >= 0 ? "+" : ""}₹{previousBalance.toLocaleString()} | Rate: {incomeTotal > 0 ? `${((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}%` : "0%"} ({getContextLabel()})
+                  Prev: {previousBalance >= 0 ? "+" : ""}₹{previousBalance.toLocaleString()} | Saved: {incomeTotal > 0 ? `${((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}%` : "0%"} ({getContextLabel()})
                 </p>
               </div>
 
@@ -1485,31 +1482,30 @@ export default function ExpensesPage() {
                 </p>
               </div>
 
-              {/* Term & Health Insurance Protection */}
+              {/* Health Insurance Deduction */}
               <div className="p-3.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-500/20 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-800 dark:text-cyan-400 flex items-center gap-1">
                       <Shield size={11} />
-                      <span>Insurance & Health</span>
+                      <span>Health Insurance</span>
                     </span>
                     <span className="text-[8px] font-mono font-bold text-cyan-800 dark:text-cyan-300 bg-cyan-100 dark:bg-cyan-900/40 border border-cyan-200 dark:border-cyan-800 px-1.5 py-0.5 rounded">
-                      ₹{((Number(categoryBudgets["Term Insurance"]) || 1500) + (Number(categoryBudgets["Health Insurance"]) || Number(pfSettings.healthInsuranceDeduction) || 505)).toLocaleString()}/mo
+                      ₹{healthDeductionPerMonth.toLocaleString()}/mo
                     </span>
                   </div>
                   <h3 className="text-xl font-black font-mono text-slate-900 dark:text-slate-100 mt-1">
-                    ₹{lifetimeInsurance.toLocaleString()}
+                    ₹{(lifetimeHealthInsurance > 0 ? lifetimeHealthInsurance : healthDeductionPerMonth * activePfMonths).toLocaleString()}
                   </h3>
                 </div>
                 <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2">
-                  {currentMonthInsurance > 0
-                    ? `₹${currentMonthInsurance.toLocaleString()} premium logged in ${getContextLabel()}`
-                    : `Term ₹${categoryBudgets["Term Insurance"] || 1500}/mo + Health ₹${categoryBudgets["Health Insurance"] || pfSettings.healthInsuranceDeduction || 505}/mo (GMC)`}
+                  {currentMonthHealthInsurance > 0
+                    ? `₹${currentMonthHealthInsurance.toLocaleString()} deducted in ${getContextLabel()}`
+                    : `₹${healthDeductionPerMonth}/mo Salary Deduction (GMC Mediclaim Cover)`}
                 </p>
               </div>
             </div>
           </div>
-
           {/* ── Visual Category & Share Allocation Bar & Rolling Savings Info Banner ── */}
           <div className="glass-card p-5 rounded-2xl border border-white/5 mb-8 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
@@ -1519,7 +1515,7 @@ export default function ExpensesPage() {
                 </span>
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-200 light:text-slate-800">
-                    Category Allocation & Outflow Shares ({getContextLabel()})
+                    Category Allocation & Spending Breakdown ({getContextLabel()})
                   </h4>
                   <p className="text-[9px] uppercase tracking-wider text-slate-500">
                     Percentage-wise distribution of total ₹{expenseTotal.toLocaleString()} expenses
@@ -1596,7 +1592,7 @@ export default function ExpensesPage() {
               </div>
             ) : (
               <div className="text-xs text-slate-500 italic py-2">
-                No expense outflow recorded for {getContextLabel()} to display percentage breakdown.
+                No expenses recorded for {getContextLabel()} to display percentage breakdown.
               </div>
             )}
           </div>
@@ -2245,11 +2241,11 @@ export default function ExpensesPage() {
                       </p>
                     </div>
                     <div className="statement-kpi-card p-3 rounded-xl bg-emerald-950/10 light:bg-emerald-50 border border-emerald-500/10 light:border-emerald-200">
-                      <span className="text-[9px] uppercase tracking-wider text-emerald-400 light:text-emerald-600 font-bold">Total Inflow</span>
+                      <span className="text-[9px] uppercase tracking-wider text-emerald-400 light:text-emerald-600 font-bold">Total Income</span>
                       <p className="text-base font-black font-mono text-emerald-400 light:text-emerald-600 mt-1">₹{stmtData.totalIncome.toLocaleString()}</p>
                     </div>
                     <div className="statement-kpi-card p-3 rounded-xl bg-red-950/10 light:bg-red-50 border border-red-500/10 light:border-red-200">
-                      <span className="text-[9px] uppercase tracking-wider text-red-400 light:text-red-600 font-bold">Total Outflow</span>
+                      <span className="text-[9px] uppercase tracking-wider text-red-400 light:text-red-600 font-bold">Total Expenses</span>
                       <p className="text-base font-black font-mono text-red-400 light:text-red-600 mt-1">₹{stmtData.totalExpense.toLocaleString()}</p>
                     </div>
                     <div className="statement-kpi-card p-3 rounded-xl bg-purple-950/10 light:bg-purple-50 border border-purple-500/10 light:border-purple-200">
@@ -2259,7 +2255,7 @@ export default function ExpensesPage() {
                       </p>
                     </div>
                     <div className="statement-kpi-card p-3 rounded-xl bg-indigo-950/10 light:bg-indigo-50 border border-indigo-500/10 light:border-indigo-200 col-span-2 sm:col-span-1">
-                      <span className="text-[9px] uppercase tracking-wider text-indigo-400 light:text-indigo-600 font-bold">Closing Balance</span>
+                      <span className="text-[9px] uppercase tracking-wider text-indigo-400 light:text-indigo-600 font-bold">Total Savings Pool</span>
                       <p className={`text-base font-black font-mono mt-1 ${stmtData.cumulativeBalance >= 0 ? "text-emerald-400 light:text-emerald-600" : "text-red-400 light:text-red-600"}`}>
                         ₹{stmtData.cumulativeBalance.toLocaleString()}
                       </p>
@@ -2272,7 +2268,7 @@ export default function ExpensesPage() {
                       Savings Rollover Formula:
                     </span>
                     <span className="text-slate-200 light:text-slate-800">
-                      Opening (₹{stmtData.openingBalance.toLocaleString()}) + Period Net (₹{stmtData.netBalance.toLocaleString()}) = <strong className="text-indigo-400 light:text-indigo-600 font-bold">₹{stmtData.cumulativeBalance.toLocaleString()} (Closing Savings)</strong>
+                      Opening (₹{stmtData.openingBalance.toLocaleString()}) + Period Net (₹{stmtData.netBalance.toLocaleString()}) = <strong className="text-indigo-400 light:text-indigo-600 font-bold">₹{stmtData.cumulativeBalance.toLocaleString()} (Total Savings Pool)</strong>
                     </span>
                   </div>
 
@@ -2288,8 +2284,8 @@ export default function ExpensesPage() {
                             <tr className="bg-white/[0.03] light:bg-slate-100 border-b border-white/10 light:border-slate-200 text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono">
                               <th className="py-2 px-3">Category</th>
                               <th className="py-2 px-3 text-right">Spend Amount (₹)</th>
-                              <th className="py-2 px-3 text-right">% of Total Outflow</th>
-                              <th className="py-2 px-3 text-right">% of Total Inflow</th>
+                              <th className="py-2 px-3 text-right">% of Total Expenses</th>
+                              <th className="py-2 px-3 text-right">% of Total Income</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5 light:divide-slate-200 font-mono">
@@ -2362,7 +2358,7 @@ export default function ExpensesPage() {
                                 Grand Total ({stmtData.transactions.length} Records)
                               </span>
                               <span className="text-[9px] text-slate-400 font-normal font-mono">
-                                Inflow: <strong className="text-emerald-400 light:text-emerald-600">+₹{stmtData.totalIncome.toLocaleString()}</strong> | Outflow: <strong className="text-red-400 light:text-red-600">-₹{stmtData.totalExpense.toLocaleString()}</strong>
+                                Income: <strong className="text-emerald-400 light:text-emerald-600">+₹{stmtData.totalIncome.toLocaleString()}</strong> | Expenses: <strong className="text-red-400 light:text-red-600">-₹{stmtData.totalExpense.toLocaleString()}</strong>
                               </span>
                             </div>
                           </td>

@@ -562,23 +562,23 @@ export default function DashboardPage() {
                 key: "income",
                 label: "Income",
                 value: `₹${totalIncome.toLocaleString()}`,
-                sub: `Total Inflow (${getContextLabel()})`,
-                badge: "Inflow",
+                sub: `Total Income (${getContextLabel()})`,
+                badge: "Income",
                 color: "text-emerald-700 dark:text-emerald-400"
               },
               {
                 key: "outflow",
-                label: "Outflow",
+                label: "Expenses",
                 value: `₹${totalExpenses.toLocaleString()}`,
-                sub: totalIncome > 0 ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}% of Income (${getContextLabel()})` : `Period Outflow (${getContextLabel()})`,
+                sub: totalIncome > 0 ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}% of Income (${getContextLabel()})` : `Total Expenses (${getContextLabel()})`,
                 badge: totalIncome > 0 ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}%` : undefined,
                 color: "text-red-700 dark:text-red-400"
               },
               {
                 key: "savings",
-                label: "Liquid Net Savings",
+                label: "Net Savings",
                 value: `₹${currentPeriodNet.toLocaleString()}`,
-                sub: totalIncome > 0 ? `Pool: ₹${cumulativeSavings.toLocaleString()} (${((currentPeriodNet / totalIncome) * 100).toFixed(1)}% Saved • Prev: ₹${previousBalance.toLocaleString()})` : `Pool: ₹${cumulativeSavings.toLocaleString()} (Prev: ₹${previousBalance.toLocaleString()})`,
+                sub: totalIncome > 0 ? `Total Pool: ₹${cumulativeSavings.toLocaleString()} (${((currentPeriodNet / totalIncome) * 100).toFixed(1)}% Saved • Prev: ₹${previousBalance.toLocaleString()})` : `Total Pool: ₹${cumulativeSavings.toLocaleString()} (Prev: ₹${previousBalance.toLocaleString()})`,
                 badge: totalIncome > 0 ? `${currentPeriodNet >= 0 ? "+" : ""}${((currentPeriodNet / totalIncome) * 100).toFixed(1)}%` : (previousBalance !== 0 ? "Rollover" : undefined),
                 color: currentPeriodNet >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
               },
