@@ -84,6 +84,37 @@ export default function DashboardPage() {
       };
       setPfSettings(defaultPf);
     }
+
+    // Synchronize authoritative settings from MongoDB
+    async function fetchDbSettings() {
+      try {
+        const res = await fetch("/api/tracking/expenses/settings");
+        if (res.ok) {
+          const dbData = await res.json();
+          if (dbData.pfSettings) {
+            const isEnabled = Boolean(dbData.pfSettings.enabled ?? isRajatUser);
+            const normalizedPf = {
+              enabled: isEnabled,
+              employeeContribution: Number(dbData.pfSettings.employeeContribution) || (isRajatUser ? 1800 : 0),
+              employerContribution: Number(dbData.pfSettings.employerContribution) || (isRajatUser ? 1800 : 0),
+              healthInsuranceDeduction: Number(dbData.pfSettings.healthInsuranceDeduction) || (isRajatUser ? 505 : 0),
+              initialCorpus: Number(dbData.pfSettings.initialCorpus) || 0,
+              startMonth: dbData.pfSettings.startMonth || "2024-01",
+            };
+            setPfSettings(normalizedPf);
+            localStorage.setItem(pfKey, JSON.stringify(normalizedPf));
+          }
+          if (dbData.categoryBudgets && typeof dbData.categoryBudgets === "object") {
+            setCategoryBudgets(dbData.categoryBudgets);
+            localStorage.setItem(budgetKey, JSON.stringify(dbData.categoryBudgets));
+          }
+        }
+      } catch (err) {
+        console.error("Dashboard DB Settings Fetch Error:", err);
+      }
+    }
+
+    fetchDbSettings();
   }, [session]);
 
   // Fetch all user records from the optimized consolidated API endpoint

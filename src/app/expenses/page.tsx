@@ -136,7 +136,7 @@ export default function ExpensesPage() {
     }
   };
 
-  // 1. Initial load from LocalStorage (scoped per user)
+  // 1. Initial load from LocalStorage cache & MongoDB database sync
   useEffect(() => {
     if (!session?.user) return;
     const isRajatUser = session.user.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
@@ -146,6 +146,7 @@ export default function ExpensesPage() {
     const budgetKey = `category_budgets_${uId}`;
     const pfKey = `pf_settings_${uId}`;
 
+    // A. Immediate load from local storage for fast render
     const savedExp = localStorage.getItem(expKey);
     const savedInc = localStorage.getItem(incKey);
 
@@ -158,27 +159,23 @@ export default function ExpensesPage() {
         }
         setExpenseCategories(parsed);
       } catch {}
+    } else if (isRajatUser) {
+      setExpenseCategories(["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Health Insurance", "Term Insurance", "Travel", "Others"]);
     } else {
-      if (isRajatUser) {
-        setExpenseCategories(["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Health Insurance", "Term Insurance", "Travel", "Others"]);
-      } else {
-        setExpenseCategories(["Others"]);
-      }
+      setExpenseCategories(["Others"]);
     }
 
     if (savedInc) {
       try {
         setIncomeCategories(JSON.parse(savedInc));
       } catch {}
+    } else if (isRajatUser) {
+      setIncomeCategories(["Salary", "Bonus", "Others"]);
     } else {
-      if (isRajatUser) {
-        setIncomeCategories(["Salary", "Bonus", "Others"]);
-      } else {
-        setIncomeCategories(["Others"]);
-      }
+      setIncomeCategories(["Others"]);
     }
 
-    // Load category budgets
+    // Load category budgets from local cache
     const savedBudgets = localStorage.getItem(budgetKey);
     if (savedBudgets) {
       try {
@@ -191,18 +188,15 @@ export default function ExpensesPage() {
         Object.keys(parsed).forEach(k => strForm[k] = String(parsed[k]));
         setBudgetForm(strForm);
       } catch {}
-    } else {
-      const defaultBudgets: { [key: string]: number } = isRajatUser
-        ? { "Home": 25000, "Ajit": 15000, "Delhi Room": 12000, "Swarna": 8000, "SIP": 5000, "Health Insurance": 505, "Term Insurance": 1500, "Travel": 5000, "Others": 8000 }
-        : { "Others": 10000 };
+    } else if (isRajatUser) {
+      const defaultBudgets: { [key: string]: number } = { "Home": 25000, "Ajit": 15000, "Delhi Room": 12000, "Swarna": 8000, "SIP": 5000, "Health Insurance": 505, "Term Insurance": 1500, "Travel": 5000, "Others": 8000 };
       setCategoryBudgets(defaultBudgets);
-      localStorage.setItem(budgetKey, JSON.stringify(defaultBudgets));
       const strForm: { [key: string]: string } = {};
       Object.keys(defaultBudgets).forEach(k => strForm[k] = String(defaultBudgets[k]));
       setBudgetForm(strForm);
     }
 
-    // Load PF settings
+    // Load PF settings from local cache
     const savedPf = localStorage.getItem(pfKey);
     if (savedPf) {
       try {
@@ -226,19 +220,18 @@ export default function ExpensesPage() {
           startMonth: parsed.startMonth || "2024-01",
         });
       } catch {}
-    } else {
+    } else if (isRajatUser) {
       const defaultPf = {
-        enabled: isRajatUser,
-        employeeContribution: isRajatUser ? 1800 : 0,
-        employerContribution: isRajatUser ? 1800 : 0,
-        healthInsuranceDeduction: isRajatUser ? 505 : 0,
+        enabled: true,
+        employeeContribution: 1800,
+        employerContribution: 1800,
+        healthInsuranceDeduction: 505,
         initialCorpus: 0,
         startMonth: "2024-01",
       };
       setPfSettings(defaultPf);
-      localStorage.setItem(pfKey, JSON.stringify(defaultPf));
       setPfForm({
-        enabled: isRajatUser,
+        enabled: true,
         employeeContribution: "1800",
         employerContribution: "1800",
         healthInsuranceDeduction: "505",
@@ -246,6 +239,66 @@ export default function ExpensesPage() {
         startMonth: "2024-01",
       });
     }
+
+    // B. Fetch authoritative synchronized settings from MongoDB (ensuring Mobile/Desktop cross-device sync)
+    async function loadDbSettings() {
+      try {
+        const res = await fetch("/api/tracking/expenses/settings");
+        if (res.ok) {
+          const dbData = await res.json();
+          if (dbData.pfSettings) {
+            const isEnabled = Boolean(dbData.pfSettings.enabled ?? isRajatUser);
+            const employeeContrib = Number(dbData.pfSettings.employeeContribution) || (isRajatUser ? 1800 : 0);
+            const employerContrib = Number(dbData.pfSettings.employerContribution) || (isRajatUser ? 1800 : 0);
+            const healthDeduct = Number(dbData.pfSettings.healthInsuranceDeduction) || (isRajatUser ? 505 : 0);
+            const corpus = Number(dbData.pfSettings.initialCorpus) || 0;
+            const startM = dbData.pfSettings.startMonth || "2024-01";
+
+            const normalizedPf = {
+              enabled: isEnabled,
+              employeeContribution: employeeContrib,
+              employerContribution: employerContrib,
+              healthInsuranceDeduction: healthDeduct,
+              initialCorpus: corpus,
+              startMonth: startM,
+            };
+
+            setPfSettings(normalizedPf);
+            localStorage.setItem(pfKey, JSON.stringify(normalizedPf));
+            setPfForm({
+              enabled: isEnabled,
+              employeeContribution: String(employeeContrib),
+              employerContribution: String(employerContrib),
+              healthInsuranceDeduction: String(healthDeduct),
+              initialCorpus: String(corpus),
+              startMonth: startM,
+            });
+          }
+
+          if (dbData.categoryBudgets && typeof dbData.categoryBudgets === "object") {
+            setCategoryBudgets(dbData.categoryBudgets);
+            localStorage.setItem(budgetKey, JSON.stringify(dbData.categoryBudgets));
+            const strForm: { [key: string]: string } = {};
+            Object.keys(dbData.categoryBudgets).forEach(k => strForm[k] = String(dbData.categoryBudgets[k]));
+            setBudgetForm(strForm);
+          }
+
+          if (Array.isArray(dbData.expenseCategories) && dbData.expenseCategories.length > 0) {
+            setExpenseCategories(dbData.expenseCategories);
+            localStorage.setItem(expKey, JSON.stringify(dbData.expenseCategories));
+          }
+
+          if (Array.isArray(dbData.incomeCategories) && dbData.incomeCategories.length > 0) {
+            setIncomeCategories(dbData.incomeCategories);
+            localStorage.setItem(incKey, JSON.stringify(dbData.incomeCategories));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load user settings from DB:", err);
+      }
+    }
+
+    loadDbSettings();
   }, [session]);
 
   // 2. Dynamic generation of custom lists based on transaction history
@@ -256,17 +309,7 @@ export default function ExpensesPage() {
     const expKey = `custom_expense_categories_${uId}`;
     const incKey = `custom_income_categories_${uId}`;
 
-    if (expenses.length === 0) {
-      if (!localStorage.getItem(expKey)) {
-        const initialExp = isRajatUser ? ["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Health Insurance", "Term Insurance", "Travel", "Others"] : ["Others"];
-        setExpenseCategories(initialExp);
-      }
-      if (!localStorage.getItem(incKey)) {
-        const initialInc = isRajatUser ? ["Salary", "Bonus", "Others"] : ["Others"];
-        setIncomeCategories(initialInc);
-      }
-      return;
-    }
+    if (expenses.length === 0) return;
 
     const uniqueExpCats = Array.from(new Set(expenses.filter(e => e.type === "Expense").map(e => e.category).filter(Boolean)));
     const uniqueIncCats = Array.from(new Set(expenses.filter(e => e.type === "Income").map(e => e.category).filter(Boolean)));
@@ -286,7 +329,7 @@ export default function ExpensesPage() {
     });
   }, [expenses, session]);
 
-  const handleSaveBudgets = (e: React.FormEvent) => {
+  const handleSaveBudgets = async (e: React.FormEvent) => {
     e.preventDefault();
     const uId = (session?.user as any)?.id || session?.user?.email || "guest";
     const budgetKey = `category_budgets_${uId}`;
@@ -300,9 +343,19 @@ export default function ExpensesPage() {
     setCategoryBudgets(newBudgets);
     localStorage.setItem(budgetKey, JSON.stringify(newBudgets));
     setShowBudgetModal(false);
+
+    try {
+      await fetch("/api/tracking/expenses/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryBudgets: newBudgets }),
+      });
+    } catch (err) {
+      console.error("Failed to sync budgets to DB:", err);
+    }
   };
 
-  const handleSavePfSettings = (e: React.FormEvent) => {
+  const handleSavePfSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     const uId = (session?.user as any)?.id || session?.user?.email || "guest";
     const pfKey = `pf_settings_${uId}`;
@@ -318,9 +371,19 @@ export default function ExpensesPage() {
     setPfSettings(newPf);
     localStorage.setItem(pfKey, JSON.stringify(newPf));
     setShowPfModal(false);
+
+    try {
+      await fetch("/api/tracking/expenses/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pfSettings: newPf }),
+      });
+    } catch (err) {
+      console.error("Failed to sync PF settings to DB:", err);
+    }
   };
 
-  const handleAddCustomCategory = (name: string) => {
+  const handleAddCustomCategory = async (name: string) => {
     const cleanName = name.trim();
     if (!cleanName) return;
 
@@ -334,16 +397,30 @@ export default function ExpensesPage() {
       setExpenseCategories(updated);
       localStorage.setItem(expKey, JSON.stringify(updated));
       setForm(prev => ({ ...prev, category: cleanName }));
+      try {
+        await fetch("/api/tracking/expenses/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expenseCategories: updated }),
+        });
+      } catch {}
     } else {
       if (incomeCategories.includes(cleanName)) return;
       const updated = [...incomeCategories, cleanName];
       setIncomeCategories(updated);
       localStorage.setItem(incKey, JSON.stringify(updated));
       setForm(prev => ({ ...prev, category: cleanName }));
+      try {
+        await fetch("/api/tracking/expenses/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ incomeCategories: updated }),
+        });
+      } catch {}
     }
   };
 
-  const handleDeleteCustomCategory = () => {
+  const handleDeleteCustomCategory = async () => {
     const target = form.category;
     if (target === "Others") {
       alert("Cannot delete the default 'Others' category.");
@@ -360,11 +437,25 @@ export default function ExpensesPage() {
       setExpenseCategories(updated);
       localStorage.setItem(expKey, JSON.stringify(updated));
       setForm(prev => ({ ...prev, category: "Others" }));
+      try {
+        await fetch("/api/tracking/expenses/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expenseCategories: updated }),
+        });
+      } catch {}
     } else {
       const updated = incomeCategories.filter(c => c !== target);
       setIncomeCategories(updated);
       localStorage.setItem(incKey, JSON.stringify(updated));
       setForm(prev => ({ ...prev, category: "Others" }));
+      try {
+        await fetch("/api/tracking/expenses/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ incomeCategories: updated }),
+        });
+      } catch {}
     }
   };
 
