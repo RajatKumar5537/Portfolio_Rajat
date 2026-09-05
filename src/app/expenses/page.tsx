@@ -1291,15 +1291,16 @@ export default function ExpensesPage() {
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-[9px] uppercase tracking-widest text-slate-700 dark:text-slate-400 font-bold truncate pr-1">{item.category}</span>
-                    {item.isOverBudget ? (
-                      <span className="text-[8px] font-mono font-black text-white bg-red-600 border border-red-700 px-1.5 py-0.5 rounded uppercase shadow-sm whitespace-nowrap" title={`+${item.overflowPercentage.toFixed(1)}% over ₹${item.budget.toLocaleString()} budget limit (${item.incomeShare.toFixed(1)}% of Income)`}>
-                        +{item.overflowPercentage.toFixed(0)}% OVER
-                      </span>
-                    ) : (
-                      <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${theme.bg} ${theme.border} ${theme.text}`}>
-                        {item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}%` : `${item.percentage.toFixed(1)}%`}
-                      </span>
-                    )}
+                    <span
+                      className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${
+                        item.isOverBudget
+                          ? "text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border-red-300 dark:border-red-500/40 font-black"
+                          : `${theme.bg} ${theme.border} ${theme.text}`
+                      }`}
+                      title={`${item.category}: ${item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Outflow`}${item.isOverBudget ? ` (+${item.overflowPercentage.toFixed(0)}% over budget)` : ""}`}
+                    >
+                      {item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}%` : `${item.percentage.toFixed(1)}%`}
+                    </span>
                   </div>
 
                   <h3 className={`text-lg font-black font-mono mt-1 ${item.isOverBudget ? "text-red-700 dark:text-red-400" : "mini-3d-card-value text-slate-900 dark:text-slate-100"}`}>
@@ -1330,13 +1331,19 @@ export default function ExpensesPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between text-[7.5px] text-slate-600 dark:text-slate-400">
-                      <span>{item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Outflow`}</span>
-                      {item.isOverBudget && (
-                        <span className="text-red-700 dark:text-red-400 font-bold">
-                          +{item.overflowPercentage.toFixed(0)}%
+                    <div className="flex items-center justify-between text-[7.5px]">
+                      <span className="text-slate-600 dark:text-slate-400">
+                        {item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Outflow`}
+                      </span>
+                      {item.isOverBudget ? (
+                        <span className="text-red-700 dark:text-red-400 font-bold whitespace-nowrap ml-1">
+                          +{item.overflowPercentage.toFixed(0)}% Over
                         </span>
-                      )}
+                      ) : item.budget > 0 ? (
+                        <span className="text-slate-500 dark:text-slate-400 whitespace-nowrap ml-1 font-medium">
+                          {item.budgetPercentage.toFixed(0)}% Budget
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>

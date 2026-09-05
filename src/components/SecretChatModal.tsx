@@ -332,7 +332,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
     const updateViewport = () => {
       if (window.visualViewport) {
         setViewportHeight(window.visualViewport.height);
-        setViewportTop(window.visualViewport.offsetTop || 0);
+        setViewportTop(0);
       } else {
         setViewportHeight(window.innerHeight);
         setViewportTop(0);
@@ -1739,7 +1739,8 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
         viewportHeight && typeof window !== "undefined" && window.innerWidth < 640
           ? {
               height: `${viewportHeight}px`,
-              top: `${viewportTop}px`,
+              top: 0,
+              bottom: "auto",
               left: 0,
               right: 0,
               position: "fixed",
@@ -1817,7 +1818,7 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search or start a new chat"
-                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-slate-100 light:border-slate-200 light:text-slate-900 light:placeholder-slate-400 transition-all"
+                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-8 py-2 text-base sm:text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-slate-100 light:border-slate-200 light:text-slate-900 light:placeholder-slate-400 transition-all"
               />
               {searchQuery && (
                 <button
@@ -1899,13 +1900,12 @@ export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: Sec
                   value={requestEmailInput}
                   onChange={(e) => setRequestEmailInput(e.target.value)}
                   placeholder="friend@example.com..."
-                  className="w-full bg-white/[0.08] border border-white/20 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900"
-                  autoFocus
+                  className="w-full bg-white/[0.08] border border-white/20 rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900"
                 />
                 <button
                   type="submit"
                   disabled={!requestEmailInput.trim() || isSubmittingRequest}
-                  className="w-full py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-98 touch-manipulation"
+                  className="w-full py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-98 touch-manipulation"
                 >
                   {isSubmittingRequest ? "Sending Request..." : "Send Request"}
                 </button>
