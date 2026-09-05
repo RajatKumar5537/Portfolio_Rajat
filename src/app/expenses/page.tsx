@@ -565,46 +565,63 @@ export default function ExpensesPage() {
     return { bar: "bg-indigo-500", text: "text-indigo-400 light:text-indigo-600", bg: "bg-indigo-500/10", border: "border-indigo-500/20", cardBg: "", alert: false };
   };
 
+  // Timezone-safe date parser to prevent UTC midnight shifts on YYYY-MM-DD
+  const parseTxDate = (dateVal: any) => {
+    if (!dateVal) return { year: 1970, month: 0, day: 1, dateStr: "1970-01-01" };
+    if (typeof dateVal === "string") {
+      const clean = dateVal.split("T")[0];
+      const parts = clean.split("-");
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1; // 0-indexed (0=Jan, 7=Aug, 8=Sep)
+        const d = parseInt(parts[2], 10);
+        if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+          return { year: y, month: m, day: d, dateStr: clean };
+        }
+      }
+    }
+    const d = new Date(dateVal);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const day = d.getDate();
+    return {
+      year: y,
+      month: m,
+      day: day,
+      dateStr: `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    };
+  };
+
   // 1. Filter expenses by selected Month, Year or Date Range
   const monthlyExpenses = expenses.filter((exp) => {
-    const expDate = new Date(exp.date);
+    const tx = parseTxDate(exp.date);
     if (filterMode === "range") {
-      const year = expDate.getFullYear();
-      const month = String(expDate.getMonth() + 1).padStart(2, '0');
-      const day = String(expDate.getDate()).padStart(2, '0');
-      const localExpStr = `${year}-${month}-${day}`;
-      
       const start = startDate || "1970-01-01";
       const end = endDate || "2999-12-31";
-      return localExpStr >= start && localExpStr <= end;
+      return tx.dateStr >= start && tx.dateStr <= end;
     }
-    const monthMatches = selectedMonth === -1 || expDate.getMonth() === selectedMonth;
-    const yearMatches = selectedYear === -1 || expDate.getFullYear() === selectedYear;
+    const monthMatches = selectedMonth === -1 || tx.month === selectedMonth;
+    const yearMatches = selectedYear === -1 || tx.year === selectedYear;
     return monthMatches && yearMatches;
   });
 
   // Calculate prior transactions before the active filter period to carry forward savings
   const previousExpenses = expenses.filter((exp) => {
-    const expDate = new Date(exp.date);
+    const tx = parseTxDate(exp.date);
     if (filterMode === "range") {
       if (!startDate) return false;
-      const year = expDate.getFullYear();
-      const month = String(expDate.getMonth() + 1).padStart(2, '0');
-      const day = String(expDate.getDate()).padStart(2, '0');
-      const localExpStr = `${year}-${month}-${day}`;
-      return localExpStr < startDate;
+      return tx.dateStr < startDate;
     }
     if (selectedMonth === -1 && selectedYear === -1) {
       return false; // Lifetime view
     }
     if (selectedMonth === -1 && selectedYear !== -1) {
-      return expDate.getFullYear() < selectedYear;
+      return tx.year < selectedYear;
     }
     if (selectedYear === -1 && selectedMonth !== -1) {
       return false;
     }
-    const startOfSelectedMonth = new Date(selectedYear, selectedMonth, 1, 0, 0, 0, 0);
-    return expDate < startOfSelectedMonth;
+    return tx.year < selectedYear || (tx.year === selectedYear && tx.month < selectedMonth);
   });
 
   const prevIncomeTotal = previousExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
@@ -1099,13 +1116,13 @@ export default function ExpensesPage() {
                   <AlertTriangle size={20} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-red-400 light:text-red-600 flex items-center gap-1.5">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-1.5">
                     <span>🔴 RED ALERT: {overBudgetCategories.length} {overBudgetCategories.length === 1 ? "Category" : "Categories"} Over Budget ({getContextLabel()})</span>
                   </h4>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     {overBudgetCategories.map((c) => (
-                      <span key={c.category} className="text-[10px] font-mono text-slate-200 light:text-slate-800 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-lg">
-                        <strong className="text-red-400 light:text-red-600">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+₹{c.overAmount.toLocaleString()} over)
+                      <span key={c.category} className="text-[10px] font-mono text-slate-800 dark:text-slate-200 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 px-2 py-0.5 rounded-lg">
+                        <strong className="text-red-600 dark:text-red-400">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} ({c.budgetPercentage.toFixed(0)}% • +₹{c.overAmount.toLocaleString()} over)
                       </span>
                     ))}
                   </div>
@@ -1132,11 +1149,11 @@ export default function ExpensesPage() {
                   : ""
               }`}
             >
-              <span className="text-[9px] uppercase tracking-widest text-emerald-400 light:text-emerald-600 font-bold flex items-center gap-1">
+              <span className="text-[9px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                 <TrendingUp size={10} />
                 <span>Income ({getContextLabel()})</span>
               </span>
-              <h3 className="text-lg font-black font-mono text-slate-100 dark:text-slate-100 light:text-slate-900 mt-1">₹{incomeTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">₹{incomeTotal.toLocaleString()}</h3>
             </div>
 
             {/* Outflow Card */}
@@ -1148,45 +1165,49 @@ export default function ExpensesPage() {
                   : ""
               }`}
             >
-              <span className="text-[9px] uppercase tracking-widest text-red-400 light:text-red-600 font-bold flex items-center gap-1">
+              <span className="text-[9px] uppercase tracking-widest text-red-600 dark:text-red-400 font-bold flex items-center gap-1">
                 <TrendingDown size={10} />
                 <span>Outflow ({getContextLabel()})</span>
               </span>
-              <h3 className="text-lg font-black font-mono text-slate-100 dark:text-slate-100 light:text-slate-900 mt-1">₹{expenseTotal.toLocaleString()}</h3>
+              <h3 className="text-lg font-black font-mono text-red-600 dark:text-red-400 mt-1">₹{expenseTotal.toLocaleString()}</h3>
             </div>
 
-            {/* Savings / Cumulative Balance Card */}
+            {/* Net Savings / Rollover Card */}
             <div
               onClick={() => handleCardFilter(null, null, "All")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[160px] lg:w-auto snap-start mini-3d-card relative group ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[170px] lg:w-auto snap-start mini-3d-card relative group ${
                 !activeFilter.type && !activeFilter.category
                   ? "mini-3d-card-active-savings"
                   : ""
               }`}
-              title={`Previous Balance: ₹${previousBalance.toLocaleString()} + Current Period: ₹${currentPeriodBalance.toLocaleString()} = New Saving Balance: ₹${newSavingBalance.toLocaleString()}`}
+              title={`Net Savings (${getContextLabel()}): ₹${currentPeriodBalance.toLocaleString()} | Cumulative Savings Pool: ₹${newSavingBalance.toLocaleString()}`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[9px] uppercase tracking-widest text-indigo-400 light:text-indigo-600 font-bold flex items-center gap-1">
+                <span className="text-[9px] uppercase tracking-widest text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
                   <Wallet size={10} />
-                  <span>Total Savings</span>
+                  <span>Net Savings</span>
                 </span>
                 {previousBalance !== 0 && (
-                  <span className="text-[8px] font-mono font-bold text-emerald-400 dark:text-emerald-400 light:text-emerald-700 bg-emerald-500/10 px-1 py-0.5 rounded" title="Includes previous savings rollover">
+                  <span className="text-[8px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 px-1 py-0.5 rounded" title="Includes previous savings rollover">
                     Rollover
                   </span>
                 )}
               </div>
-              <h3 className={`text-lg font-black font-mono mt-1 ${newSavingBalance >= 0 ? "text-slate-100 dark:text-slate-100 light:text-slate-900" : "text-red-400 light:text-red-600"}`}>
-                ₹{newSavingBalance.toLocaleString()}
+              <h3 className={`text-lg font-black font-mono mt-1 ${currentPeriodBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
               </h3>
-              <div className="mt-1 pt-1 border-t border-white/5 flex items-center gap-1 text-[8px] font-mono text-slate-400 truncate">
-                <span className={previousBalance >= 0 ? "text-slate-400" : "text-red-400"}>
-                  ₹{previousBalance.toLocaleString()} (Prev)
-                </span>
-                <span>+</span>
-                <span className={currentPeriodBalance >= 0 ? "text-emerald-400" : "text-red-400"}>
-                  ₹{currentPeriodBalance.toLocaleString()} (Curr)
-                </span>
+              <div className="mt-1 pt-1 border-t border-slate-200 dark:border-white/5 flex flex-col gap-0.5 text-[8px] font-mono">
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                  <span>Cumulative Pool:</span>
+                  <span className={`font-bold ${newSavingBalance >= 0 ? "text-slate-900 dark:text-slate-100" : "text-red-600 dark:text-red-400"}`}>
+                    ₹{newSavingBalance.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-[7.5px] text-slate-500 dark:text-slate-400 truncate">
+                  <span>Prev: {previousBalance >= 0 ? "+" : ""}₹{previousBalance.toLocaleString()}</span>
+                  <span>•</span>
+                  <span>Curr: {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}</span>
+                </div>
               </div>
             </div>
 
@@ -1206,13 +1227,13 @@ export default function ExpensesPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[9px] uppercase tracking-widest text-slate-400 light:text-slate-600 font-bold truncate pr-1">{item.category}</span>
+                    <span className="text-[9px] uppercase tracking-widest text-slate-600 dark:text-slate-400 font-bold truncate pr-1">{item.category}</span>
                     {item.isOverBudget ? (
-                      <span className="text-[8px] font-mono font-black text-red-400 light:text-red-600 bg-red-500/20 px-1 py-0.5 rounded uppercase">
-                        Alert
+                      <span className="text-[8px] font-mono font-black text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/20 border border-red-300 dark:border-red-500/30 px-1.5 py-0.5 rounded uppercase shadow-sm">
+                        {item.budgetPercentage.toFixed(0)}% Alert
                       </span>
                     ) : item.isNearBudget ? (
-                      <span className="text-[8px] font-mono font-bold text-amber-400 light:text-amber-600 bg-amber-500/20 px-1 py-0.5 rounded">
+                      <span className="text-[8px] font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/30 px-1.5 py-0.5 rounded">
                         {item.budgetPercentage.toFixed(0)}%
                       </span>
                     ) : (
@@ -1222,13 +1243,13 @@ export default function ExpensesPage() {
                     )}
                   </div>
 
-                  <h3 className={`text-lg font-black font-mono mt-1 ${item.isOverBudget ? "text-red-400 light:text-red-600" : "mini-3d-card-value"}`}>
+                  <h3 className={`text-lg font-black font-mono mt-1 ${item.isOverBudget ? "text-red-600 dark:text-red-400" : "mini-3d-card-value text-slate-900 dark:text-slate-100"}`}>
                     ₹{item.total.toLocaleString()}
                   </h3>
 
-                  <p className="text-[8px] font-mono mt-0.5 truncate text-slate-500">
+                  <p className="text-[8px] font-mono mt-0.5 truncate text-slate-500 dark:text-slate-400">
                     {item.isOverBudget ? (
-                      <span className="text-red-400 light:text-red-600 font-bold">
+                      <span className="text-red-600 dark:text-red-400 font-bold">
                         +₹{item.overAmount.toLocaleString()} over limit
                       </span>
                     ) : item.budget > 0 ? (
@@ -1249,13 +1270,13 @@ export default function ExpensesPage() {
           <div className="glass-card card-glow-teal p-5 rounded-2xl border border-teal-500/20 mb-8 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400">
+                <span className="p-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400">
                   <Landmark size={15} />
                 </span>
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-200 light:text-slate-800 flex items-center gap-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
                     <span>Wealth, Investments & Provident Fund (PF) Hub</span>
-                    <span className="text-[9px] font-mono font-bold text-teal-400 bg-teal-950/60 border border-teal-500/30 px-2 py-0.5 rounded-full uppercase">
+                    <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/40 px-2 py-0.5 rounded-full uppercase">
                       Asset Growth
                     </span>
                   </h4>
@@ -1269,7 +1290,7 @@ export default function ExpensesPage() {
                 <button
                   type="button"
                   onClick={() => setShowPfModal(true)}
-                  className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                  className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border border-teal-300 dark:border-teal-500/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
                 >
                   <Settings2 size={11} />
                   <span>{pfSettings.enabled ? "Configure PF / SIP" : "+ Enable PF Tracking"}</span>
@@ -1280,25 +1301,35 @@ export default function ExpensesPage() {
             {/* 4 Wealth Portfolio KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Liquid Cumulative Savings (Pure Cash, Never mixed with PF) */}
-              <div className="p-3.5 rounded-xl bg-purple-950/20 light:bg-purple-50 border border-purple-500/20 flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-purple-100/60 dark:bg-purple-950/20 light:bg-purple-50 border border-purple-300 dark:border-purple-500/20 flex flex-col justify-between">
                 <div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-purple-400 light:text-purple-600 flex items-center gap-1">
-                    <Wallet size={11} />
-                    <span>Liquid Net Savings</span>
-                  </span>
-                  <h3 className={`text-xl font-black font-mono mt-1 ${newSavingBalance >= 0 ? "text-slate-100 light:text-slate-900" : "text-red-400"}`}>
-                    ₹{newSavingBalance.toLocaleString()}
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-purple-700 dark:text-purple-400 flex items-center gap-1">
+                      <Wallet size={11} />
+                      <span>Liquid Net Savings</span>
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-200/60 dark:bg-purple-900/40 px-1 py-0.5 rounded">
+                      {getContextLabel()}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <h3 className={`text-xl font-black font-mono ${currentPeriodBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
+                    </h3>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      (Pool: ₹{newSavingBalance.toLocaleString()})
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[8px] font-mono text-slate-400 light:text-slate-600 mt-2 truncate">
-                  Prev: ₹{previousBalance.toLocaleString()} + Curr: ₹{currentPeriodBalance.toLocaleString()}
+                <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2 truncate">
+                  Prev: {previousBalance >= 0 ? "+" : ""}₹{previousBalance.toLocaleString()} | Curr Net: {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
                 </p>
               </div>
 
               {/* SIP & Mutual Funds */}
-              <div className="p-3.5 rounded-xl bg-emerald-950/20 light:bg-emerald-50 border border-emerald-500/20 flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-emerald-100/60 dark:bg-emerald-950/20 light:bg-emerald-50 border border-emerald-300 dark:border-emerald-500/20 flex flex-col justify-between">
                 <div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 light:text-emerald-600 flex items-center gap-1">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                     <TrendingUp size={11} />
                     <span>SIP & Mutual Funds</span>
                   </span>
@@ -2279,41 +2310,44 @@ export default function ExpensesPage() {
         {/* ── 🏷️ CATEGORY BUDGETS CONFIGURATION MODAL (Red Alert Management) ── */}
         {showBudgetModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-            <div className="glass-card bg-[#0a0a14] border border-indigo-500/30 rounded-3xl p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl shadow-indigo-950/60 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                  <div className="flex items-center gap-2.5">
-                    <span className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-                      <SlidersHorizontal size={18} />
-                    </span>
-                    <div>
-                      <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
-                        <span>Monthly Category Budgets</span>
-                        <span className="text-[9px] font-mono font-bold text-red-400 bg-red-950/60 border border-red-500/30 px-2 py-0.5 rounded-full uppercase">
-                          Red Alert Limit
-                        </span>
-                      </h3>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
-                        Set max monthly spend. Exceeding triggers Crimson Red alerts across UI.
-                      </p>
-                    </div>
+            <div className="glass-card bg-slate-900/98 dark:bg-[#0a0a14] border border-indigo-500/30 rounded-3xl max-w-xl w-full max-h-[88vh] shadow-2xl shadow-indigo-950/60 flex flex-col overflow-hidden">
+              {/* Fixed Header */}
+              <div className="flex items-center justify-between p-6 pb-4 border-b border-white/10 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                    <SlidersHorizontal size={18} />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
+                      <span>Monthly Category Budgets</span>
+                      <span className="text-[9px] font-mono font-bold text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-2 py-0.5 rounded-full uppercase">
+                        Red Alert Limit
+                      </span>
+                    </h3>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                      Set max monthly spend. Exceeding triggers Crimson Red alerts across UI.
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowBudgetModal(false)}
-                    className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
-                  >
-                    <X size={16} />
-                  </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowBudgetModal(false)}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-                <form onSubmit={handleSaveBudgets} className="mt-5 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
+              {/* Scrollable Form Body */}
+              <form onSubmit={handleSaveBudgets} className="flex flex-col flex-grow overflow-hidden">
+                <div className="p-6 overflow-y-auto flex-grow max-h-[60vh] space-y-4 budget-modal-scrollbar">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {expenseCategories.map((cat) => {
                       const currentSpend = categoryTotals.find(c => c.category === cat)?.total || 0;
                       const val = budgetForm[cat] ?? (categoryBudgets[cat] ? String(categoryBudgets[cat]) : "");
                       const numVal = parseFloat(val) || 0;
                       const isOver = numVal > 0 && currentSpend > numVal;
+                      const budgetPct = numVal > 0 ? ((currentSpend / numVal) * 100).toFixed(0) : "0";
 
                       return (
                         <div
@@ -2350,9 +2384,9 @@ export default function ExpensesPage() {
                             <div className="mt-1.5 flex items-center justify-between text-[8px] font-mono">
                               <span className="text-slate-500">Limit: ₹{numVal.toLocaleString()}</span>
                               {isOver ? (
-                                <span className="text-red-400 font-bold">⚠️ +₹{(currentSpend - numVal).toLocaleString()} OVER</span>
+                                <span className="text-red-400 font-bold">⚠️ {budgetPct}% (+₹{(currentSpend - numVal).toLocaleString()} OVER)</span>
                               ) : (
-                                <span className="text-emerald-400">₹{(numVal - currentSpend).toLocaleString()} remaining</span>
+                                <span className="text-emerald-400">{budgetPct}% (₹{(numVal - currentSpend).toLocaleString()} left)</span>
                               )}
                             </div>
                           )}
@@ -2360,39 +2394,40 @@ export default function ExpensesPage() {
                       );
                     })}
                   </div>
+                </div>
 
-                  <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-white/10 gap-3">
+                {/* Fixed Footer */}
+                <div className="flex flex-col sm:flex-row items-center justify-between p-4 px-6 border-t border-white/10 bg-slate-950/60 flex-shrink-0 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaultBudgets: { [key: string]: string } = isRajat
+                        ? { "Home": "25000", "Ajit": "15000", "Delhi Room": "12000", "Swarna": "8000", "SIP": "5000", "Term Insurance": "1500", "Travel": "5000", "Others": "8000" }
+                        : { "Others": "10000" };
+                      setBudgetForm(defaultBudgets);
+                    }}
+                    className="text-[10px] font-mono uppercase tracking-wider text-slate-400 hover:text-slate-200 underline cursor-pointer"
+                  >
+                    Reset Recommended Defaults
+                  </button>
+
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        const defaultBudgets: { [key: string]: string } = isRajat
-                          ? { "Home": "25000", "Ajit": "15000", "Delhi Room": "12000", "Swarna": "8000", "SIP": "5000", "Term Insurance": "1500", "Travel": "5000", "Others": "8000" }
-                          : { "Others": "10000" };
-                        setBudgetForm(defaultBudgets);
-                      }}
-                      className="text-[10px] font-mono uppercase tracking-wider text-slate-500 hover:text-slate-300 underline cursor-pointer"
+                      onClick={() => setShowBudgetModal(false)}
+                      className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
                     >
-                      Reset Recommended Defaults
+                      Cancel
                     </button>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowBudgetModal(false)}
-                        className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
-                      >
-                        Save Budgets
-                      </button>
-                    </div>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                    >
+                      Save Budgets
+                    </button>
                   </div>
-                </form>
-              </div>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -2400,35 +2435,37 @@ export default function ExpensesPage() {
         {/* ── 🏛️ PROVIDENT FUND (PF) & WEALTH SETTINGS MODAL ── */}
         {showPfModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-            <div className="glass-card bg-[#0a0a14] border border-teal-500/30 rounded-3xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl shadow-teal-950/60 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                  <div className="flex items-center gap-2.5">
-                    <span className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400">
-                      <Landmark size={18} />
-                    </span>
-                    <div>
-                      <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
-                        <span>Provident Fund (PF) Portfolio</span>
-                        <span className="text-[9px] font-mono font-bold text-teal-400 bg-teal-950/60 border border-teal-500/30 px-2 py-0.5 rounded-full uppercase">
-                          Dynamic / Optional
-                        </span>
-                      </h3>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
-                        Track company PF deductions as a separate locked retirement asset
-                      </p>
-                    </div>
+            <div className="glass-card bg-slate-900/98 dark:bg-[#0a0a14] border border-teal-500/30 rounded-3xl max-w-lg w-full max-h-[88vh] shadow-2xl shadow-teal-950/60 flex flex-col overflow-hidden">
+              {/* Fixed Header */}
+              <div className="flex items-center justify-between p-6 pb-4 border-b border-white/10 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400">
+                    <Landmark size={18} />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
+                      <span>Provident Fund (PF) Portfolio</span>
+                      <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/40 px-2 py-0.5 rounded-full uppercase">
+                        Dynamic / Optional
+                      </span>
+                    </h3>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                      Track company PF deductions as a separate locked retirement asset
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowPfModal(false)}
-                    className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
-                  >
-                    <X size={16} />
-                  </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPfModal(false)}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
-                <form onSubmit={handleSavePfSettings} className="mt-5 space-y-4">
+              {/* Scrollable Form Body */}
+              <form onSubmit={handleSavePfSettings} className="flex flex-col flex-grow overflow-hidden">
+                <div className="p-6 overflow-y-auto flex-grow max-h-[62vh] space-y-4 custom-modal-scrollbar">
                   {/* Opt-in Active Toggle */}
                   <div className="p-3.5 rounded-2xl bg-teal-950/40 border border-teal-500/30 flex items-center justify-between">
                     <div>
@@ -2456,7 +2493,7 @@ export default function ExpensesPage() {
                       <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
                         <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
                           <span>Employee Deduction (Your Monthly PF)</span>
-                          <span className="text-[9px] font-mono text-teal-400 font-bold">Salary Deduction</span>
+                          <span className="text-[9px] font-mono text-teal-600 dark:text-teal-400 font-bold">Salary Deduction</span>
                         </label>
                         <div className="relative flex items-center">
                           <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
@@ -2567,24 +2604,25 @@ export default function ExpensesPage() {
                       PF Tracking is currently turned off for this account. Your liquid savings and monthly budget ledger will not calculate any PF deductions.
                     </div>
                   )}
+                </div>
 
-                  <div className="flex items-center justify-end pt-4 border-t border-white/10 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowPfModal(false)}
-                      className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-teal-600/30 transition-all cursor-pointer"
-                    >
-                      Save PF Settings
-                    </button>
-                  </div>
-                </form>
-              </div>
+                {/* Fixed Footer */}
+                <div className="flex items-center justify-end p-4 px-6 border-t border-white/10 bg-slate-950/60 flex-shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPfModal(false)}
+                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-teal-600/30 transition-all cursor-pointer"
+                  >
+                    Save PF Settings
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

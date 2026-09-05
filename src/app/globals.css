@@ -448,67 +448,120 @@ body {
 
 .light .bg-teal-950\/5,
 .light .bg-teal-950\/20,
-.light .bg-teal-950\/40 {
-  background-color: rgba(20, 184, 166, 0.08) !important;
-  border-color: rgba(20, 184, 166, 0.15) !important;
+.light .bg-teal-950\/40,
+.light .bg-teal-950\/60,
+.light .bg-teal-950\/80 {
+  background-color: rgba(20, 184, 166, 0.12) !important;
+  border-color: rgba(20, 184, 166, 0.25) !important;
 }
 .light .text-teal-400 {
-  color: #0d9488 !important;
+  color: #0f766e !important;
 }
 
 .light .bg-emerald-950\/5,
 .light .bg-emerald-950\/20,
-.light .bg-emerald-950\/40 {
-  background-color: rgba(16, 185, 129, 0.08) !important;
-  border-color: rgba(16, 185, 129, 0.15) !important;
+.light .bg-emerald-950\/40,
+.light .bg-emerald-950\/60,
+.light .bg-emerald-950\/80 {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
 }
 .light .text-emerald-400 {
-  color: #059669 !important;
+  color: #047857 !important;
 }
 
 .light .bg-red-950\/5,
 .light .bg-red-950\/20,
-.light .bg-red-950\/40 {
-  background-color: rgba(239, 68, 68, 0.08) !important;
-  border-color: rgba(239, 68, 68, 0.15) !important;
+.light .bg-red-950\/40,
+.light .bg-red-950\/50,
+.light .bg-red-950\/60,
+.light .bg-red-950\/80 {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
 }
 .light .text-red-400 {
-  color: #dc2626 !important;
+  color: #b91c1c !important;
 }
 
 .light .bg-orange-950\/20,
-.light .bg-orange-950\/40 {
-  background-color: rgba(249, 115, 22, 0.08) !important;
-  border-color: rgba(249, 115, 22, 0.15) !important;
+.light .bg-orange-950\/40,
+.light .bg-orange-950\/60 {
+  background-color: rgba(249, 115, 22, 0.12) !important;
+  border-color: rgba(249, 115, 22, 0.25) !important;
 }
 .light .text-orange-400 {
-  color: #ea580c !important;
+  color: #c2410c !important;
 }
 
 .light .bg-amber-950\/20,
-.light .bg-amber-950\/40 {
-  background-color: rgba(245, 158, 11, 0.08) !important;
-  border-color: rgba(245, 158, 11, 0.15) !important;
+.light .bg-amber-950\/40,
+.light .bg-amber-950\/60 {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
 }
 .light .text-amber-400 {
-  color: #d97706 !important;
+  color: #b45309 !important;
 }
 
 .light .bg-yellow-950\/20,
-.light .bg-yellow-950\/40 {
-  background-color: rgba(234, 179, 8, 0.08) !important;
-  border-color: rgba(234, 179, 8, 0.15) !important;
+.light .bg-yellow-950\/40,
+.light .bg-yellow-950\/60 {
+  background-color: rgba(234, 179, 8, 0.12) !important;
+  border-color: rgba(234, 179, 8, 0.25) !important;
 }
 .light .text-yellow-400 {
-  color: #ca8a04 !important;
+  color: #a16207 !important;
+}
+
+/* Modal Dedicated Visible Scrollbars */
+.custom-modal-scrollbar::-webkit-scrollbar {
+  width: 7px;
+}
+.custom-modal-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+.custom-modal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(20, 184, 166, 0.4);
+  border-radius: 8px;
+}
+.custom-modal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(20, 184, 166, 0.7);
+}
+.light .custom-modal-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+.light .custom-modal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(15, 118, 110, 0.4);
+}
+
+.budget-modal-scrollbar::-webkit-scrollbar {
+  width: 7px;
+}
+.budget-modal-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+.budget-modal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 8px;
+}
+.budget-modal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.7);
+}
+.light .budget-modal-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+.light .budget-modal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(79, 70, 229, 0.4);
 }
 
 /* Scrollbar overrides for Light Mode */
 .light ::-webkit-scrollbar-thumb {
-  background: rgba(9, 9, 11, 0.1) !important;
+  background: rgba(9, 9, 11, 0.15) !important;
 }
 .light ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.3) !important;
+  background: rgba(99, 102, 241, 0.35) !important;
 }
 
 /* Light Mode Universal Typography & Form Element Contrast Overrides */

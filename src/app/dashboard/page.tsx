@@ -152,47 +152,74 @@ export default function DashboardPage() {
     return `${months[selectedMonth].slice(0, 3)} '${String(selectedYear).slice(-2)}`;
   };
 
+  // Timezone-safe date parser to prevent UTC midnight shifts on YYYY-MM-DD
+  const parseTxDate = (dateVal: any) => {
+    if (!dateVal) return { year: 1970, month: 0, day: 1, dateStr: "1970-01-01" };
+    if (typeof dateVal === "string") {
+      const clean = dateVal.split("T")[0];
+      const parts = clean.split("-");
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1; // 0-indexed (0=Jan, 7=Aug, 8=Sep)
+        const d = parseInt(parts[2], 10);
+        if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+          return { year: y, month: m, day: d, dateStr: clean };
+        }
+      }
+    }
+    const d = new Date(dateVal);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const day = d.getDate();
+    return {
+      year: y,
+      month: m,
+      day: day,
+      dateStr: `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    };
+  };
+
   // Filter transactions by selected Month, Year or Specific Date
   const filteredTransactions = data.expenses.filter((exp) => {
-    const expDate = new Date(exp.date);
+    const tx = parseTxDate(exp.date);
     if (selectedDate) {
-      return expDate.toDateString() === new Date(selectedDate).toDateString();
+      return tx.dateStr === selectedDate;
     }
-    const monthMatches = selectedMonth === -1 || expDate.getMonth() === selectedMonth;
-    const yearMatches = selectedYear === -1 || expDate.getFullYear() === selectedYear;
+    const monthMatches = selectedMonth === -1 || tx.month === selectedMonth;
+    const yearMatches = selectedYear === -1 || tx.year === selectedYear;
     return monthMatches && yearMatches;
   });
 
   // Filter study logs by selected Month, Year or Specific Date
   const filteredStudyLogs = data.studyLogs.filter((log) => {
-    const logDate = new Date(log.date);
+    const tx = parseTxDate(log.date);
     if (selectedDate) {
-      return logDate.toDateString() === new Date(selectedDate).toDateString();
+      return tx.dateStr === selectedDate;
     }
-    const monthMatches = selectedMonth === -1 || logDate.getMonth() === selectedMonth;
-    const yearMatches = selectedYear === -1 || logDate.getFullYear() === selectedYear;
+    const monthMatches = selectedMonth === -1 || tx.month === selectedMonth;
+    const yearMatches = selectedYear === -1 || tx.year === selectedYear;
     return monthMatches && yearMatches;
   });
 
   // Filter food logs by selected Month, Year or Specific Date
   const filteredFoodLogs = data.foodLogs.filter((log) => {
-    const logDate = new Date(log.date);
+    const tx = parseTxDate(log.date);
     if (selectedDate) {
-      return logDate.toDateString() === new Date(selectedDate).toDateString();
+      return tx.dateStr === selectedDate;
     }
-    const monthMatches = selectedMonth === -1 || logDate.getMonth() === selectedMonth;
-    const yearMatches = selectedYear === -1 || logDate.getFullYear() === selectedYear;
+    const monthMatches = selectedMonth === -1 || tx.month === selectedMonth;
+    const yearMatches = selectedYear === -1 || tx.year === selectedYear;
     return monthMatches && yearMatches;
   });
 
   // Filter wellness logs by selected Month, Year or Specific Date
   const filteredWellnessLogs = data.wellnessLogs.filter((log) => {
-    const logDate = new Date(log.date);
+    const tx = parseTxDate(log.date);
     if (selectedDate) {
-      return logDate.toDateString() === new Date(selectedDate).toDateString();
+      return tx.dateStr === selectedDate;
     }
-    const monthMatches = selectedMonth === -1 || logDate.getMonth() === selectedMonth;
-    const yearMatches = selectedYear === -1 || logDate.getFullYear() === selectedYear;
+    const monthMatches = selectedMonth === -1 || tx.month === selectedMonth;
+    const yearMatches = selectedYear === -1 || tx.year === selectedYear;
     return monthMatches && yearMatches;
   });
 
@@ -210,23 +237,20 @@ export default function DashboardPage() {
 
   // Calculate prior transactions before active period for rolling savings balance
   const previousTransactions = data.expenses.filter((exp) => {
-    const expDate = new Date(exp.date);
+    const tx = parseTxDate(exp.date);
     if (selectedDate) {
-      const targetStart = new Date(selectedDate);
-      targetStart.setHours(0, 0, 0, 0);
-      return expDate < targetStart;
+      return tx.dateStr < selectedDate;
     }
     if (selectedMonth === -1 && selectedYear === -1) {
       return false; // Lifetime view
     }
     if (selectedMonth === -1 && selectedYear !== -1) {
-      return expDate.getFullYear() < selectedYear;
+      return tx.year < selectedYear;
     }
     if (selectedYear === -1 && selectedMonth !== -1) {
       return false;
     }
-    const startOfSelectedMonth = new Date(selectedYear, selectedMonth, 1, 0, 0, 0, 0);
-    return expDate < startOfSelectedMonth;
+    return tx.year < selectedYear || (tx.year === selectedYear && tx.month < selectedMonth);
   });
 
   const prevIncome = previousTransactions.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
@@ -254,7 +278,8 @@ export default function DashboardPage() {
     const isOver = budget > 0 && total > budget;
     const overAmount = isOver ? total - budget : 0;
     const percentage = totalExpenses > 0 ? (total / totalExpenses) * 100 : 0;
-    return { category: cat, total, budget, isOver, overAmount, percentage };
+    const budgetPercentage = budget > 0 ? (total / budget) * 100 : 0;
+    return { category: cat, total, budget, isOver, overAmount, percentage, budgetPercentage };
   });
 
   const overBudgetCategories = categorySpends.filter(c => c.isOver);
@@ -497,13 +522,13 @@ export default function DashboardPage() {
                   <AlertTriangle size={20} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-red-400 light:text-red-600 flex items-center gap-1.5">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-1.5">
                     <span>🔴 RED ALERT: {overBudgetCategories.length} {overBudgetCategories.length === 1 ? "Category" : "Categories"} Over Monthly Budget ({getContextLabel()})</span>
                   </h4>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     {overBudgetCategories.map((c) => (
-                      <span key={c.category} className="text-[10px] font-mono text-slate-200 light:text-slate-800 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-lg">
-                        <strong className="text-red-400 light:text-red-600">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+₹{c.overAmount.toLocaleString()} over)
+                      <span key={c.category} className="text-[10px] font-mono text-slate-800 dark:text-slate-200 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 px-2 py-0.5 rounded-lg">
+                        <strong className="text-red-600 dark:text-red-400">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} ({c.budgetPercentage.toFixed(0)}% • +₹{c.overAmount.toLocaleString()} over)
                       </span>
                     ))}
                   </div>
@@ -522,21 +547,21 @@ export default function DashboardPage() {
           {/* ── Mini Stat Strip (Global totals, liquid savings rollover & optional separate PF) ── */}
           <div className={`grid gap-4 mb-8 ${pfSettings.enabled ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
             {[
-              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, sub: `Period Inflow (${getContextLabel()})`, color: "text-emerald-400 light:text-emerald-600" },
-              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, sub: `Period Outflow (${getContextLabel()})`, color: "text-red-400 light:text-red-600" },
+              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, sub: `Period Inflow (${getContextLabel()})`, color: "text-emerald-600 dark:text-emerald-400" },
+              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, sub: `Period Outflow (${getContextLabel()})`, color: "text-red-600 dark:text-red-400" },
               {
                 key: "savings",
-                label: "Liquid Savings",
-                value: `₹${cumulativeSavings.toLocaleString()}`,
-                sub: `Prev: ₹${previousBalance.toLocaleString()} + Curr: ₹${currentPeriodNet.toLocaleString()}`,
-                color: cumulativeSavings >= 0 ? "text-purple-400 light:text-purple-600" : "text-red-400 light:text-red-600"
+                label: "Liquid Net Savings",
+                value: `₹${currentPeriodNet.toLocaleString()}`,
+                sub: `Pool: ₹${cumulativeSavings.toLocaleString()} (Prev: ₹${previousBalance.toLocaleString()})`,
+                color: currentPeriodNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
               },
               ...(pfSettings.enabled ? [{
                 key: "pf",
                 label: "Provident Fund (PF)",
                 value: `₹${totalAccumulatedPF.toLocaleString()}`,
                 sub: `₹${pfSettings.employeeContribution} (You) + ₹${pfSettings.employerContribution} (Co.) × ${activePfMonths} mos`,
-                color: "text-teal-400 light:text-teal-600"
+                color: "text-teal-600 dark:text-teal-400"
               }] : []),
             ].map(card => (
               <div key={card.key} className="mini-3d-card rounded-xl px-4 py-3 cursor-default transition-all hover:scale-[1.02]">
@@ -545,12 +570,12 @@ export default function DashboardPage() {
                     {card.label}
                   </p>
                   {card.key === "savings" && previousBalance !== 0 && (
-                    <span className="text-[8px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded" title="Includes previous savings rollover">
+                    <span className="text-[8px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 px-1 py-0.5 rounded" title="Includes previous savings rollover">
                       Rollover
                     </span>
                   )}
                   {card.key === "pf" && (
-                    <span className="text-[8px] font-mono font-bold text-teal-400 bg-teal-500/10 px-1 py-0.5 rounded" title="Employer matched locked retirement fund">
+                    <span className="text-[8px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/30 px-1 py-0.5 rounded" title="Employer matched locked retirement fund">
                       Retirement
                     </span>
                   )}
