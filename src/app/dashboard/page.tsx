@@ -4,7 +4,12 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Navigation from "@/components/Navigation";
-import { BookOpen, CreditCard, Apple, ArrowUpRight, TrendingUp, Sparkles, Flame, PlusCircle, Loader2, Wallet, FileUp, ChevronLeft, ChevronRight, Plus, TrendingDown, Calendar, Heart } from "lucide-react";
+import {
+  BookOpen, CreditCard, Apple, ArrowUpRight, TrendingUp, Sparkles, Flame,
+  PlusCircle, Loader2, Wallet, FileUp, ChevronLeft, ChevronRight, Plus,
+  TrendingDown, Calendar, Heart, AlertTriangle, SlidersHorizontal, Landmark,
+  Shield, Coins, Building, PieChart, Info
+} from "lucide-react";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -20,6 +25,59 @@ export default function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Category Budgets & PF Settings (loaded from localStorage scoped per user)
+  const [categoryBudgets, setCategoryBudgets] = useState<{ [key: string]: number }>({});
+  const [pfSettings, setPfSettings] = useState({
+    enabled: false,
+    employeeContribution: 0,
+    employerContribution: 0,
+    initialCorpus: 0,
+    startMonth: "2024-01",
+  });
+
+  useEffect(() => {
+    if (!session?.user) return;
+    const isRajatUser = session.user.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+    const uId = (session.user as any).id || session.user.email || "guest";
+    const budgetKey = `category_budgets_${uId}`;
+    const pfKey = `pf_settings_${uId}`;
+
+    const savedBudgets = localStorage.getItem(budgetKey);
+    if (savedBudgets) {
+      try {
+        setCategoryBudgets(JSON.parse(savedBudgets));
+      } catch {}
+    } else {
+      const defaultBudgets: { [key: string]: number } = isRajatUser
+        ? { "Home": 25000, "Ajit": 15000, "Delhi Room": 12000, "Swarna": 8000, "SIP": 5000, "Term Insurance": 1500, "Travel": 5000, "Others": 8000 }
+        : { "Others": 10000 };
+      setCategoryBudgets(defaultBudgets);
+    }
+
+    const savedPf = localStorage.getItem(pfKey);
+    if (savedPf) {
+      try {
+        const parsed = JSON.parse(savedPf);
+        setPfSettings({
+          enabled: parsed.enabled ?? isRajatUser,
+          employeeContribution: Number(parsed.employeeContribution) || (isRajatUser ? 1800 : 0),
+          employerContribution: Number(parsed.employerContribution) || (isRajatUser ? 1800 : 0),
+          initialCorpus: Number(parsed.initialCorpus) || 0,
+          startMonth: parsed.startMonth || "2024-01",
+        });
+      } catch {}
+    } else {
+      const defaultPf = {
+        enabled: isRajatUser,
+        employeeContribution: isRajatUser ? 1800 : 0,
+        employerContribution: isRajatUser ? 1800 : 0,
+        initialCorpus: 0,
+        startMonth: "2024-01",
+      };
+      setPfSettings(defaultPf);
+    }
+  }, [session]);
 
   // Fetch all user records from the optimized consolidated API endpoint
   useEffect(() => {
@@ -150,9 +208,77 @@ export default function DashboardPage() {
   const totalIncome = filteredTransactions.filter(e => e.type === "Income").reduce((acc, curr) => acc + curr.amount, 0);
   const netSavings = totalIncome - totalExpenses;
 
+  // Calculate prior transactions before active period for rolling savings balance
+  const previousTransactions = data.expenses.filter((exp) => {
+    const expDate = new Date(exp.date);
+    if (selectedDate) {
+      const targetStart = new Date(selectedDate);
+      targetStart.setHours(0, 0, 0, 0);
+      return expDate < targetStart;
+    }
+    if (selectedMonth === -1 && selectedYear === -1) {
+      return false; // Lifetime view
+    }
+    if (selectedMonth === -1 && selectedYear !== -1) {
+      return expDate.getFullYear() < selectedYear;
+    }
+    if (selectedYear === -1 && selectedMonth !== -1) {
+      return false;
+    }
+    const startOfSelectedMonth = new Date(selectedYear, selectedMonth, 1, 0, 0, 0, 0);
+    return expDate < startOfSelectedMonth;
+  });
+
+  const prevIncome = previousTransactions.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const prevExpenses = previousTransactions.filter(e => e.type === "Expense").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const previousBalance = prevIncome - prevExpenses;
+  const currentPeriodNet = totalIncome - totalExpenses;
+  const cumulativeSavings = previousBalance + currentPeriodNet;
+
   const homeExpenses = filteredTransactions.filter(e => e.category === "Home" && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
   const ajitExpenses = filteredTransactions.filter(e => e.category === "Ajit" && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
   const swarnaExpenses = filteredTransactions.filter(e => e.category === "Swarna" && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
+  const sipExpenses = filteredTransactions.filter(e => (e.category === "SIP" || e.category?.toLowerCase()?.includes("sip")) && e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
+
+  const homePercent = totalExpenses > 0 ? (homeExpenses / totalExpenses) * 100 : 0;
+  const ajitPercent = totalExpenses > 0 ? (ajitExpenses / totalExpenses) * 100 : 0;
+  const swarnaPercent = totalExpenses > 0 ? (swarnaExpenses / totalExpenses) * 100 : 0;
+  const sipPercent = totalExpenses > 0 ? (sipExpenses / totalExpenses) * 100 : 0;
+
+  // Category Spends & Red Alert Over-budget check for active period
+  const categorySpends = Array.from(
+    new Set(filteredTransactions.filter(e => e.type === "Expense").map(e => e.category).filter(Boolean))
+  ).map(cat => {
+    const total = filteredTransactions.filter(e => e.category === cat && e.type === "Expense").reduce((a, c) => a + c.amount, 0);
+    const budget = categoryBudgets[cat] || 0;
+    const isOver = budget > 0 && total > budget;
+    const overAmount = isOver ? total - budget : 0;
+    const percentage = totalExpenses > 0 ? (total / totalExpenses) * 100 : 0;
+    return { category: cat, total, budget, isOver, overAmount, percentage };
+  });
+
+  const overBudgetCategories = categorySpends.filter(c => c.isOver);
+
+  // Wealth, SIP & PF Accumulations (Dynamic & Opt-in, PF is completely separate from liquid savings)
+  const lifetimeSIP = data.expenses
+    .filter(e => (e.category === "SIP" || e.category?.toLowerCase()?.includes("sip") || e.category?.toLowerCase()?.includes("mutual fund")) && e.type === "Expense")
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const lifetimeInsurance = data.expenses
+    .filter(e => (e.category === "Term Insurance" || e.category?.toLowerCase()?.includes("insurance")) && e.type === "Expense")
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const monthlyTotalPF = pfSettings.enabled
+    ? (Number(pfSettings.employeeContribution) || 0) + (Number(pfSettings.employerContribution) || 0)
+    : 0;
+  const [pfStartYear, pfStartM] = (pfSettings.startMonth || "2024-01").split("-").map(Number);
+  const now = new Date();
+  const activePfMonths = pfSettings.enabled
+    ? Math.max(1, (now.getFullYear() - (pfStartYear || 2024)) * 12 + ((now.getMonth() + 1) - (pfStartM || 1)) + 1)
+    : 0;
+  const totalAccumulatedPF = pfSettings.enabled
+    ? (Number(pfSettings.initialCorpus) || 0) + (monthlyTotalPF * activePfMonths)
+    : 0;
 
   const topExpenseCategories = Array.from(
     new Set(filteredTransactions.filter(e => e.type === "Expense").map(e => e.category).filter(Boolean))
@@ -363,18 +489,74 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ── Mini Stat Strip (Only global totals, no category spend cards, no tooltips) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          {/* ── 🔴 RED ALERT BANNER (If Any Category Exceeds Monthly Budget) ── */}
+          {overBudgetCategories.length > 0 && (
+            <div className="mb-6 p-4 rounded-2xl bg-red-950/40 dark:bg-red-950/50 light:bg-red-50 border border-red-500/40 shadow-xl shadow-red-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex-shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-400 light:text-red-600 flex items-center gap-1.5">
+                    <span>🔴 RED ALERT: {overBudgetCategories.length} {overBudgetCategories.length === 1 ? "Category" : "Categories"} Over Monthly Budget ({getContextLabel()})</span>
+                  </h4>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    {overBudgetCategories.map((c) => (
+                      <span key={c.category} className="text-[10px] font-mono text-slate-200 light:text-slate-800 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-lg">
+                        <strong className="text-red-400 light:text-red-600">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+₹{c.overAmount.toLocaleString()} over)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <Link
+                href="/expenses"
+                className="px-3.5 py-1.5 rounded-xl bg-red-500 text-white font-black text-[9px] uppercase tracking-wider hover:bg-red-600 transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto shadow-lg shadow-red-500/20 flex items-center gap-1"
+              >
+                <span>Adjust Budgets</span>
+                <ArrowUpRight size={12} />
+              </Link>
+            </div>
+          )}
+
+          {/* ── Mini Stat Strip (Global totals, liquid savings rollover & optional separate PF) ── */}
+          <div className={`grid gap-4 mb-8 ${pfSettings.enabled ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
             {[
-              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, color: "text-emerald-400 light:text-emerald-600" },
-              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, color: "text-red-400 light:text-red-600" },
-              { key: "savings", label: "Savings / Net", value: `₹${netSavings.toLocaleString()}`, color: netSavings >= 0 ? "text-purple-400 light:text-purple-600" : "text-red-400 light:text-red-600" },
+              { key: "income", label: "Income", value: `₹${totalIncome.toLocaleString()}`, sub: `Period Inflow (${getContextLabel()})`, color: "text-emerald-400 light:text-emerald-600" },
+              { key: "outflow", label: "Outflow", value: `₹${totalExpenses.toLocaleString()}`, sub: `Period Outflow (${getContextLabel()})`, color: "text-red-400 light:text-red-600" },
+              {
+                key: "savings",
+                label: "Liquid Savings",
+                value: `₹${cumulativeSavings.toLocaleString()}`,
+                sub: `Prev: ₹${previousBalance.toLocaleString()} + Curr: ₹${currentPeriodNet.toLocaleString()}`,
+                color: cumulativeSavings >= 0 ? "text-purple-400 light:text-purple-600" : "text-red-400 light:text-red-600"
+              },
+              ...(pfSettings.enabled ? [{
+                key: "pf",
+                label: "Provident Fund (PF)",
+                value: `₹${totalAccumulatedPF.toLocaleString()}`,
+                sub: `₹${pfSettings.employeeContribution} (You) + ₹${pfSettings.employerContribution} (Co.) × ${activePfMonths} mos`,
+                color: "text-teal-400 light:text-teal-600"
+              }] : []),
             ].map(card => (
               <div key={card.key} className="mini-3d-card rounded-xl px-4 py-3 cursor-default transition-all hover:scale-[1.02]">
-                <p className="text-[9px] uppercase tracking-widest text-slate-500 font-mono font-bold">
-                  {card.label}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] uppercase tracking-widest text-slate-500 font-mono font-bold">
+                    {card.label}
+                  </p>
+                  {card.key === "savings" && previousBalance !== 0 && (
+                    <span className="text-[8px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded" title="Includes previous savings rollover">
+                      Rollover
+                    </span>
+                  )}
+                  {card.key === "pf" && (
+                    <span className="text-[8px] font-mono font-bold text-teal-400 bg-teal-500/10 px-1 py-0.5 rounded" title="Employer matched locked retirement fund">
+                      Retirement
+                    </span>
+                  )}
+                </div>
                 <p className={`text-base font-black font-mono mt-1 ${card.color}`}>{card.value}</p>
+                <p className="text-[8px] font-mono text-slate-500 mt-0.5 truncate">{card.sub}</p>
               </div>
             ))}
           </div>
@@ -419,43 +601,65 @@ export default function DashboardPage() {
             </div>
 
             {/* Expenses Card */}
-            <div className="glass-card card-glow-purple p-6 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[220px]">
+            <div className={`glass-card card-glow-purple p-6 rounded-2xl border flex flex-col justify-between min-h-[220px] transition-all ${
+              overBudgetCategories.length > 0 ? "border-red-500/40 bg-red-950/10" : "border-white/5"
+            }`}>
               <div>
                 <div className="flex justify-between items-start">
                   <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                     <CreditCard size={20} />
                   </div>
-                  <div className="flex items-center gap-1 bg-purple-950/40 border border-purple-500/20 px-2.5 py-1 rounded-full text-[10px] text-purple-400 font-bold uppercase">
-                    <Wallet size={12} />
-                    <span>SAVINGS / NET</span>
+                  <div className="flex items-center gap-1.5">
+                    {overBudgetCategories.length > 0 && (
+                      <span className="flex items-center gap-1 bg-red-500/20 border border-red-500/40 px-2 py-0.5 rounded-full text-[9px] text-red-400 font-black uppercase font-mono animate-pulse">
+                        <AlertTriangle size={10} />
+                        <span>{overBudgetCategories.length} OVER</span>
+                      </span>
+                    )}
+                    <div className="flex items-center gap-1 bg-purple-950/40 border border-purple-500/20 px-2.5 py-1 rounded-full text-[10px] text-purple-400 font-bold uppercase">
+                      <Wallet size={12} />
+                      <span>TOTAL SAVINGS</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="mt-4">
-                  <h3 className="text-2xl font-black font-mono text-slate-100">₹{netSavings.toLocaleString()}</h3>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-purple-400 mt-1">Net Balance ({getContextLabel()})</p>
+                  <h3 className={`text-2xl font-black font-mono ${cumulativeSavings >= 0 ? "text-slate-100" : "text-red-400"}`}>
+                    ₹{cumulativeSavings.toLocaleString()}
+                  </h3>
+                  <div className="flex items-center gap-1 text-[9px] font-mono text-purple-400 mt-1">
+                    <span>Prev: ₹{previousBalance >= 0 ? previousBalance.toLocaleString() : `(${Math.abs(previousBalance).toLocaleString()})`}</span>
+                    <span>+</span>
+                    <span>Curr: ₹{currentPeriodNet >= 0 ? currentPeriodNet.toLocaleString() : `(${Math.abs(currentPeriodNet).toLocaleString()})`}</span>
+                  </div>
                 </div>
               </div>
 
               <div className="border-t border-white/5 pt-4 mt-6 flex justify-between items-center">
-                <div className="flex gap-2 text-[9px] text-slate-500 font-mono">
+                <div className="flex gap-2 text-[9px] text-slate-400 font-mono truncate mr-2">
                   {isRajat ? (
                     <>
-                      <span>H: ₹{homeExpenses}</span>
-                      <span>A: ₹{ajitExpenses}</span>
-                      <span>S: ₹{swarnaExpenses}</span>
+                      <span title={`Home: ₹${homeExpenses.toLocaleString()} (${homePercent.toFixed(0)}%)`}>H: ₹{homeExpenses.toLocaleString()} <strong className="text-emerald-400">({homePercent.toFixed(0)}%)</strong></span>
+                      <span title={`Ajit: ₹${ajitExpenses.toLocaleString()} (${ajitPercent.toFixed(0)}%)`}>A: ₹{ajitExpenses.toLocaleString()} <strong className="text-blue-400">({ajitPercent.toFixed(0)}%)</strong></span>
+                      <span title={`Swarna: ₹${swarnaExpenses.toLocaleString()} (${swarnaPercent.toFixed(0)}%)`}>S: ₹{swarnaExpenses.toLocaleString()} <strong className="text-purple-400">({swarnaPercent.toFixed(0)}%)</strong></span>
+                      {sipExpenses > 0 && (
+                        <span title={`SIP: ₹${sipExpenses.toLocaleString()} (${sipPercent.toFixed(0)}%)`}>SIP: ₹{sipExpenses.toLocaleString()} <strong className="text-teal-400">({sipPercent.toFixed(0)}%)</strong></span>
+                      )}
                     </>
                   ) : topExpenseCategories.length > 0 ? (
-                    topExpenseCategories.map((c) => (
-                      <span key={c.name}>{c.name.slice(0, 1).toUpperCase()}: ₹{c.total}</span>
-                    ))
+                    topExpenseCategories.map((c) => {
+                      const share = totalExpenses > 0 ? ((c.total / totalExpenses) * 100).toFixed(0) : "0";
+                      return (
+                        <span key={c.name}>{c.name.slice(0, 1).toUpperCase()}: ₹{c.total.toLocaleString()} ({share}%)</span>
+                      );
+                    })
                   ) : (
                     <span>No expense records</span>
                   )}
                 </div>
                 <Link
                   href="/expenses"
-                  className="text-xs font-bold text-slate-300 hover:text-purple-400 flex items-center gap-1 transition-all"
+                  className="text-xs font-bold text-slate-300 hover:text-purple-400 flex items-center gap-1 transition-all flex-shrink-0"
                 >
                   <span>Ledger Log</span>
                   <ArrowUpRight size={14} />

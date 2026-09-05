@@ -7,7 +7,9 @@ import * as XLSX from "xlsx";
 import {
   CreditCard, Trash2, Calendar, IndianRupee, Tag, FileText, Loader2,
   Plus, Sparkles, TrendingDown, TrendingUp, Wallet, ChevronLeft, ChevronRight,
-  Pencil, Check, X, Download, FileSpreadsheet, Printer, ChevronDown, Search
+  Pencil, Check, X, Download, FileSpreadsheet, Printer, ChevronDown, Search,
+  PieChart, Percent, Info, Layers, ArrowRight, Shield, Coins, Building,
+  AlertTriangle, SlidersHorizontal, Landmark, PiggyBank, Settings2
 } from "lucide-react";
 
 export default function ExpensesPage() {
@@ -32,6 +34,27 @@ export default function ExpensesPage() {
   const [statementType, setStatementType] = useState<"All" | "Income" | "Expense">("All");
   const exportDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Category Budgets State & Modal
+  const [categoryBudgets, setCategoryBudgets] = useState<{ [key: string]: number }>({});
+  const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [budgetForm, setBudgetForm] = useState<{ [key: string]: string }>({});
+
+  // Provident Fund (PF) & Wealth Portfolio Settings (Dynamic & Opt-in per user)
+  const [pfSettings, setPfSettings] = useState({
+    enabled: false,
+    employeeContribution: 0,
+    employerContribution: 0,
+    initialCorpus: 0,
+    startMonth: "2024-01",
+  });
+  const [showPfModal, setShowPfModal] = useState(false);
+  const [pfForm, setPfForm] = useState({
+    enabled: false,
+    employeeContribution: "1800",
+    employerContribution: "1800",
+    initialCorpus: "0",
+    startMonth: "2024-01",
+  });
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -46,7 +69,6 @@ export default function ExpensesPage() {
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ date: "", description: "", amount: "", category: "", type: "Expense" });
-
 
   const [filterMode, setFilterMode] = useState<"month" | "range">("range");
 
@@ -75,7 +97,6 @@ export default function ExpensesPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedMonth, selectedYear, startDate, endDate, filterMode, activeFilter, searchQuery]);
-
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -113,7 +134,6 @@ export default function ExpensesPage() {
     }
   };
 
-
   // 1. Initial load from LocalStorage (scoped per user)
   useEffect(() => {
     if (!session?.user) return;
@@ -121,6 +141,8 @@ export default function ExpensesPage() {
     const uId = (session.user as any).id || session.user.email || "guest";
     const expKey = `custom_expense_categories_${uId}`;
     const incKey = `custom_income_categories_${uId}`;
+    const budgetKey = `category_budgets_${uId}`;
+    const pfKey = `pf_settings_${uId}`;
 
     const savedExp = localStorage.getItem(expKey);
     const savedInc = localStorage.getItem(incKey);
@@ -131,7 +153,7 @@ export default function ExpensesPage() {
       } catch {}
     } else {
       if (isRajatUser) {
-        setExpenseCategories(["Home", "Delhi Room", "Swarna", "Ajit", "Travel", "Others"]);
+        setExpenseCategories(["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Term Insurance", "Travel", "Others"]);
       } else {
         setExpenseCategories(["Others"]);
       }
@@ -148,6 +170,67 @@ export default function ExpensesPage() {
         setIncomeCategories(["Others"]);
       }
     }
+
+    // Load category budgets
+    const savedBudgets = localStorage.getItem(budgetKey);
+    if (savedBudgets) {
+      try {
+        const parsed = JSON.parse(savedBudgets);
+        setCategoryBudgets(parsed);
+        const strForm: { [key: string]: string } = {};
+        Object.keys(parsed).forEach(k => strForm[k] = String(parsed[k]));
+        setBudgetForm(strForm);
+      } catch {}
+    } else {
+      const defaultBudgets: { [key: string]: number } = isRajatUser
+        ? { "Home": 25000, "Ajit": 15000, "Delhi Room": 12000, "Swarna": 8000, "SIP": 5000, "Term Insurance": 1500, "Travel": 5000, "Others": 8000 }
+        : { "Others": 10000 };
+      setCategoryBudgets(defaultBudgets);
+      localStorage.setItem(budgetKey, JSON.stringify(defaultBudgets));
+      const strForm: { [key: string]: string } = {};
+      Object.keys(defaultBudgets).forEach(k => strForm[k] = String(defaultBudgets[k]));
+      setBudgetForm(strForm);
+    }
+
+    // Load PF settings
+    const savedPf = localStorage.getItem(pfKey);
+    if (savedPf) {
+      try {
+        const parsed = JSON.parse(savedPf);
+        const isEnabled = parsed.enabled ?? isRajatUser;
+        setPfSettings({
+          enabled: isEnabled,
+          employeeContribution: Number(parsed.employeeContribution) || (isRajatUser ? 1800 : 0),
+          employerContribution: Number(parsed.employerContribution) || (isRajatUser ? 1800 : 0),
+          initialCorpus: Number(parsed.initialCorpus) || 0,
+          startMonth: parsed.startMonth || "2024-01",
+        });
+        setPfForm({
+          enabled: isEnabled,
+          employeeContribution: String(parsed.employeeContribution ?? (isRajatUser ? "1800" : "1800")),
+          employerContribution: String(parsed.employerContribution ?? (isRajatUser ? "1800" : "1800")),
+          initialCorpus: String(parsed.initialCorpus ?? "0"),
+          startMonth: parsed.startMonth || "2024-01",
+        });
+      } catch {}
+    } else {
+      const defaultPf = {
+        enabled: isRajatUser,
+        employeeContribution: isRajatUser ? 1800 : 0,
+        employerContribution: isRajatUser ? 1800 : 0,
+        initialCorpus: 0,
+        startMonth: "2024-01",
+      };
+      setPfSettings(defaultPf);
+      localStorage.setItem(pfKey, JSON.stringify(defaultPf));
+      setPfForm({
+        enabled: isRajatUser,
+        employeeContribution: "1800",
+        employerContribution: "1800",
+        initialCorpus: "0",
+        startMonth: "2024-01",
+      });
+    }
   }, [session]);
 
   // 2. Dynamic generation of custom lists based on transaction history
@@ -160,7 +243,7 @@ export default function ExpensesPage() {
 
     if (expenses.length === 0) {
       if (!localStorage.getItem(expKey)) {
-        const initialExp = isRajatUser ? ["Home", "Delhi Room", "Swarna", "Ajit", "Travel", "Others"] : ["Others"];
+        const initialExp = isRajatUser ? ["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Term Insurance", "Travel", "Others"] : ["Others"];
         setExpenseCategories(initialExp);
       }
       if (!localStorage.getItem(incKey)) {
@@ -174,7 +257,7 @@ export default function ExpensesPage() {
     const uniqueIncCats = Array.from(new Set(expenses.filter(e => e.type === "Income").map(e => e.category).filter(Boolean)));
 
     setExpenseCategories(prev => {
-      const base = isRajatUser && prev.length === 0 ? ["Home", "Delhi Room", "Swarna", "Ajit", "Travel", "Others"] : prev;
+      const base = isRajatUser && prev.length === 0 ? ["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Term Insurance", "Travel", "Others"] : prev;
       const merged = Array.from(new Set([...base, ...uniqueExpCats, "Others"]));
       localStorage.setItem(expKey, JSON.stringify(merged));
       return merged;
@@ -187,6 +270,39 @@ export default function ExpensesPage() {
       return merged;
     });
   }, [expenses, session]);
+
+  const handleSaveBudgets = (e: React.FormEvent) => {
+    e.preventDefault();
+    const uId = (session?.user as any)?.id || session?.user?.email || "guest";
+    const budgetKey = `category_budgets_${uId}`;
+    const newBudgets: { [key: string]: number } = {};
+    Object.keys(budgetForm).forEach(k => {
+      const num = parseFloat(budgetForm[k]);
+      if (!isNaN(num) && num > 0) {
+        newBudgets[k] = num;
+      }
+    });
+    setCategoryBudgets(newBudgets);
+    localStorage.setItem(budgetKey, JSON.stringify(newBudgets));
+    setShowBudgetModal(false);
+  };
+
+  const handleSavePfSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    const uId = (session?.user as any)?.id || session?.user?.email || "guest";
+    const pfKey = `pf_settings_${uId}`;
+    const isEnabled = Boolean(pfForm.enabled);
+    const newPf = {
+      enabled: isEnabled,
+      employeeContribution: isEnabled ? (parseFloat(pfForm.employeeContribution) || 0) : 0,
+      employerContribution: isEnabled ? (parseFloat(pfForm.employerContribution) || 0) : 0,
+      initialCorpus: isEnabled ? (parseFloat(pfForm.initialCorpus) || 0) : 0,
+      startMonth: pfForm.startMonth || "2024-01",
+    };
+    setPfSettings(newPf);
+    localStorage.setItem(pfKey, JSON.stringify(newPf));
+    setShowPfModal(false);
+  };
 
   const handleAddCustomCategory = (name: string) => {
     const cleanName = name.trim();
@@ -415,6 +531,40 @@ export default function ExpensesPage() {
     return `${months[selectedMonth].slice(0, 3)} '${String(selectedYear).slice(-2)}`;
   };
 
+  // Helper for category styling with budget alert support
+  const getCategoryTheme = (cat: string, isOver?: boolean, isNear?: boolean) => {
+    if (isOver) {
+      return {
+        bar: "bg-red-500",
+        text: "text-red-400 light:text-red-600",
+        bg: "bg-red-500/20",
+        border: "border-red-500/50",
+        cardBg: "border-red-500/80 bg-red-950/40 shadow-lg shadow-red-500/20 animate-pulse",
+        alert: true
+      };
+    }
+    if (isNear) {
+      return {
+        bar: "bg-amber-500",
+        text: "text-amber-400 light:text-amber-600",
+        bg: "bg-amber-500/15",
+        border: "border-amber-500/40",
+        cardBg: "border-amber-500/40 bg-amber-950/20",
+        alert: false
+      };
+    }
+    const c = (cat || "").toLowerCase();
+    if (c.includes("sip") || c.includes("mutual")) return { bar: "bg-emerald-500", text: "text-emerald-400 light:text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-500/20", cardBg: "", alert: false };
+    if (c.includes("insurance") || c.includes("term")) return { bar: "bg-cyan-500", text: "text-cyan-400 light:text-cyan-600", bg: "bg-cyan-500/10", border: "border-cyan-500/20", cardBg: "", alert: false };
+    if (c.includes("pf") || c.includes("epf")) return { bar: "bg-teal-500", text: "text-teal-400 light:text-teal-600", bg: "bg-teal-500/10", border: "border-teal-500/20", cardBg: "", alert: false };
+    if (c.includes("home")) return { bar: "bg-emerald-500", text: "text-emerald-400 light:text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-500/20", cardBg: "", alert: false };
+    if (c.includes("ajit")) return { bar: "bg-blue-500", text: "text-blue-400 light:text-blue-600", bg: "bg-blue-500/10", border: "border-blue-500/20", cardBg: "", alert: false };
+    if (c.includes("swarna")) return { bar: "bg-purple-500", text: "text-purple-400 light:text-purple-600", bg: "bg-purple-500/10", border: "border-purple-500/20", cardBg: "", alert: false };
+    if (c.includes("delhi") || c.includes("room")) return { bar: "bg-amber-500", text: "text-amber-400 light:text-amber-600", bg: "bg-amber-500/10", border: "border-amber-500/20", cardBg: "", alert: false };
+    if (c.includes("travel")) return { bar: "bg-sky-500", text: "text-sky-400 light:text-sky-600", bg: "bg-sky-500/10", border: "border-sky-500/20", cardBg: "", alert: false };
+    return { bar: "bg-indigo-500", text: "text-indigo-400 light:text-indigo-600", bg: "bg-indigo-500/10", border: "border-indigo-500/20", cardBg: "", alert: false };
+  };
+
   // 1. Filter expenses by selected Month, Year or Date Range
   const monthlyExpenses = expenses.filter((exp) => {
     const expDate = new Date(exp.date);
@@ -433,23 +583,111 @@ export default function ExpensesPage() {
     return monthMatches && yearMatches;
   });
 
-  // 2. Calculations based on Monthly/Yearly data
-  const incomeTotal = monthlyExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + curr.amount, 0);
-  const expenseTotal = monthlyExpenses.filter(e => e.type === "Expense").reduce((acc, curr) => acc + curr.amount, 0);
-  const remainTotal = incomeTotal - expenseTotal;
+  // Calculate prior transactions before the active filter period to carry forward savings
+  const previousExpenses = expenses.filter((exp) => {
+    const expDate = new Date(exp.date);
+    if (filterMode === "range") {
+      if (!startDate) return false;
+      const year = expDate.getFullYear();
+      const month = String(expDate.getMonth() + 1).padStart(2, '0');
+      const day = String(expDate.getDate()).padStart(2, '0');
+      const localExpStr = `${year}-${month}-${day}`;
+      return localExpStr < startDate;
+    }
+    if (selectedMonth === -1 && selectedYear === -1) {
+      return false; // Lifetime view
+    }
+    if (selectedMonth === -1 && selectedYear !== -1) {
+      return expDate.getFullYear() < selectedYear;
+    }
+    if (selectedYear === -1 && selectedMonth !== -1) {
+      return false;
+    }
+    const startOfSelectedMonth = new Date(selectedYear, selectedMonth, 1, 0, 0, 0, 0);
+    return expDate < startOfSelectedMonth;
+  });
 
-  // Dynamically compute sum for all active categories
+  const prevIncomeTotal = previousExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const prevExpenseTotal = previousExpenses.filter(e => e.type === "Expense").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const previousBalance = prevIncomeTotal - prevExpenseTotal;
+
+  // 2. Calculations based on Monthly/Yearly/Range data
+  const incomeTotal = monthlyExpenses.filter(e => e.type === "Income").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const expenseTotal = monthlyExpenses.filter(e => e.type === "Expense").reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const currentPeriodBalance = incomeTotal - expenseTotal;
+  const newSavingBalance = previousBalance + currentPeriodBalance;
+
+  // Dynamically compute sum & percentage for all active categories with budget evaluations
   const categoryTotals = expenseCategories.map(cat => {
     const total = monthlyExpenses
       .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes(cat.toLowerCase()) || (e.description || "").toLowerCase().includes(cat.toLowerCase())))
-      .reduce((acc, curr) => acc + curr.amount, 0);
-    return { category: cat, total };
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const budget = Number(categoryBudgets[cat]) || 0;
+    const percentage = expenseTotal > 0 ? (total / expenseTotal) * 100 : 0;
+    const incomeShare = incomeTotal > 0 ? (total / incomeTotal) * 100 : 0;
+    const isOverBudget = budget > 0 && total > budget;
+    const isNearBudget = budget > 0 && !isOverBudget && total >= budget * 0.85;
+    const overAmount = Math.max(0, total - budget);
+    const remainingBudget = Math.max(0, budget - total);
+    const budgetPercentage = budget > 0 ? (total / budget) * 100 : 0;
+    return {
+      category: cat,
+      total,
+      budget,
+      percentage,
+      incomeShare,
+      isOverBudget,
+      isNearBudget,
+      overAmount,
+      remainingBudget,
+      budgetPercentage
+    };
   }).filter(item => {
     if (isRajat) {
-      return item.total > 0 || ["Home", "Ajit", "Swarna", "Delhi Room"].includes(item.category);
+      return item.total > 0 || item.budget > 0 || ["Home", "Ajit", "Swarna", "Delhi Room", "SIP", "Term Insurance"].includes(item.category);
     }
-    return item.total > 0;
+    return item.total > 0 || item.budget > 0;
   });
+
+  const overBudgetCategories = categoryTotals.filter(c => c.isOverBudget);
+
+  // Wealth & Investments Calculations
+  const currentMonthSIP = monthlyExpenses
+    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("sip") || (e.category || "").toLowerCase().includes("mutual") || (e.description || "").toLowerCase().includes("sip") || (e.description || "").toLowerCase().includes("mutual")))
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const lifetimeSIP = expenses
+    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("sip") || (e.category || "").toLowerCase().includes("mutual") || (e.description || "").toLowerCase().includes("sip") || (e.description || "").toLowerCase().includes("mutual")))
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const currentMonthInsurance = monthlyExpenses
+    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("insurance") || (e.category || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("insurance") || (e.description || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("lic")))
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  const lifetimeInsurance = expenses
+    .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes("insurance") || (e.category || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("insurance") || (e.description || "").toLowerCase().includes("term") || (e.description || "").toLowerCase().includes("lic")))
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  // Provident Fund (PF / EPF) Calculations
+  // Monthly Total PF = Employee Share (₹1800) + Employer Share (₹1800) = ₹3600/month
+  const monthlyTotalPF = (Number(pfSettings.employeeContribution) || 0) + (Number(pfSettings.employerContribution) || 0);
+
+  // Calculate number of active months since startMonth for PF compounding
+  const calculatePfMonths = () => {
+    try {
+      const start = pfSettings.startMonth ? new Date(pfSettings.startMonth + "-01") : new Date("2024-01-01");
+      const now = new Date();
+      const monthsDiff = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()) + 1;
+      return Math.max(1, monthsDiff);
+    } catch {
+      return 12;
+    }
+  };
+  const activePfMonths = calculatePfMonths();
+  const totalAccumulatedPF = (activePfMonths * monthlyTotalPF) + (Number(pfSettings.initialCorpus) || 0);
+
+  // Total Net Worth = Liquid Net Savings + Lifetime SIP + Accumulated PF Corpus
+  const totalNetWorth = newSavingBalance + lifetimeSIP + totalAccumulatedPF;
 
   // 3. Filter displayed logs based on active card filters & live search
   const displayedExpenses = monthlyExpenses.filter((exp) => {
@@ -529,7 +767,6 @@ export default function ExpensesPage() {
       targetName += ` (${typeToFilter}s)`;
     }
 
-
     let periodLabel = getContextLabel();
     if (scope === "all") {
       if (sorted.length > 0) {
@@ -557,6 +794,15 @@ export default function ExpensesPage() {
       .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
     const netBal = totalInc - totalExp;
 
+    const prevList = scope === "current" ? previousExpenses : [];
+    const openingBal = prevList
+      .filter((e) => e.type === "Income")
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) -
+      prevList
+        .filter((e) => e.type === "Expense")
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const cumulativeBal = openingBal + netBal;
+
     return {
       targetName,
       typeFilter: typeToFilter,
@@ -566,6 +812,9 @@ export default function ExpensesPage() {
       totalExpense: totalExp,
       totalIncome: totalInc,
       netBalance: netBal,
+      openingBalance: openingBal,
+      cumulativeBalance: cumulativeBal,
+      categoryBreakdown: categoryTotals,
     };
   };
 
@@ -578,7 +827,7 @@ export default function ExpensesPage() {
 
     const wb = XLSX.utils.book_new();
 
-    // Metadata Header with Person & Summary Details
+    // Metadata Header with Person, Rolling Savings & Category Breakdown Details
     const wsData: any[][] = [
       ["PERSONAL LEDGER - TRANSACTION STATEMENT"],
       [],
@@ -586,12 +835,29 @@ export default function ExpensesPage() {
       ["Period / Scope:", data.periodLabel],
       ["Generated Date:", new Date().toLocaleString()],
       ["Total Transactions:", data.totalCount],
-      ["Total Outflow / Expense (INR):", data.totalExpense],
+      ["Opening / Previous Balance (INR):", data.openingBalance],
       ["Total Inflow / Income (INR):", data.totalIncome],
-      ["Net Cash Flow / Balance (INR):", data.netBalance],
+      ["Total Outflow / Expense (INR):", data.totalExpense],
+      ["Current Period Net Cash Flow (INR):", data.netBalance],
+      ["Closing / New Saving Balance (INR):", data.cumulativeBalance],
+      ["Savings Rollover Formula:", `Previous (₹${data.openingBalance}) + Current Net (₹${data.netBalance}) = Closing Savings (₹${data.cumulativeBalance})`],
       [],
-      ["Date", "Description / Purpose", "Category / Person", "Type", "Amount (INR)"]
+      ["CATEGORY SPEND & SHARE BREAKDOWN"],
+      ["Category Name", "Outflow (INR)", "% of Total Outflow", "% of Total Inflow"]
     ];
+
+    data.categoryBreakdown.forEach((cat) => {
+      wsData.push([
+        cat.category,
+        cat.total,
+        `${cat.percentage.toFixed(1)}%`,
+        data.totalIncome > 0 ? `${cat.incomeShare.toFixed(1)}%` : "N/A"
+      ]);
+    });
+
+    wsData.push([]);
+    wsData.push(["DETAILED TRANSACTION LOGS"]);
+    wsData.push(["Date", "Description / Purpose", "Category / Person", "Type", "Amount (INR)"]);
 
     // Data rows
     data.transactions.forEach((tx) => {
@@ -611,16 +877,18 @@ export default function ExpensesPage() {
     wsData.push([]);
     wsData.push(["Total Inflow (Income)", "", "", "", data.totalIncome]);
     wsData.push(["Total Outflow (Expense)", "", "", "", -data.totalExpense]);
-    wsData.push(["Net Balance", "", "", "", data.netBalance]);
+    wsData.push(["Current Period Net", "", "", "", data.netBalance]);
+    wsData.push(["Opening Previous Balance", "", "", "", data.openingBalance]);
+    wsData.push(["Closing New Saving Balance", "", "", "", data.cumulativeBalance]);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     // Set Column Widths
     ws["!cols"] = [
-      { wch: 15 }, // Date
-      { wch: 40 }, // Description
-      { wch: 22 }, // Category
-      { wch: 14 }, // Type
+      { wch: 18 }, // Date / Category
+      { wch: 40 }, // Description / Outflow
+      { wch: 22 }, // Category / % Outflow
+      { wch: 18 }, // Type / % Inflow
       { wch: 18 }  // Amount
     ];
 
@@ -650,19 +918,28 @@ export default function ExpensesPage() {
       return [dateFormatted, desc, cat, type, amt].join(",");
     });
 
+    const categoryLines = data.categoryBreakdown.map(
+      (c) => `# Category: ${c.category}, Spend: ₹${c.total}, Share: ${c.percentage.toFixed(1)}% of Outflow`
+    ).join("\n");
+
     const metaComments = [
       `# PERSONAL LEDGER - TRANSACTION STATEMENT`,
       `# Subject / Person: ${data.targetName}`,
       `# Scope: ${data.periodLabel}`,
       `# Generated On: ${new Date().toLocaleString()}`,
       `# Total Transactions: ${data.totalCount}`,
+      `# Opening / Previous Balance: ₹${data.openingBalance}`,
       `# Total Inflow (Income): +₹${data.totalIncome}`,
       `# Total Outflow (Expense): -₹${data.totalExpense}`,
-      `# Net Balance: ₹${data.netBalance}`,
+      `# Current Period Net: ₹${data.netBalance}`,
+      `# Closing / New Saving Balance: ₹${data.cumulativeBalance}`,
+      `# Equation: Previous (₹${data.openingBalance}) + Current Net (₹${data.netBalance}) = Closing Savings (₹${data.cumulativeBalance})`,
+      `# --- Category Spend Distribution ---`,
+      categoryLines,
       ``
     ].join("\n");
 
-    const csvContent = metaComments + headers.join(",") + "\n" + rows.join("\n") + `\nTotal Inflow,,,,${data.totalIncome}\nTotal Outflow,,,,-${data.totalExpense}\nNet Balance,,,,${data.netBalance}`;
+    const csvContent = metaComments + headers.join(",") + "\n" + rows.join("\n") + `\nTotal Inflow,,,,${data.totalIncome}\nTotal Outflow,,,,-${data.totalExpense}\nPeriod Net Balance,,,,${data.netBalance}\nOpening Balance,,,,${data.openingBalance}\nNew Saving Balance,,,,${data.cumulativeBalance}`;
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -685,108 +962,167 @@ export default function ExpensesPage() {
         <Navigation />
 
         <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-grow">
-          {/* Header & Month Selector */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          {/* Header & Month Selector & Quick Modals */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
             <div>
               <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Personal Ledger</h2>
-              <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Manage and segment all cash flows</p>
+              <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Manage cash flows, category budgets & wealth assets</p>
             </div>
 
-            {/* Premium 3D Floating Mode selector bar */}
-            <div className="filter-bar flex flex-wrap items-center gap-3 bg-white dark:bg-[#0c0c16]/60 shadow-lg dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-slate-200 dark:border-white/10 p-2 rounded-xl hover:border-slate-300 dark:hover:border-white/15 transition-all w-full sm:w-auto">
-              {/* Toggle switch for Range vs Month */}
-              <div className="mode-toggle flex bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 p-0.5 rounded-lg">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              {/* Category Budgets & PF Settings Action Buttons */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setFilterMode("range")}
-                  className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
-                    filterMode === "range"
-                      ? "active bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
-                      : "text-slate-500 hover:text-slate-700"
+                  onClick={() => setShowBudgetModal(true)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm ${
+                    overBudgetCategories.length > 0
+                      ? "bg-red-500/20 text-red-400 border-red-500/40 animate-pulse"
+                      : "bg-white/[0.02] light:bg-white text-indigo-400 border-indigo-500/20 hover:border-indigo-500/40"
                   }`}
+                  title="Configure monthly budget targets"
                 >
-                  Range
+                  <SlidersHorizontal size={12} className={overBudgetCategories.length > 0 ? "text-red-400" : "text-indigo-400"} />
+                  <span>Budgets {overBudgetCategories.length > 0 && `(${overBudgetCategories.length} Alert)`}</span>
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => setFilterMode("month")}
-                  className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
-                    filterMode === "month"
-                      ? "active bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  onClick={() => setShowPfModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+                  title="Configure Provident Fund (PF) and SIP settings"
                 >
-                  Month
+                  <PiggyBank size={12} className="text-teal-400" />
+                  <span>PF & Wealth</span>
                 </button>
               </div>
 
-              {filterMode === "month" ? (
-                /* Month Mode */
-                <div className="flex items-center gap-2">
+              {/* Premium 3D Floating Mode selector bar */}
+              <div className="filter-bar flex flex-wrap items-center gap-3 bg-white dark:bg-[#0c0c16]/60 shadow-lg dark:shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-slate-200 dark:border-white/10 p-2 rounded-xl hover:border-slate-300 dark:hover:border-white/15 transition-all w-full sm:w-auto">
+                {/* Toggle switch for Range vs Month */}
+                <div className="mode-toggle flex bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 p-0.5 rounded-lg">
                   <button
-                    onClick={handlePrevMonth}
-                    className="bar-btn p-1 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer transition-all"
+                    type="button"
+                    onClick={() => setFilterMode("range")}
+                    className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                      filterMode === "range"
+                        ? "active bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
                   >
-                    <ChevronLeft size={13} />
+                    Range
                   </button>
-
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                    className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-1 font-sans"
-                  >
-                    <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL MONTHS</option>
-                    {months.map((m, idx) => (
-                      <option key={m} value={idx} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{m.toUpperCase()}</option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-1 font-sans"
-                  >
-                    <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL YEARS</option>
-                    {availableYears.map((year) => (
-                      <option key={year} value={year} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{year}</option>
-                    ))}
-                  </select>
-
                   <button
-                    onClick={handleNextMonth}
-                    className="bar-btn p-1 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer transition-all"
+                    type="button"
+                    onClick={() => setFilterMode("month")}
+                    className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                      filterMode === "month"
+                        ? "active bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
                   >
-                    <ChevronRight size={13} />
+                    Month
                   </button>
                 </div>
-              ) : (
-                /* Range Mode (From Date & To Date) */
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="range-pill flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/5 border border-indigo-200 dark:border-indigo-500/20 px-2 py-1 rounded-xl text-indigo-600 dark:text-indigo-400">
-                    <span className="text-[8px] uppercase tracking-wider font-bold text-slate-500 font-sans mr-1">From</span>
-                    <input
-                      type="date"
-                      value={startDate || ""}
-                      onChange={(e) => setStartDate(e.target.value || null)}
-                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
-                    />
+
+                {filterMode === "month" ? (
+                  /* Month Mode */
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handlePrevMonth}
+                      className="bar-btn p-1 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer transition-all"
+                    >
+                      <ChevronLeft size={13} />
+                    </button>
+
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-1 font-sans"
+                    >
+                      <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL MONTHS</option>
+                      {months.map((m, idx) => (
+                        <option key={m} value={idx} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{m.toUpperCase()}</option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      className="bg-transparent text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 outline-none cursor-pointer py-1 px-1 font-sans"
+                    >
+                      <option value={-1} className="bg-white dark:bg-[#0c0c16] text-indigo-600 dark:text-indigo-400 font-bold">ALL YEARS</option>
+                      {availableYears.map((year) => (
+                        <option key={year} value={year} className="bg-white dark:bg-[#0c0c16] text-slate-800 dark:text-slate-300">{year}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={handleNextMonth}
+                      className="bar-btn p-1 rounded-lg bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer transition-all"
+                    >
+                      <ChevronRight size={13} />
+                    </button>
                   </div>
-                  <div className="range-pill flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/5 border border-indigo-200 dark:border-indigo-500/20 px-2 py-1 rounded-xl text-indigo-600 dark:text-indigo-400">
-                    <span className="text-[8px] uppercase tracking-wider font-bold text-slate-500 font-sans mr-1">Till</span>
-                    <input
-                      type="date"
-                      value={endDate || ""}
-                      onChange={(e) => setEndDate(e.target.value || null)}
-                      className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
-                    />
+                ) : (
+                  /* Range Mode (From Date & To Date) */
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="range-pill flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/5 border border-indigo-200 dark:border-indigo-500/20 px-2 py-1 rounded-xl text-indigo-600 dark:text-indigo-400">
+                      <span className="text-[8px] uppercase tracking-wider font-bold text-slate-500 font-sans mr-1">From</span>
+                      <input
+                        type="date"
+                        value={startDate || ""}
+                        onChange={(e) => setStartDate(e.target.value || null)}
+                        className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
+                      />
+                    </div>
+                    <div className="range-pill flex items-center gap-1 bg-indigo-50 dark:bg-indigo-500/5 border border-indigo-200 dark:border-indigo-500/20 px-2 py-1 rounded-xl text-indigo-600 dark:text-indigo-400">
+                      <span className="text-[8px] uppercase tracking-wider font-bold text-slate-500 font-sans mr-1">Till</span>
+                      <input
+                        type="date"
+                        value={endDate || ""}
+                        onChange={(e) => setEndDate(e.target.value || null)}
+                        className="bg-transparent border-none outline-none text-xs font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer font-mono w-[110px] min-h-[1.5rem] py-0.5"
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
+          {/* ── 🔴 RED ALERT BANNER (If Any Category Exceeds Monthly Budget) ── */}
+          {overBudgetCategories.length > 0 && (
+            <div className="mb-6 p-4 rounded-2xl bg-red-950/40 dark:bg-red-950/50 light:bg-red-50 border border-red-500/40 shadow-xl shadow-red-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex-shrink-0">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-400 light:text-red-600 flex items-center gap-1.5">
+                    <span>🔴 RED ALERT: {overBudgetCategories.length} {overBudgetCategories.length === 1 ? "Category" : "Categories"} Over Budget ({getContextLabel()})</span>
+                  </h4>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    {overBudgetCategories.map((c) => (
+                      <span key={c.category} className="text-[10px] font-mono text-slate-200 light:text-slate-800 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-lg">
+                        <strong className="text-red-400 light:text-red-600">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+₹{c.overAmount.toLocaleString()} over)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBudgetModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-red-500 text-white font-black text-[9px] uppercase tracking-wider hover:bg-red-600 transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto shadow-lg shadow-red-500/20"
+              >
+                Adjust Budgets
+              </button>
+            </div>
+          )}
+
           {/* Grid Overview Cards (Filtered by selected Month & Year, horizontally scrollable on mobile) */}
-          <div className="flex overflow-x-auto lg:grid lg:grid-cols-7 gap-4 mb-8 pb-3 scrollbar-none snap-x snap-mandatory">
+          <div className="flex overflow-x-auto lg:grid lg:grid-cols-7 gap-4 mb-6 pb-3 scrollbar-none snap-x snap-mandatory">
             {/* Income Card */}
             <div
               onClick={() => handleCardFilter("Income", null, "Income")}
@@ -819,40 +1155,310 @@ export default function ExpensesPage() {
               <h3 className="text-lg font-black font-mono text-slate-100 dark:text-slate-100 light:text-slate-900 mt-1">₹{expenseTotal.toLocaleString()}</h3>
             </div>
 
-            {/* Savings Card */}
+            {/* Savings / Cumulative Balance Card */}
             <div
               onClick={() => handleCardFilter(null, null, "All")}
-              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
+              className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[160px] lg:w-auto snap-start mini-3d-card relative group ${
                 !activeFilter.type && !activeFilter.category
                   ? "mini-3d-card-active-savings"
                   : ""
               }`}
+              title={`Previous Balance: ₹${previousBalance.toLocaleString()} + Current Period: ₹${currentPeriodBalance.toLocaleString()} = New Saving Balance: ₹${newSavingBalance.toLocaleString()}`}
             >
-              <span className="text-[9px] uppercase tracking-widest text-indigo-400 light:text-indigo-600 font-bold flex items-center gap-1">
-                <Wallet size={10} />
-                <span>Savings / Net</span>
-              </span>
-              <h3 className={`text-lg font-black font-mono mt-1 ${remainTotal >= 0 ? "text-slate-100 dark:text-slate-100 light:text-slate-900" : "text-red-400 light:text-red-600"}`}>
-                ₹{remainTotal.toLocaleString()}
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] uppercase tracking-widest text-indigo-400 light:text-indigo-600 font-bold flex items-center gap-1">
+                  <Wallet size={10} />
+                  <span>Total Savings</span>
+                </span>
+                {previousBalance !== 0 && (
+                  <span className="text-[8px] font-mono font-bold text-emerald-400 dark:text-emerald-400 light:text-emerald-700 bg-emerald-500/10 px-1 py-0.5 rounded" title="Includes previous savings rollover">
+                    Rollover
+                  </span>
+                )}
+              </div>
+              <h3 className={`text-lg font-black font-mono mt-1 ${newSavingBalance >= 0 ? "text-slate-100 dark:text-slate-100 light:text-slate-900" : "text-red-400 light:text-red-600"}`}>
+                ₹{newSavingBalance.toLocaleString()}
               </h3>
+              <div className="mt-1 pt-1 border-t border-white/5 flex items-center gap-1 text-[8px] font-mono text-slate-400 truncate">
+                <span className={previousBalance >= 0 ? "text-slate-400" : "text-red-400"}>
+                  ₹{previousBalance.toLocaleString()} (Prev)
+                </span>
+                <span>+</span>
+                <span className={currentPeriodBalance >= 0 ? "text-emerald-400" : "text-red-400"}>
+                  ₹{currentPeriodBalance.toLocaleString()} (Curr)
+                </span>
+              </div>
             </div>
 
-            {/* Dynamic Category Spend Cards */}
-            {categoryTotals.map((item) => (
-              <div
-                key={item.category}
-                onClick={() => handleCardFilter(null, item.category, item.category)}
-                className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[140px] lg:w-auto snap-start mini-3d-card ${
-                  activeFilter.category === item.category
-                    ? "mini-3d-card-active-category"
-                    : ""
-                }`}
-              >
-                <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">{item.category} Spend</span>
-                <h3 className="text-lg font-black font-mono mt-1 mini-3d-card-value">₹{item.total.toLocaleString()}</h3>
-              </div>
-            ))}
+            {/* Dynamic Category Spend Cards with Red Alert & Budget Badges */}
+            {categoryTotals.map((item) => {
+              const theme = getCategoryTheme(item.category, item.isOverBudget, item.isNearBudget);
+              return (
+                <div
+                  key={item.category}
+                  onClick={() => handleCardFilter(null, item.category, item.category)}
+                  className={`p-4 rounded-xl cursor-pointer flex-shrink-0 w-[155px] lg:w-auto snap-start mini-3d-card transition-all ${
+                    item.isOverBudget ? theme.cardBg : ""
+                  } ${
+                    activeFilter.category === item.category
+                      ? "mini-3d-card-active-category ring-2 ring-indigo-500"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[9px] uppercase tracking-widest text-slate-400 light:text-slate-600 font-bold truncate pr-1">{item.category}</span>
+                    {item.isOverBudget ? (
+                      <span className="text-[8px] font-mono font-black text-red-400 light:text-red-600 bg-red-500/20 px-1 py-0.5 rounded uppercase">
+                        Alert
+                      </span>
+                    ) : item.isNearBudget ? (
+                      <span className="text-[8px] font-mono font-bold text-amber-400 light:text-amber-600 bg-amber-500/20 px-1 py-0.5 rounded">
+                        {item.budgetPercentage.toFixed(0)}%
+                      </span>
+                    ) : (
+                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${theme.bg} ${theme.text}`}>
+                        {item.percentage.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
 
+                  <h3 className={`text-lg font-black font-mono mt-1 ${item.isOverBudget ? "text-red-400 light:text-red-600" : "mini-3d-card-value"}`}>
+                    ₹{item.total.toLocaleString()}
+                  </h3>
+
+                  <p className="text-[8px] font-mono mt-0.5 truncate text-slate-500">
+                    {item.isOverBudget ? (
+                      <span className="text-red-400 light:text-red-600 font-bold">
+                        +₹{item.overAmount.toLocaleString()} over limit
+                      </span>
+                    ) : item.budget > 0 ? (
+                      <span>
+                        ₹{item.remainingBudget.toLocaleString()} left of ₹{item.budget.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span>{item.percentage.toFixed(0)}% of Outflow</span>
+                    )}
+                  </p>
+                </div>
+              );
+            })}
+
+          </div>
+
+          {/* ── 🏛️ WEALTH, INVESTMENTS & PROVIDENT FUND (PF) HUB ── */}
+          <div className="glass-card card-glow-teal p-5 rounded-2xl border border-teal-500/20 mb-8 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400">
+                  <Landmark size={15} />
+                </span>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-200 light:text-slate-800 flex items-center gap-2">
+                    <span>Wealth, Investments & Provident Fund (PF) Hub</span>
+                    <span className="text-[9px] font-mono font-bold text-teal-400 bg-teal-950/60 border border-teal-500/30 px-2 py-0.5 rounded-full uppercase">
+                      Asset Growth
+                    </span>
+                  </h4>
+                  <p className="text-[9px] uppercase tracking-wider text-slate-500">
+                    Track long-term wealth: SIP Mutual Funds, Term Insurance, and optional Employer Matched PF (kept separate from liquid savings)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPfModal(true)}
+                  className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                >
+                  <Settings2 size={11} />
+                  <span>{pfSettings.enabled ? "Configure PF / SIP" : "+ Enable PF Tracking"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4 Wealth Portfolio KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Liquid Cumulative Savings (Pure Cash, Never mixed with PF) */}
+              <div className="p-3.5 rounded-xl bg-purple-950/20 light:bg-purple-50 border border-purple-500/20 flex flex-col justify-between">
+                <div>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-purple-400 light:text-purple-600 flex items-center gap-1">
+                    <Wallet size={11} />
+                    <span>Liquid Net Savings</span>
+                  </span>
+                  <h3 className={`text-xl font-black font-mono mt-1 ${newSavingBalance >= 0 ? "text-slate-100 light:text-slate-900" : "text-red-400"}`}>
+                    ₹{newSavingBalance.toLocaleString()}
+                  </h3>
+                </div>
+                <p className="text-[8px] font-mono text-slate-400 light:text-slate-600 mt-2 truncate">
+                  Prev: ₹{previousBalance.toLocaleString()} + Curr: ₹{currentPeriodBalance.toLocaleString()}
+                </p>
+              </div>
+
+              {/* SIP & Mutual Funds */}
+              <div className="p-3.5 rounded-xl bg-emerald-950/20 light:bg-emerald-50 border border-emerald-500/20 flex flex-col justify-between">
+                <div>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 light:text-emerald-600 flex items-center gap-1">
+                    <TrendingUp size={11} />
+                    <span>SIP & Mutual Funds</span>
+                  </span>
+                  <h3 className="text-xl font-black font-mono text-slate-100 light:text-slate-900 mt-1">
+                    ₹{lifetimeSIP.toLocaleString()}
+                  </h3>
+                </div>
+                <p className="text-[8px] font-mono text-slate-400 light:text-slate-600 mt-2">
+                  {currentMonthSIP > 0 ? `+₹${currentMonthSIP.toLocaleString()} logged in ${getContextLabel()}` : "Monthly wealth creation"}
+                </p>
+              </div>
+
+              {/* Provident Fund (PF / EPF) - Dynamic & Opt-In */}
+              <div className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+                pfSettings.enabled
+                  ? "bg-indigo-950/20 light:bg-indigo-50 border-indigo-500/20"
+                  : "bg-white/[0.02] border-white/5 opacity-70"
+              }`}>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-400 light:text-indigo-600 flex items-center gap-1">
+                      <Building size={11} />
+                      <span>Provident Fund (PF)</span>
+                    </span>
+                    {pfSettings.enabled ? (
+                      <span className="text-[8px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                        ₹{monthlyTotalPF}/mo
+                      </span>
+                    ) : (
+                      <span className="text-[8px] font-mono text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">
+                        Optional
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-black font-mono text-slate-100 light:text-slate-900 mt-1">
+                    {pfSettings.enabled ? `₹${totalAccumulatedPF.toLocaleString()}` : "Not Active"}
+                  </h3>
+                </div>
+                <p className="text-[8px] font-mono text-slate-400 light:text-slate-600 mt-2">
+                  {pfSettings.enabled ? (
+                    `₹${pfSettings.employeeContribution} (You) + ₹${pfSettings.employerContribution} (Co.) × ${activePfMonths} mos (Locked Fund)`
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowPfModal(true)}
+                      className="text-teal-400 hover:underline cursor-pointer"
+                    >
+                      + Turn on PF tracking
+                    </button>
+                  )}
+                </p>
+              </div>
+
+              {/* Term Insurance & Protection */}
+              <div className="p-3.5 rounded-xl bg-cyan-950/20 light:bg-cyan-50 border border-cyan-500/20 flex flex-col justify-between">
+                <div>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-400 light:text-cyan-600 flex items-center gap-1">
+                    <Shield size={11} />
+                    <span>Term Insurance</span>
+                  </span>
+                  <h3 className="text-xl font-black font-mono text-slate-100 light:text-slate-900 mt-1">
+                    ₹{lifetimeInsurance.toLocaleString()}
+                  </h3>
+                </div>
+                <p className="text-[8px] font-mono text-slate-400 light:text-slate-600 mt-2">
+                  {currentMonthInsurance > 0 ? `₹${currentMonthInsurance.toLocaleString()} premium in ${getContextLabel()}` : "Financial life safety net"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Visual Category & Share Allocation Bar & Rolling Savings Info Banner ── */}
+          <div className="glass-card p-5 rounded-2xl border border-white/5 mb-8 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <PieChart size={14} />
+                </span>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-200 light:text-slate-800">
+                    Category Allocation & Outflow Shares ({getContextLabel()})
+                  </h4>
+                  <p className="text-[9px] uppercase tracking-wider text-slate-500">
+                    Percentage-wise distribution of total ₹{expenseTotal.toLocaleString()} expenses
+                  </p>
+                </div>
+              </div>
+
+              {/* Rolling Savings Balance Info Badge */}
+              <div className="flex items-center gap-2 bg-indigo-950/40 light:bg-indigo-50 border border-indigo-500/20 px-3 py-1.5 rounded-xl font-mono text-[10px]">
+                <Info size={13} className="text-indigo-400 flex-shrink-0" />
+                <span className="text-slate-300 light:text-slate-700">
+                  Prev: <strong className={previousBalance >= 0 ? "text-slate-200 light:text-slate-900" : "text-red-400"}>₹{previousBalance.toLocaleString()}</strong> + Curr: <strong className={currentPeriodBalance >= 0 ? "text-emerald-400 light:text-emerald-600" : "text-red-400"}>₹{currentPeriodBalance.toLocaleString()}</strong> = <strong className="text-indigo-400 light:text-indigo-600 font-bold">₹{newSavingBalance.toLocaleString()} (New Saving Balance)</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Segmented Stacked Progress Bar */}
+            {expenseTotal > 0 ? (
+              <div className="space-y-3">
+                <div className="w-full bg-white/5 light:bg-slate-200 h-3 rounded-full overflow-hidden flex shadow-inner">
+                  {categoryTotals.map((item) => {
+                    const theme = getCategoryTheme(item.category, item.isOverBudget, item.isNearBudget);
+                    if (item.total <= 0) return null;
+                    return (
+                      <div
+                        key={item.category}
+                        style={{ width: `${Math.max(item.percentage, 1)}%` }}
+                        className={`${theme.bar} h-full transition-all duration-300 relative group cursor-pointer`}
+                        title={`${item.category}: ₹${item.total.toLocaleString()} (${item.percentage.toFixed(1)}%) ${item.isOverBudget ? "⚠️ OVER BUDGET" : ""}`}
+                        onClick={() => handleCardFilter(null, item.category, item.category)}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* Category Chips with Live % Allocation & Red Alert Badges */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {categoryTotals.map((item) => {
+                    const theme = getCategoryTheme(item.category, item.isOverBudget, item.isNearBudget);
+                    const isFiltered = activeFilter.category === item.category;
+                    return (
+                      <button
+                        key={item.category}
+                        type="button"
+                        onClick={() => handleCardFilter(null, item.category, item.category)}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[10px] font-mono transition-all cursor-pointer ${
+                          item.isOverBudget
+                            ? "bg-red-500/20 text-red-300 border-red-500/50 shadow-md shadow-red-500/20"
+                            : isFiltered
+                            ? "bg-indigo-600 text-white border-indigo-400 shadow-lg shadow-indigo-500/20"
+                            : `${theme.bg} ${theme.border} hover:border-white/20 text-slate-300 light:text-slate-800`
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${theme.bar}`} />
+                        <span className="font-bold font-sans uppercase text-[9px]">{item.category}</span>
+                        <span className="font-black text-slate-200 light:text-slate-900">₹{item.total.toLocaleString()}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${item.isOverBudget ? "bg-red-500 text-white" : isFiltered ? "bg-white/20 text-white" : `${theme.bg} ${theme.text}`}`}>
+                          {item.isOverBudget ? "⚠️ Over" : `${item.percentage.toFixed(1)}%`}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {activeFilter.category && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveFilter({ type: null, category: null, label: "All" })}
+                      className="text-[9px] uppercase tracking-wider font-bold text-slate-500 hover:text-slate-300 light:hover:text-slate-700 underline ml-2 cursor-pointer"
+                    >
+                      Clear Category Filter
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-slate-500 italic py-2">
+                No expense outflow recorded for {getContextLabel()} to display percentage breakdown.
+              </div>
+            )}
           </div>
 
 
@@ -1491,26 +2097,75 @@ export default function ExpensesPage() {
                   </div>
 
                   {/* Summary KPI Cards in Statement */}
-                  <div className="statement-kpi-grid grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div className="statement-kpi-card p-3.5 rounded-xl bg-white/[0.02] light:bg-slate-50 border border-white/5 light:border-slate-200">
-                      <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Total Transactions</span>
-                      <p className="text-base font-black font-mono text-slate-200 light:text-slate-800 mt-1">{stmtData.totalCount}</p>
+                  <div className="statement-kpi-grid grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="statement-kpi-card p-3 rounded-xl bg-white/[0.02] light:bg-slate-50 border border-white/5 light:border-slate-200">
+                      <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Opening Balance</span>
+                      <p className={`text-base font-black font-mono mt-1 ${stmtData.openingBalance >= 0 ? "text-slate-200 light:text-slate-800" : "text-red-400 light:text-red-600"}`}>
+                        ₹{stmtData.openingBalance.toLocaleString()}
+                      </p>
                     </div>
-                    <div className="statement-kpi-card p-3.5 rounded-xl bg-red-950/10 light:bg-red-50 border border-red-500/10 light:border-red-200">
-                      <span className="text-[9px] uppercase tracking-wider text-red-400 light:text-red-600 font-bold">Total Outflow (Expense)</span>
-                      <p className="text-base font-black font-mono text-red-400 light:text-red-600 mt-1">₹{stmtData.totalExpense.toLocaleString()}</p>
-                    </div>
-                    <div className="statement-kpi-card p-3.5 rounded-xl bg-emerald-950/10 light:bg-emerald-50 border border-emerald-500/10 light:border-emerald-200">
-                      <span className="text-[9px] uppercase tracking-wider text-emerald-400 light:text-emerald-600 font-bold">Total Inflow (Income)</span>
+                    <div className="statement-kpi-card p-3 rounded-xl bg-emerald-950/10 light:bg-emerald-50 border border-emerald-500/10 light:border-emerald-200">
+                      <span className="text-[9px] uppercase tracking-wider text-emerald-400 light:text-emerald-600 font-bold">Total Inflow</span>
                       <p className="text-base font-black font-mono text-emerald-400 light:text-emerald-600 mt-1">₹{stmtData.totalIncome.toLocaleString()}</p>
                     </div>
-                    <div className="statement-kpi-card p-3.5 rounded-xl bg-indigo-950/10 light:bg-indigo-50 border border-indigo-500/10 light:border-indigo-200">
-                      <span className="text-[9px] uppercase tracking-wider text-indigo-400 light:text-indigo-600 font-bold">Net Balance</span>
-                      <p className={`text-base font-black font-mono mt-1 ${stmtData.netBalance >= 0 ? "text-emerald-400 light:text-emerald-600" : "text-red-400 light:text-red-600"}`}>
+                    <div className="statement-kpi-card p-3 rounded-xl bg-red-950/10 light:bg-red-50 border border-red-500/10 light:border-red-200">
+                      <span className="text-[9px] uppercase tracking-wider text-red-400 light:text-red-600 font-bold">Total Outflow</span>
+                      <p className="text-base font-black font-mono text-red-400 light:text-red-600 mt-1">₹{stmtData.totalExpense.toLocaleString()}</p>
+                    </div>
+                    <div className="statement-kpi-card p-3 rounded-xl bg-purple-950/10 light:bg-purple-50 border border-purple-500/10 light:border-purple-200">
+                      <span className="text-[9px] uppercase tracking-wider text-purple-400 light:text-purple-600 font-bold">Period Net</span>
+                      <p className={`text-base font-black font-mono mt-1 ${stmtData.netBalance >= 0 ? "text-purple-400 light:text-purple-600" : "text-red-400 light:text-red-600"}`}>
                         ₹{stmtData.netBalance.toLocaleString()}
                       </p>
                     </div>
+                    <div className="statement-kpi-card p-3 rounded-xl bg-indigo-950/10 light:bg-indigo-50 border border-indigo-500/10 light:border-indigo-200 col-span-2 sm:col-span-1">
+                      <span className="text-[9px] uppercase tracking-wider text-indigo-400 light:text-indigo-600 font-bold">Closing Balance</span>
+                      <p className={`text-base font-black font-mono mt-1 ${stmtData.cumulativeBalance >= 0 ? "text-emerald-400 light:text-emerald-600" : "text-red-400 light:text-red-600"}`}>
+                        ₹{stmtData.cumulativeBalance.toLocaleString()}
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Savings Rollover Formula Banner */}
+                  <div className="p-3 rounded-xl bg-indigo-500/5 light:bg-indigo-50/60 border border-indigo-500/15 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono">
+                    <span className="text-slate-400 light:text-slate-600 font-bold uppercase tracking-wider">
+                      Savings Rollover Formula:
+                    </span>
+                    <span className="text-slate-200 light:text-slate-800">
+                      Opening (₹{stmtData.openingBalance.toLocaleString()}) + Period Net (₹{stmtData.netBalance.toLocaleString()}) = <strong className="text-indigo-400 light:text-indigo-600 font-bold">₹{stmtData.cumulativeBalance.toLocaleString()} (Closing Savings)</strong>
+                    </span>
+                  </div>
+
+                  {/* Category Spend Breakdown in Statement */}
+                  {stmtData.categoryBreakdown && stmtData.categoryBreakdown.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400 light:text-slate-600">
+                        Category Spend & % Share Breakdown
+                      </h4>
+                      <div className="table-print-wrapper overflow-x-auto rounded-xl border border-white/10 light:border-slate-200">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-white/[0.03] light:bg-slate-100 border-b border-white/10 light:border-slate-200 text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono">
+                              <th className="py-2 px-3">Category</th>
+                              <th className="py-2 px-3 text-right">Spend Amount (₹)</th>
+                              <th className="py-2 px-3 text-right">% of Total Outflow</th>
+                              <th className="py-2 px-3 text-right">% of Total Inflow</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5 light:divide-slate-200 font-mono">
+                            {stmtData.categoryBreakdown.map((cat) => (
+                              <tr key={cat.category} className="hover:bg-white/[0.02] light:hover:bg-slate-50">
+                                <td className="py-2 px-3 text-slate-200 light:text-slate-900 font-semibold">{cat.category}</td>
+                                <td className="py-2 px-3 text-right text-slate-100 light:text-slate-900 font-bold">₹{cat.total.toLocaleString()}</td>
+                                <td className="py-2 px-3 text-right text-indigo-400 light:text-indigo-600 font-bold">{cat.percentage.toFixed(1)}%</td>
+                                <td className="py-2 px-3 text-right text-slate-400 light:text-slate-600">{stmtData.totalIncome > 0 ? `${cat.incomeShare.toFixed(1)}%` : "N/A"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Detailed Table */}
                   <div className="table-print-wrapper overflow-x-auto rounded-xl border border-white/10 light:border-slate-200">
@@ -1620,6 +2275,319 @@ export default function ExpensesPage() {
             </div>
           );
         })()}
+
+        {/* ── 🏷️ CATEGORY BUDGETS CONFIGURATION MODAL (Red Alert Management) ── */}
+        {showBudgetModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+            <div className="glass-card bg-[#0a0a14] border border-indigo-500/30 rounded-3xl p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl shadow-indigo-950/60 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                      <SlidersHorizontal size={18} />
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
+                        <span>Monthly Category Budgets</span>
+                        <span className="text-[9px] font-mono font-bold text-red-400 bg-red-950/60 border border-red-500/30 px-2 py-0.5 rounded-full uppercase">
+                          Red Alert Limit
+                        </span>
+                      </h3>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                        Set max monthly spend. Exceeding triggers Crimson Red alerts across UI.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowBudgetModal(false)}
+                    className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveBudgets} className="mt-5 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                    {expenseCategories.map((cat) => {
+                      const currentSpend = categoryTotals.find(c => c.category === cat)?.total || 0;
+                      const val = budgetForm[cat] ?? (categoryBudgets[cat] ? String(categoryBudgets[cat]) : "");
+                      const numVal = parseFloat(val) || 0;
+                      const isOver = numVal > 0 && currentSpend > numVal;
+
+                      return (
+                        <div
+                          key={cat}
+                          className={`p-3 rounded-2xl border transition-all ${
+                            isOver
+                              ? "bg-red-950/30 border-red-500/40"
+                              : "bg-white/[0.02] border-white/5 hover:border-white/15"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                              {cat}
+                            </span>
+                            <span className="text-[9px] font-mono text-slate-400">
+                              Spend: <strong className={isOver ? "text-red-400" : "text-emerald-400"}>₹{currentSpend.toLocaleString()}</strong>
+                            </span>
+                          </div>
+
+                          <div className="relative flex items-center">
+                            <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="100"
+                              placeholder="e.g. 15000"
+                              value={val}
+                              onChange={(e) => setBudgetForm(prev => ({ ...prev, [cat]: e.target.value }))}
+                              className="w-full bg-black/40 border border-white/10 focus:border-indigo-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all placeholder:text-slate-600"
+                            />
+                          </div>
+
+                          {numVal > 0 && (
+                            <div className="mt-1.5 flex items-center justify-between text-[8px] font-mono">
+                              <span className="text-slate-500">Limit: ₹{numVal.toLocaleString()}</span>
+                              {isOver ? (
+                                <span className="text-red-400 font-bold">⚠️ +₹{(currentSpend - numVal).toLocaleString()} OVER</span>
+                              ) : (
+                                <span className="text-emerald-400">₹{(numVal - currentSpend).toLocaleString()} remaining</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-white/10 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultBudgets: { [key: string]: string } = isRajat
+                          ? { "Home": "25000", "Ajit": "15000", "Delhi Room": "12000", "Swarna": "8000", "SIP": "5000", "Term Insurance": "1500", "Travel": "5000", "Others": "8000" }
+                          : { "Others": "10000" };
+                        setBudgetForm(defaultBudgets);
+                      }}
+                      className="text-[10px] font-mono uppercase tracking-wider text-slate-500 hover:text-slate-300 underline cursor-pointer"
+                    >
+                      Reset Recommended Defaults
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowBudgetModal(false)}
+                        className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                      >
+                        Save Budgets
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 🏛️ PROVIDENT FUND (PF) & WEALTH SETTINGS MODAL ── */}
+        {showPfModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+            <div className="glass-card bg-[#0a0a14] border border-teal-500/30 rounded-3xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl shadow-teal-950/60 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400">
+                      <Landmark size={18} />
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
+                        <span>Provident Fund (PF) Portfolio</span>
+                        <span className="text-[9px] font-mono font-bold text-teal-400 bg-teal-950/60 border border-teal-500/30 px-2 py-0.5 rounded-full uppercase">
+                          Dynamic / Optional
+                        </span>
+                      </h3>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                        Track company PF deductions as a separate locked retirement asset
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPfModal(false)}
+                    className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSavePfSettings} className="mt-5 space-y-4">
+                  {/* Opt-in Active Toggle */}
+                  <div className="p-3.5 rounded-2xl bg-teal-950/40 border border-teal-500/30 flex items-center justify-between">
+                    <div>
+                      <h5 className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
+                        <span>Enable PF Tracking for Your Profile</span>
+                      </h5>
+                      <p className="text-[9px] text-slate-400 mt-0.5">
+                        {pfForm.enabled ? "Active — tracking locked EPF retirement fund" : "Disabled — will not calculate PF for your account"}
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pfForm.enabled}
+                        onChange={(e) => setPfForm(prev => ({ ...prev, enabled: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                    </label>
+                  </div>
+
+                  {pfForm.enabled ? (
+                    <div className="space-y-3.5 animate-fadeIn">
+                      {/* Employee Deduction (Your Share) */}
+                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                          <span>Employee Deduction (Your Monthly PF)</span>
+                          <span className="text-[9px] font-mono text-teal-400 font-bold">Salary Deduction</span>
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="100"
+                            placeholder="1800"
+                            value={pfForm.employeeContribution}
+                            onChange={(e) => setPfForm(prev => ({ ...prev, employeeContribution: e.target.value }))}
+                            className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                            required={pfForm.enabled}
+                          />
+                        </div>
+                        <p className="text-[8px] font-mono text-slate-500">Standard monthly deduction from salary (Default: ₹1,800)</p>
+                      </div>
+
+                      {/* Employer Match (Company Share) */}
+                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                          <span>Employer Matching (Company Contribution)</span>
+                          <span className="text-[9px] font-mono text-indigo-400 font-bold">100% Match</span>
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="100"
+                            placeholder="1800"
+                            value={pfForm.employerContribution}
+                            onChange={(e) => setPfForm(prev => ({ ...prev, employerContribution: e.target.value }))}
+                            className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                            required={pfForm.enabled}
+                          />
+                        </div>
+                        <p className="text-[8px] font-mono text-slate-500">Employer match credited into your EPFO pool (Default: ₹1,800)</p>
+                      </div>
+
+                      {/* Start Month */}
+                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                          <span>Employment / PF Start Month</span>
+                          <span className="text-[9px] font-mono text-slate-400 font-bold">YYYY-MM</span>
+                        </label>
+                        <input
+                          type="month"
+                          value={pfForm.startMonth}
+                          onChange={(e) => setPfForm(prev => ({ ...prev, startMonth: e.target.value }))}
+                          className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 px-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                          required={pfForm.enabled}
+                        />
+                        <p className="text-[8px] font-mono text-slate-500">Used to compute months elapsed for total accumulated PF corpus</p>
+                      </div>
+
+                      {/* Initial Corpus */}
+                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                          <span>Prior Existing PF Corpus (Opening Balance)</span>
+                          <span className="text-[9px] font-mono text-slate-400 font-bold">Optional</span>
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={pfForm.initialCorpus}
+                            onChange={(e) => setPfForm(prev => ({ ...prev, initialCorpus: e.target.value }))}
+                            className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Live Calculation Preview Card */}
+                      {(() => {
+                        const emp = parseFloat(pfForm.employeeContribution) || 0;
+                        const comp = parseFloat(pfForm.employerContribution) || 0;
+                        const totalMonthly = emp + comp;
+                        const initial = parseFloat(pfForm.initialCorpus) || 0;
+                        const [startYear, startM] = (pfForm.startMonth || "2024-01").split("-").map(Number);
+                        const now = new Date();
+                        const currYear = now.getFullYear();
+                        const currM = now.getMonth() + 1;
+                        const elapsed = Math.max(1, (currYear - (startYear || 2024)) * 12 + (currM - (startM || 1)) + 1);
+                        const totalCorpus = initial + (totalMonthly * elapsed);
+
+                        return (
+                          <div className="p-3.5 rounded-2xl bg-teal-950/30 border border-teal-500/20 font-mono space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-slate-400">Total Monthly Pool:</span>
+                              <strong className="text-teal-400">₹{totalMonthly.toLocaleString()}/mo</strong>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-400">Elapsed Active Months:</span>
+                              <strong className="text-slate-200">{elapsed} Months</strong>
+                            </div>
+                            <div className="flex items-center justify-between text-xs pt-1 border-t border-teal-500/20">
+                              <span className="text-slate-300 font-sans font-bold uppercase text-[10px]">Projected PF Corpus:</span>
+                              <strong className="text-emerald-400 font-black">₹{totalCorpus.toLocaleString()}</strong>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-center text-xs text-slate-500 font-mono">
+                      PF Tracking is currently turned off for this account. Your liquid savings and monthly budget ledger will not calculate any PF deductions.
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end pt-4 border-t border-white/10 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowPfModal(false)}
+                      className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-teal-600/30 transition-all cursor-pointer"
+                    >
+                      Save PF Settings
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <footer className="relative z-10 w-full border-t border-white/5 py-4 text-center">
