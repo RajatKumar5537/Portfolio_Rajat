@@ -124,6 +124,9 @@ export default function Navigation() {
     if (savedTheme) {
       setTheme(savedTheme);
       document.documentElement.classList.toggle("light", savedTheme === "light");
+      document.documentElement.classList.toggle("dark", savedTheme === "dark");
+    } else {
+      document.documentElement.classList.add("dark");
     }
   }, []);
 
@@ -132,6 +135,7 @@ export default function Navigation() {
     setTheme(nextTheme);
     localStorage.setItem("theme", nextTheme);
     document.documentElement.classList.toggle("light", nextTheme === "light");
+    document.documentElement.classList.toggle("dark", nextTheme === "dark");
   };
 
   const links = [

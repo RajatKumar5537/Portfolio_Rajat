@@ -525,19 +525,19 @@ export default function DashboardPage() {
 
           {/* ── 🔴 RED ALERT BANNER (If Any Category Exceeds Monthly Budget) ── */}
           {overBudgetCategories.length > 0 && (
-            <div className="mb-6 p-4 rounded-2xl bg-red-950/40 dark:bg-red-950/50 light:bg-red-50 border border-red-500/40 shadow-xl shadow-red-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
+            <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/50 border border-red-300 dark:border-red-500/40 shadow-xl shadow-red-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex-shrink-0">
+                <div className="p-2.5 rounded-xl bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-500/30 flex-shrink-0">
                   <AlertTriangle size={20} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-700 dark:text-red-400 flex items-center gap-1.5">
                     <span>🔴 RED ALERT: {overBudgetCategories.length} {overBudgetCategories.length === 1 ? "Category" : "Categories"} Over Monthly Budget ({getContextLabel()})</span>
                   </h4>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     {overBudgetCategories.map((c) => (
-                      <span key={c.category} className="text-[10px] font-mono text-slate-800 dark:text-slate-200 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 px-2 py-0.5 rounded-lg">
-                        <strong className="text-red-600 dark:text-red-400">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+{c.overflowPercentage.toFixed(0)}% Overflow • {c.budgetPercentage.toFixed(0)}% Budget • {c.incomeShare.toFixed(1)}% Income • +₹{c.overAmount.toLocaleString()} over)
+                      <span key={c.category} className="text-[10px] font-mono text-slate-900 dark:text-slate-200 bg-white dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-lg shadow-sm">
+                        <strong className="text-red-700 dark:text-red-400 font-black">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+{c.overflowPercentage.toFixed(0)}% Overflow • {c.budgetPercentage.toFixed(0)}% Budget • {c.incomeShare.toFixed(1)}% Income • +₹{c.overAmount.toLocaleString()} over)
                       </span>
                     ))}
                   </div>
@@ -545,7 +545,7 @@ export default function DashboardPage() {
               </div>
               <Link
                 href="/expenses"
-                className="px-3.5 py-1.5 rounded-xl bg-red-500 text-white font-black text-[9px] uppercase tracking-wider hover:bg-red-600 transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto shadow-lg shadow-red-500/20 flex items-center gap-1"
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto shadow-lg shadow-red-500/20 flex items-center gap-1"
               >
                 <span>Adjust Budgets</span>
                 <ArrowUpRight size={12} />
@@ -562,7 +562,7 @@ export default function DashboardPage() {
                 value: `₹${totalIncome.toLocaleString()}`,
                 sub: `Total Inflow (${getContextLabel()})`,
                 badge: "Inflow",
-                color: "text-emerald-600 dark:text-emerald-400"
+                color: "text-emerald-700 dark:text-emerald-400"
               },
               {
                 key: "outflow",
@@ -570,7 +570,7 @@ export default function DashboardPage() {
                 value: `₹${totalExpenses.toLocaleString()}`,
                 sub: totalIncome > 0 ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}% of Income (${getContextLabel()})` : `Period Outflow (${getContextLabel()})`,
                 badge: totalIncome > 0 ? `${((totalExpenses / totalIncome) * 100).toFixed(1)}%` : undefined,
-                color: "text-red-600 dark:text-red-400"
+                color: "text-red-700 dark:text-red-400"
               },
               {
                 key: "savings",
@@ -578,7 +578,7 @@ export default function DashboardPage() {
                 value: `₹${currentPeriodNet.toLocaleString()}`,
                 sub: totalIncome > 0 ? `Pool: ₹${cumulativeSavings.toLocaleString()} (${((currentPeriodNet / totalIncome) * 100).toFixed(1)}% Saved • Prev: ₹${previousBalance.toLocaleString()})` : `Pool: ₹${cumulativeSavings.toLocaleString()} (Prev: ₹${previousBalance.toLocaleString()})`,
                 badge: totalIncome > 0 ? `${currentPeriodNet >= 0 ? "+" : ""}${((currentPeriodNet / totalIncome) * 100).toFixed(1)}%` : (previousBalance !== 0 ? "Rollover" : undefined),
-                color: currentPeriodNet >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                color: currentPeriodNet >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
               },
               ...(pfSettings.enabled ? [{
                 key: "pf",
@@ -586,30 +586,30 @@ export default function DashboardPage() {
                 value: `₹${totalAccumulatedPF.toLocaleString()}`,
                 sub: `₹${pfSettings.employeeContribution} (You) + ₹${pfSettings.employerContribution} (Co.) × ${activePfMonths} mos`,
                 badge: "Retirement",
-                color: "text-teal-600 dark:text-teal-400"
+                color: "text-teal-700 dark:text-teal-400"
               }] : []),
             ].map(card => (
               <div key={card.key} className="mini-3d-card rounded-xl px-4 py-3 cursor-default transition-all hover:scale-[1.02]">
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] uppercase tracking-widest text-slate-500 font-mono font-bold">
+                  <p className="text-[9px] uppercase tracking-widest text-slate-700 dark:text-slate-400 font-mono font-bold">
                     {card.label}
                   </p>
                   {card.badge && (
                     <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded ${
                       card.key === "outflow"
-                        ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40"
+                        ? "text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 font-black"
                         : card.key === "savings"
-                        ? "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30"
+                        ? "text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 font-black"
                         : card.key === "pf"
-                        ? "text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/30"
-                        : "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30"
+                        ? "text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/30 font-bold"
+                        : "text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 font-bold"
                     }`}>
                       {card.badge}
                     </span>
                   )}
                 </div>
                 <p className={`text-base font-black font-mono mt-1 ${card.color}`}>{card.value}</p>
-                <p className="text-[8px] font-mono text-slate-500 mt-0.5 truncate">{card.sub}</p>
+                <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-0.5 truncate">{card.sub}</p>
               </div>
             ))}
           </div>

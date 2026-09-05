@@ -552,34 +552,34 @@ export default function ExpensesPage() {
     if (isOver) {
       return {
         bar: "bg-red-500",
-        text: "text-red-400 light:text-red-600",
-        bg: "bg-red-500/20",
-        border: "border-red-500/50",
-        cardBg: "border-red-500/80 bg-red-950/40 shadow-lg shadow-red-500/20 animate-pulse",
+        text: "text-red-700 dark:text-red-400 font-black",
+        bg: "bg-red-50 dark:bg-red-500/20",
+        border: "border-red-200 dark:border-red-500/50",
+        cardBg: "border-red-400 dark:border-red-500/80 bg-red-50/60 dark:bg-red-950/40 shadow-lg shadow-red-500/20",
         alert: true
       };
     }
     if (isNear) {
       return {
         bar: "bg-amber-500",
-        text: "text-amber-400 light:text-amber-600",
-        bg: "bg-amber-500/15",
-        border: "border-amber-500/40",
-        cardBg: "border-amber-500/40 bg-amber-950/20",
+        text: "text-amber-800 dark:text-amber-400 font-bold",
+        bg: "bg-amber-50 dark:bg-amber-500/15",
+        border: "border-amber-200 dark:border-amber-500/40",
+        cardBg: "border-amber-300 dark:border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/20",
         alert: false
       };
     }
     const c = (cat || "").toLowerCase();
-    if (c.includes("sip") || c.includes("mutual")) return { bar: "bg-emerald-500", text: "text-emerald-400 light:text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-500/20", cardBg: "", alert: false };
-    if (c.includes("health") || c.includes("medical") || c.includes("gmc")) return { bar: "bg-rose-500", text: "text-rose-400 light:text-rose-600", bg: "bg-rose-500/10", border: "border-rose-500/20", cardBg: "", alert: false };
-    if (c.includes("insurance") || c.includes("term")) return { bar: "bg-cyan-500", text: "text-cyan-400 light:text-cyan-600", bg: "bg-cyan-500/10", border: "border-cyan-500/20", cardBg: "", alert: false };
-    if (c.includes("pf") || c.includes("epf")) return { bar: "bg-teal-500", text: "text-teal-400 light:text-teal-600", bg: "bg-teal-500/10", border: "border-teal-500/20", cardBg: "", alert: false };
-    if (c.includes("home")) return { bar: "bg-emerald-500", text: "text-emerald-400 light:text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-500/20", cardBg: "", alert: false };
-    if (c.includes("ajit")) return { bar: "bg-blue-500", text: "text-blue-400 light:text-blue-600", bg: "bg-blue-500/10", border: "border-blue-500/20", cardBg: "", alert: false };
-    if (c.includes("swarna")) return { bar: "bg-purple-500", text: "text-purple-400 light:text-purple-600", bg: "bg-purple-500/10", border: "border-purple-500/20", cardBg: "", alert: false };
-    if (c.includes("delhi") || c.includes("room")) return { bar: "bg-amber-500", text: "text-amber-400 light:text-amber-600", bg: "bg-amber-500/10", border: "border-amber-500/20", cardBg: "", alert: false };
-    if (c.includes("travel")) return { bar: "bg-sky-500", text: "text-sky-400 light:text-sky-600", bg: "bg-sky-500/10", border: "border-sky-500/20", cardBg: "", alert: false };
-    return { bar: "bg-indigo-500", text: "text-indigo-400 light:text-indigo-600", bg: "bg-indigo-500/10", border: "border-indigo-500/20", cardBg: "", alert: false };
+    if (c.includes("sip") || c.includes("mutual")) return { bar: "bg-emerald-500", text: "text-emerald-800 dark:text-emerald-400 font-bold", bg: "bg-emerald-50 dark:bg-emerald-500/10", border: "border-emerald-200 dark:border-emerald-500/20", cardBg: "", alert: false };
+    if (c.includes("health") || c.includes("medical") || c.includes("gmc")) return { bar: "bg-rose-500", text: "text-rose-800 dark:text-rose-400 font-bold", bg: "bg-rose-50 dark:bg-rose-500/10", border: "border-rose-200 dark:border-rose-500/20", cardBg: "", alert: false };
+    if (c.includes("insurance") || c.includes("term")) return { bar: "bg-cyan-500", text: "text-cyan-800 dark:text-cyan-400 font-bold", bg: "bg-cyan-50 dark:bg-cyan-500/10", border: "border-cyan-200 dark:border-cyan-500/20", cardBg: "", alert: false };
+    if (c.includes("pf") || c.includes("epf")) return { bar: "bg-teal-500", text: "text-teal-800 dark:text-teal-400 font-bold", bg: "bg-teal-50 dark:bg-teal-500/10", border: "border-teal-200 dark:border-teal-500/20", cardBg: "", alert: false };
+    if (c.includes("home")) return { bar: "bg-emerald-500", text: "text-emerald-800 dark:text-emerald-400 font-bold", bg: "bg-emerald-50 dark:bg-emerald-500/10", border: "border-emerald-200 dark:border-emerald-500/20", cardBg: "", alert: false };
+    if (c.includes("ajit")) return { bar: "bg-blue-500", text: "text-blue-800 dark:text-blue-400 font-bold", bg: "bg-blue-50 dark:bg-blue-500/10", border: "border-blue-200 dark:border-blue-500/20", cardBg: "", alert: false };
+    if (c.includes("swarna")) return { bar: "bg-purple-500", text: "text-purple-800 dark:text-purple-400 font-bold", bg: "bg-purple-50 dark:bg-purple-500/10", border: "border-purple-200 dark:border-purple-500/20", cardBg: "", alert: false };
+    if (c.includes("delhi") || c.includes("room")) return { bar: "bg-amber-500", text: "text-amber-800 dark:text-amber-400 font-bold", bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-200 dark:border-amber-500/20", cardBg: "", alert: false };
+    if (c.includes("travel")) return { bar: "bg-sky-500", text: "text-sky-800 dark:text-sky-400 font-bold", bg: "bg-sky-50 dark:bg-sky-500/10", border: "border-sky-200 dark:border-sky-500/20", cardBg: "", alert: false };
+    return { bar: "bg-indigo-500", text: "text-indigo-800 dark:text-indigo-400 font-bold", bg: "bg-indigo-50 dark:bg-indigo-500/10", border: "border-indigo-200 dark:border-indigo-500/20", cardBg: "", alert: false };
   };
 
   // Timezone-safe date parser to prevent UTC midnight shifts on YYYY-MM-DD
@@ -1129,19 +1129,19 @@ export default function ExpensesPage() {
 
           {/* ── 🔴 RED ALERT BANNER (If Any Category Exceeds Monthly Budget) ── */}
           {overBudgetCategories.length > 0 && (
-            <div className="mb-6 p-4 rounded-2xl bg-red-950/40 dark:bg-red-950/50 light:bg-red-50 border border-red-500/40 shadow-xl shadow-red-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
+            <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/50 border border-red-300 dark:border-red-500/40 shadow-xl shadow-red-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex-shrink-0">
+                <div className="p-2.5 rounded-xl bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-500/30 flex-shrink-0">
                   <AlertTriangle size={20} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-700 dark:text-red-400 flex items-center gap-1.5">
                     <span>🔴 RED ALERT: {overBudgetCategories.length} {overBudgetCategories.length === 1 ? "Category" : "Categories"} Over Budget ({getContextLabel()})</span>
                   </h4>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     {overBudgetCategories.map((c) => (
-                      <span key={c.category} className="text-[10px] font-mono text-slate-800 dark:text-slate-200 bg-red-100 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 px-2 py-0.5 rounded-lg">
-                        <strong className="text-red-600 dark:text-red-400">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+{c.overflowPercentage.toFixed(0)}% Overflow • {c.budgetPercentage.toFixed(0)}% Budget • {c.incomeShare.toFixed(1)}% Income • +₹{c.overAmount.toLocaleString()} over)
+                      <span key={c.category} className="text-[10px] font-mono text-slate-900 dark:text-slate-200 bg-white dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-lg shadow-sm">
+                        <strong className="text-red-700 dark:text-red-400 font-black">{c.category}:</strong> ₹{c.total.toLocaleString()} / ₹{c.budget.toLocaleString()} (+{c.overflowPercentage.toFixed(0)}% Overflow • {c.budgetPercentage.toFixed(0)}% Budget • {c.incomeShare.toFixed(1)}% Income • +₹{c.overAmount.toLocaleString()} over)
                       </span>
                     ))}
                   </div>
@@ -1150,7 +1150,7 @@ export default function ExpensesPage() {
               <button
                 type="button"
                 onClick={() => setShowBudgetModal(true)}
-                className="px-3 py-1.5 rounded-xl bg-red-500 text-white font-black text-[9px] uppercase tracking-wider hover:bg-red-600 transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto shadow-lg shadow-red-500/20"
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto shadow-lg shadow-red-500/20"
               >
                 Adjust Budgets
               </button>
@@ -1169,19 +1169,19 @@ export default function ExpensesPage() {
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[9px] uppercase tracking-widest text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                <span className="text-[9px] uppercase tracking-widest text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
                   <TrendingUp size={10} />
                   <span>Income</span>
                 </span>
-                <span className="text-[8px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded">
+                <span className="text-[8px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/30 px-1.5 py-0.5 rounded">
                   Inflow
                 </span>
               </div>
-              <h3 className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">₹{incomeTotal.toLocaleString()}</h3>
-              <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono text-slate-500 dark:text-slate-400">
+              <h3 className="text-lg font-black font-mono text-emerald-700 dark:text-emerald-400 mt-1">₹{incomeTotal.toLocaleString()}</h3>
+              <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono text-slate-600 dark:text-slate-400">
                 <div className="flex items-center justify-between">
                   <span>Total Inflow</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">100%</span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">100%</span>
                 </div>
                 <div className="text-[7.5px] truncate">
                   {getContextLabel()}
@@ -1200,21 +1200,21 @@ export default function ExpensesPage() {
               title={`Total Outflow: ₹${expenseTotal.toLocaleString()} (${incomeTotal > 0 ? ((expenseTotal / incomeTotal) * 100).toFixed(1) : 0}% of Monthly Income)`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[9px] uppercase tracking-widest text-red-600 dark:text-red-400 font-bold flex items-center gap-1">
+                <span className="text-[9px] uppercase tracking-widest text-red-700 dark:text-red-400 font-bold flex items-center gap-1">
                   <TrendingDown size={10} />
                   <span>Outflow</span>
                 </span>
                 {incomeTotal > 0 && (
-                  <span className="text-[8px] font-mono font-black text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-1.5 py-0.5 rounded">
+                  <span className="text-[8px] font-mono font-black text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-1.5 py-0.5 rounded">
                     {((expenseTotal / incomeTotal) * 100).toFixed(1)}%
                   </span>
                 )}
               </div>
-              <h3 className="text-lg font-black font-mono text-red-600 dark:text-red-400 mt-1">₹{expenseTotal.toLocaleString()}</h3>
-              <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono text-slate-500 dark:text-slate-400">
+              <h3 className="text-lg font-black font-mono text-red-700 dark:text-red-400 mt-1">₹{expenseTotal.toLocaleString()}</h3>
+              <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono text-slate-600 dark:text-slate-400">
                 <div className="flex items-center justify-between">
                   <span>% of Inflow:</span>
-                  <span className="font-bold text-red-600 dark:text-red-400">
+                  <span className="font-bold text-red-700 dark:text-red-400">
                     {incomeTotal > 0 ? `${((expenseTotal / incomeTotal) * 100).toFixed(1)}%` : "0%"}
                   </span>
                 </div>
@@ -1235,7 +1235,7 @@ export default function ExpensesPage() {
               title={`Net Savings (${getContextLabel()}): ₹${currentPeriodBalance.toLocaleString()} (${incomeTotal > 0 ? ((currentPeriodBalance / incomeTotal) * 100).toFixed(1) : 0}% of Income) | Cumulative Savings Pool: ₹${newSavingBalance.toLocaleString()}`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[9px] uppercase tracking-widest text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+                <span className="text-[9px] uppercase tracking-widest text-indigo-700 dark:text-indigo-400 font-bold flex items-center gap-1">
                   <Wallet size={10} />
                   <span>Net Savings</span>
                 </span>
@@ -1243,26 +1243,26 @@ export default function ExpensesPage() {
                   {incomeTotal > 0 && (
                     <span className={`text-[8px] font-mono font-black px-1.5 py-0.5 rounded ${
                       currentPeriodBalance >= 0
-                        ? "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/40"
-                        : "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40"
+                        ? "text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-500/40"
+                        : "text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40"
                     }`}>
                       {currentPeriodBalance >= 0 ? "+" : ""}{((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}%
                     </span>
                   )}
                   {previousBalance !== 0 && (
-                    <span className="text-[7.5px] font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/80 border border-indigo-300 dark:border-indigo-500/30 px-1 py-0.5 rounded" title="Includes previous savings rollover">
+                    <span className="text-[7.5px] font-mono font-bold text-indigo-800 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/80 border border-indigo-300 dark:border-indigo-500/30 px-1 py-0.5 rounded" title="Includes previous savings rollover">
                       Roll
                     </span>
                   )}
                 </div>
               </div>
-              <h3 className={`text-lg font-black font-mono mt-1 ${currentPeriodBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+              <h3 className={`text-lg font-black font-mono mt-1 ${currentPeriodBalance >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
                 {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
               </h3>
               <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono">
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
                   <span>Cumulative Pool:</span>
-                  <span className={`font-bold ${newSavingBalance >= 0 ? "text-slate-900 dark:text-slate-100" : "text-red-600 dark:text-red-400"}`}>
+                  <span className={`font-bold ${newSavingBalance >= 0 ? "text-slate-900 dark:text-slate-100" : "text-red-700 dark:text-red-400"}`}>
                     ₹{newSavingBalance.toLocaleString()}
                   </span>
                 </div>
@@ -1290,19 +1290,19 @@ export default function ExpensesPage() {
                   title={`${item.category}: ₹${item.total.toLocaleString()} | ${item.incomeShare.toFixed(1)}% of Monthly Income | Budget: ₹${item.budget.toLocaleString()} ${item.isOverBudget ? `(+${item.overflowPercentage.toFixed(0)}% Over Budget Limit)` : ""}`}
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[9px] uppercase tracking-widest text-slate-600 dark:text-slate-400 font-bold truncate pr-1">{item.category}</span>
+                    <span className="text-[9px] uppercase tracking-widest text-slate-700 dark:text-slate-400 font-bold truncate pr-1">{item.category}</span>
                     {item.isOverBudget ? (
-                      <span className="text-[8px] font-mono font-black text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-1.5 py-0.5 rounded uppercase shadow-sm whitespace-nowrap" title={`+${item.overflowPercentage.toFixed(1)}% over ₹${item.budget.toLocaleString()} budget limit (${item.incomeShare.toFixed(1)}% of Income)`}>
+                      <span className="text-[8px] font-mono font-black text-white bg-red-600 border border-red-700 px-1.5 py-0.5 rounded uppercase shadow-sm whitespace-nowrap" title={`+${item.overflowPercentage.toFixed(1)}% over ₹${item.budget.toLocaleString()} budget limit (${item.incomeShare.toFixed(1)}% of Income)`}>
                         +{item.overflowPercentage.toFixed(0)}% OVER
                       </span>
                     ) : (
-                      <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded whitespace-nowrap ${theme.bg} ${theme.text}`}>
+                      <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${theme.bg} ${theme.border} ${theme.text}`}>
                         {item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}%` : `${item.percentage.toFixed(1)}%`}
                       </span>
                     )}
                   </div>
 
-                  <h3 className={`text-lg font-black font-mono mt-1 ${item.isOverBudget ? "text-red-600 dark:text-red-400" : "mini-3d-card-value text-slate-900 dark:text-slate-100"}`}>
+                  <h3 className={`text-lg font-black font-mono mt-1 ${item.isOverBudget ? "text-red-700 dark:text-red-400" : "mini-3d-card-value text-slate-900 dark:text-slate-100"}`}>
                     ₹{item.total.toLocaleString()}
                   </h3>
 
@@ -1310,30 +1310,30 @@ export default function ExpensesPage() {
                   <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono">
                     <div className="flex items-center justify-between">
                       {item.isOverBudget ? (
-                        <span className="text-red-600 dark:text-red-400 font-bold truncate">
+                        <span className="text-red-700 dark:text-red-400 font-bold truncate">
                           +₹{item.overAmount.toLocaleString()} over limit
                         </span>
                       ) : item.budget > 0 ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 truncate">
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold truncate">
                           ₹{item.remainingBudget.toLocaleString()} left
                         </span>
                       ) : (
-                        <span className="text-slate-400 truncate">
+                        <span className="text-slate-600 dark:text-slate-400 truncate">
                           {item.percentage.toFixed(0)}% of Outflow
                         </span>
                       )}
 
                       {item.budget > 0 && (
-                        <span className="text-slate-400 font-medium text-[7.5px] ml-1 whitespace-nowrap">
+                        <span className="text-slate-500 dark:text-slate-400 font-medium text-[7.5px] ml-1 whitespace-nowrap">
                           (Lim: ₹{item.budget.toLocaleString()})
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between text-[7.5px] text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center justify-between text-[7.5px] text-slate-600 dark:text-slate-400">
                       <span>{item.incomeShare > 0 ? `${item.incomeShare.toFixed(1)}% of Income` : `${item.percentage.toFixed(1)}% of Outflow`}</span>
                       {item.isOverBudget && (
-                        <span className="text-red-600 dark:text-red-400 font-bold">
+                        <span className="text-red-700 dark:text-red-400 font-bold">
                           +{item.overflowPercentage.toFixed(0)}%
                         </span>
                       )}
@@ -1346,20 +1346,20 @@ export default function ExpensesPage() {
           </div>
 
           {/* ── 🏛️ WEALTH, INVESTMENTS & PROVIDENT FUND (PF) HUB ── */}
-          <div className="glass-card card-glow-teal p-5 rounded-2xl border border-teal-500/20 mb-8 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+          <div className="glass-card card-glow-teal p-5 rounded-2xl border border-teal-200 dark:border-teal-500/20 mb-8 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/5 pb-3">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400">
+                <span className="p-1.5 rounded-lg bg-teal-100 dark:bg-teal-500/10 border border-teal-300 dark:border-teal-500/20 text-teal-700 dark:text-teal-400">
                   <Landmark size={15} />
                 </span>
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-200 flex items-center gap-2">
                     <span>Wealth, Investments & Provident Fund (PF) Hub</span>
-                    <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/40 px-2 py-0.5 rounded-full uppercase">
+                    <span className="text-[9px] font-mono font-bold text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/40 px-2 py-0.5 rounded-full uppercase">
                       Asset Growth
                     </span>
                   </h4>
-                  <p className="text-[9px] uppercase tracking-wider text-slate-500">
+                  <p className="text-[9px] uppercase tracking-wider text-slate-600 dark:text-slate-400 font-medium">
                     Track long-term wealth: SIP Mutual Funds, Term & Health Insurance, and Employer Matched PF (kept separate from liquid savings)
                   </p>
                 </div>
@@ -1369,7 +1369,7 @@ export default function ExpensesPage() {
                 <button
                   type="button"
                   onClick={() => setShowPfModal(true)}
-                  className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-200 bg-teal-100 dark:bg-teal-500/10 hover:bg-teal-200 dark:hover:bg-teal-500/20 border border-teal-300 dark:border-teal-500/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                  className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-100 bg-teal-100 hover:bg-teal-200 dark:bg-teal-500/10 dark:hover:bg-teal-500/20 border border-teal-300 dark:border-teal-500/20 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
                 >
                   <Settings2 size={11} />
                   <span>{pfSettings.enabled ? "Configure PF / Deductions" : "+ Enable PF & Deductions"}</span>
@@ -1380,22 +1380,22 @@ export default function ExpensesPage() {
             {/* 4 Wealth Portfolio KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Liquid Cumulative Savings (Pure Cash, Never mixed with PF) */}
-              <div className="p-3.5 rounded-xl bg-purple-100/60 dark:bg-purple-950/20 light:bg-purple-50 border border-purple-300 dark:border-purple-500/20 flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-500/20 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-purple-700 dark:text-purple-400 flex items-center gap-1">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-purple-800 dark:text-purple-400 flex items-center gap-1">
                       <Wallet size={11} />
                       <span>Liquid Net Savings</span>
                     </span>
-                    <span className="text-[8px] font-mono font-bold text-purple-700 dark:text-purple-300 bg-purple-200/60 dark:bg-purple-900/40 px-1.5 py-0.5 rounded">
+                    <span className="text-[8px] font-mono font-bold text-purple-800 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded">
                       {incomeTotal > 0 ? `${currentPeriodBalance >= 0 ? "+" : ""}${((currentPeriodBalance / incomeTotal) * 100).toFixed(1)}% Saved` : getContextLabel()}
                     </span>
                   </div>
                   <div className="flex items-baseline gap-2 mt-1">
-                    <h3 className={`text-xl font-black font-mono ${currentPeriodBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                    <h3 className={`text-xl font-black font-mono ${currentPeriodBalance >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
                       {currentPeriodBalance >= 0 ? "+" : ""}₹{currentPeriodBalance.toLocaleString()}
                     </h3>
-                    <span className="text-[10px] font-mono text-slate-500">
+                    <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-semibold">
                       (Pool: ₹{newSavingBalance.toLocaleString()})
                     </span>
                   </div>
@@ -1406,17 +1406,17 @@ export default function ExpensesPage() {
               </div>
 
               {/* SIP & Mutual Funds */}
-              <div className="p-3.5 rounded-xl bg-emerald-100/60 dark:bg-emerald-950/20 light:bg-emerald-50 border border-emerald-300 dark:border-emerald-500/20 flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 flex flex-col justify-between">
                 <div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-800 dark:text-emerald-400 flex items-center gap-1">
                     <TrendingUp size={11} />
                     <span>SIP & Mutual Funds</span>
                   </span>
-                  <h3 className="text-xl font-black font-mono text-slate-100 light:text-slate-900 mt-1">
+                  <h3 className="text-xl font-black font-mono text-slate-900 dark:text-slate-100 mt-1">
                     ₹{lifetimeSIP.toLocaleString()}
                   </h3>
                 </div>
-                <p className="text-[8px] font-mono text-slate-400 light:text-slate-600 mt-2">
+                <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2">
                   {currentMonthSIP > 0 ? `+₹${currentMonthSIP.toLocaleString()} logged in ${getContextLabel()}` : "Monthly wealth creation"}
                 </p>
               </div>
@@ -1424,37 +1424,37 @@ export default function ExpensesPage() {
               {/* Provident Fund (PF / EPF) - Dynamic & Opt-In */}
               <div className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
                 pfSettings.enabled
-                  ? "bg-indigo-950/20 light:bg-indigo-50 border-indigo-500/20"
-                  : "bg-white/[0.02] border-white/5 opacity-70"
+                  ? "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-500/20"
+                  : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-80"
               }`}>
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-400 light:text-indigo-600 flex items-center gap-1">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-800 dark:text-indigo-400 flex items-center gap-1">
                       <Building size={11} />
                       <span>Provident Fund (PF)</span>
                     </span>
                     {pfSettings.enabled ? (
-                      <span className="text-[8px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                      <span className="text-[8px] font-mono font-bold text-indigo-800 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 px-1.5 py-0.5 rounded">
                         ₹{monthlyTotalPF}/mo
                       </span>
                     ) : (
-                      <span className="text-[8px] font-mono text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">
+                      <span className="text-[8px] font-mono text-slate-600 dark:text-slate-400 bg-slate-200/60 dark:bg-white/5 px-1.5 py-0.5 rounded">
                         Optional
                       </span>
                     )}
                   </div>
-                  <h3 className="text-xl font-black font-mono text-slate-100 light:text-slate-900 mt-1">
+                  <h3 className="text-xl font-black font-mono text-slate-900 dark:text-slate-100 mt-1">
                     {pfSettings.enabled ? `₹${totalAccumulatedPF.toLocaleString()}` : "Not Active"}
                   </h3>
                 </div>
-                <p className="text-[8px] font-mono text-slate-400 light:text-slate-600 mt-2">
+                <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2">
                   {pfSettings.enabled ? (
                     `₹${pfSettings.employeeContribution} (You) + ₹${pfSettings.employerContribution} (Co.) × ${activePfMonths} mos (Locked Fund)`
                   ) : (
                     <button
                       type="button"
                       onClick={() => setShowPfModal(true)}
-                      className="text-teal-400 hover:underline cursor-pointer"
+                      className="text-teal-700 dark:text-teal-400 hover:underline cursor-pointer font-bold"
                     >
                       + Turn on PF tracking
                     </button>
@@ -1463,14 +1463,14 @@ export default function ExpensesPage() {
               </div>
 
               {/* Term & Health Insurance Protection */}
-              <div className="p-3.5 rounded-xl bg-cyan-100/60 dark:bg-cyan-950/20 light:bg-cyan-50 border border-cyan-300 dark:border-cyan-500/20 flex flex-col justify-between">
+              <div className="p-3.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-500/20 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-700 dark:text-cyan-400 flex items-center gap-1">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-800 dark:text-cyan-400 flex items-center gap-1">
                       <Shield size={11} />
                       <span>Insurance & Health</span>
                     </span>
-                    <span className="text-[8px] font-mono font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-200/60 dark:bg-cyan-900/40 px-1.5 py-0.5 rounded">
+                    <span className="text-[8px] font-mono font-bold text-cyan-800 dark:text-cyan-300 bg-cyan-100 dark:bg-cyan-900/40 border border-cyan-200 dark:border-cyan-800 px-1.5 py-0.5 rounded">
                       ₹{((Number(categoryBudgets["Term Insurance"]) || 1500) + (Number(categoryBudgets["Health Insurance"]) || Number(pfSettings.healthInsuranceDeduction) || 505)).toLocaleString()}/mo
                     </span>
                   </div>
@@ -2396,21 +2396,21 @@ export default function ExpensesPage() {
         {/* ── 🏷️ CATEGORY BUDGETS CONFIGURATION MODAL (Red Alert Management) ── */}
         {showBudgetModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-            <div className="glass-card bg-slate-900/98 dark:bg-[#0a0a14] border border-indigo-500/30 rounded-3xl max-w-xl w-full max-h-[88vh] shadow-2xl shadow-indigo-950/60 flex flex-col overflow-hidden">
+            <div className="glass-card bg-white dark:bg-[#0a0a14] border border-slate-200 dark:border-indigo-500/30 rounded-3xl max-w-xl w-full max-h-[88vh] shadow-2xl shadow-indigo-950/20 dark:shadow-indigo-950/60 flex flex-col overflow-hidden">
               {/* Fixed Header */}
-              <div className="flex items-center justify-between p-6 pb-4 border-b border-white/10 flex-shrink-0">
+              <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <span className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <span className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400">
                     <SlidersHorizontal size={18} />
                   </span>
                   <div>
-                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
                       <span>Monthly Category Budgets</span>
                       <span className="text-[9px] font-mono font-bold text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/80 border border-red-300 dark:border-red-500/40 px-2 py-0.5 rounded-full uppercase">
                         Red Alert Limit
                       </span>
                     </h3>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">
                       Set max monthly spend. Exceeding triggers Crimson Red alerts across UI.
                     </p>
                   </div>
@@ -2418,7 +2418,7 @@ export default function ExpensesPage() {
                 <button
                   type="button"
                   onClick={() => setShowBudgetModal(false)}
-                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
+                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all cursor-pointer"
                 >
                   <X size={16} />
                 </button>
@@ -2440,21 +2440,21 @@ export default function ExpensesPage() {
                           key={cat}
                           className={`p-3 rounded-2xl border transition-all ${
                             isOver
-                              ? "bg-red-950/30 border-red-500/40"
-                              : "bg-white/[0.02] border-white/5 hover:border-white/15"
+                              ? "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-500/40"
+                              : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/15"
                           }`}
                         >
                           <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                               {cat}
                             </span>
-                            <span className="text-[9px] font-mono text-slate-400">
-                              Spend: <strong className={isOver ? "text-red-400" : "text-emerald-400"}>₹{currentSpend.toLocaleString()}</strong>
+                            <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400">
+                              Spend: <strong className={isOver ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}>₹{currentSpend.toLocaleString()}</strong>
                             </span>
                           </div>
 
                           <div className="relative flex items-center">
-                            <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                            <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
                             <input
                               type="number"
                               min="0"
@@ -2462,7 +2462,7 @@ export default function ExpensesPage() {
                               placeholder="e.g. 15000"
                               value={val}
                               onChange={(e) => setBudgetForm(prev => ({ ...prev, [cat]: e.target.value }))}
-                              className="w-full bg-black/40 border border-white/10 focus:border-indigo-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all placeholder:text-slate-600"
+                              className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-indigo-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all placeholder:text-slate-400"
                             />
                           </div>
 
@@ -2470,9 +2470,9 @@ export default function ExpensesPage() {
                             <div className="mt-1.5 flex items-center justify-between text-[8px] font-mono">
                               <span className="text-slate-500">Limit: ₹{numVal.toLocaleString()}</span>
                               {isOver ? (
-                                <span className="text-red-400 font-bold">⚠️ {budgetPct}% (+₹{(currentSpend - numVal).toLocaleString()} OVER)</span>
+                                <span className="text-red-600 dark:text-red-400 font-bold">⚠️ {budgetPct}% (+₹{(currentSpend - numVal).toLocaleString()} OVER)</span>
                               ) : (
-                                <span className="text-emerald-400">{budgetPct}% (₹{(numVal - currentSpend).toLocaleString()} left)</span>
+                                <span className="text-emerald-600 dark:text-emerald-400">{budgetPct}% (₹{(numVal - currentSpend).toLocaleString()} left)</span>
                               )}
                             </div>
                           )}
@@ -2483,7 +2483,7 @@ export default function ExpensesPage() {
                 </div>
 
                 {/* Fixed Footer */}
-                <div className="flex flex-col sm:flex-row items-center justify-between p-4 px-6 border-t border-white/10 bg-slate-950/60 flex-shrink-0 gap-3">
+                <div className="flex flex-col sm:flex-row items-center justify-between p-4 px-6 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/60 flex-shrink-0 gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -2492,7 +2492,7 @@ export default function ExpensesPage() {
                         : { "Others": "10000" };
                       setBudgetForm(defaultBudgets);
                     }}
-                    className="text-[10px] font-mono uppercase tracking-wider text-slate-400 hover:text-slate-200 underline cursor-pointer"
+                    className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
                   >
                     Reset Recommended Defaults
                   </button>
@@ -2501,7 +2501,7 @@ export default function ExpensesPage() {
                     <button
                       type="button"
                       onClick={() => setShowBudgetModal(false)}
-                      className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -2521,21 +2521,21 @@ export default function ExpensesPage() {
         {/* ── 🏛️ PROVIDENT FUND (PF) & WEALTH SETTINGS MODAL ── */}
         {showPfModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-            <div className="glass-card bg-slate-900/98 dark:bg-[#0a0a14] border border-teal-500/30 rounded-3xl max-w-lg w-full max-h-[88vh] shadow-2xl shadow-teal-950/60 flex flex-col overflow-hidden">
+            <div className="glass-card bg-white dark:bg-[#0a0a14] border border-teal-200 dark:border-teal-500/30 rounded-3xl max-w-lg w-full max-h-[88vh] shadow-2xl shadow-teal-950/20 dark:shadow-teal-950/60 flex flex-col overflow-hidden">
               {/* Fixed Header */}
-              <div className="flex items-center justify-between p-6 pb-4 border-b border-white/10 flex-shrink-0">
+              <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <span className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400">
+                  <span className="p-2 rounded-xl bg-teal-100 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/20 text-teal-700 dark:text-teal-400">
                     <Landmark size={18} />
                   </span>
                   <div>
-                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
                       <span>Wealth & Salary Deductions Hub</span>
-                      <span className="text-[9px] font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/40 px-2 py-0.5 rounded-full uppercase">
+                      <span className="text-[9px] font-mono font-bold text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-500/40 px-2 py-0.5 rounded-full uppercase">
                         Dynamic / Optional
                       </span>
                     </h3>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">
                       Configure PF retirement pool & corporate health insurance salary deductions
                     </p>
                   </div>
@@ -2543,7 +2543,7 @@ export default function ExpensesPage() {
                 <button
                   type="button"
                   onClick={() => setShowPfModal(false)}
-                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all cursor-pointer"
+                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all cursor-pointer"
                 >
                   <X size={16} />
                 </button>
@@ -2553,12 +2553,12 @@ export default function ExpensesPage() {
               <form onSubmit={handleSavePfSettings} className="flex flex-col flex-grow overflow-hidden">
                 <div className="p-6 overflow-y-auto flex-grow max-h-[62vh] space-y-4 custom-modal-scrollbar">
                   {/* Opt-in Active Toggle */}
-                  <div className="p-3.5 rounded-2xl bg-teal-950/40 border border-teal-500/30 flex items-center justify-between">
+                  <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-500/30 flex items-center justify-between">
                     <div>
-                      <h5 className="text-xs font-black uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
+                      <h5 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                         <span>Enable PF & Corporate Deductions</span>
                       </h5>
-                      <p className="text-[9px] text-slate-400 mt-0.5">
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5">
                         {pfForm.enabled ? "Active — tracking locked EPF retirement & corporate benefits" : "Disabled — will not calculate PF for your account"}
                       </p>
                     </div>
@@ -2569,20 +2569,20 @@ export default function ExpensesPage() {
                         onChange={(e) => setPfForm(prev => ({ ...prev, enabled: e.target.checked }))}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                      <div className="w-11 h-6 bg-slate-300 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
                     </label>
                   </div>
 
                   {pfForm.enabled ? (
                     <div className="space-y-3.5 animate-fadeIn">
                       {/* Employee Deduction (Your Share) */}
-                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-300 flex items-center justify-between">
                           <span>Employee Deduction (Your Monthly PF)</span>
-                          <span className="text-[9px] font-mono text-teal-600 dark:text-teal-400 font-bold">Salary Deduction</span>
+                          <span className="text-[9px] font-mono text-teal-700 dark:text-teal-400 font-bold">Salary Deduction</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="0"
@@ -2590,7 +2590,7 @@ export default function ExpensesPage() {
                             placeholder="1800"
                             value={pfForm.employeeContribution}
                             onChange={(e) => setPfForm(prev => ({ ...prev, employeeContribution: e.target.value }))}
-                            className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                             required={pfForm.enabled}
                           />
                         </div>
@@ -2598,13 +2598,13 @@ export default function ExpensesPage() {
                       </div>
 
                       {/* Employer Match (Company Share) */}
-                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-300 flex items-center justify-between">
                           <span>Employer Matching (Company Contribution)</span>
-                          <span className="text-[9px] font-mono text-indigo-400 font-bold">100% Match</span>
+                          <span className="text-[9px] font-mono text-indigo-700 dark:text-indigo-400 font-bold">100% Match</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="0"
@@ -2612,7 +2612,7 @@ export default function ExpensesPage() {
                             placeholder="1800"
                             value={pfForm.employerContribution}
                             onChange={(e) => setPfForm(prev => ({ ...prev, employerContribution: e.target.value }))}
-                            className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                             required={pfForm.enabled}
                           />
                         </div>
@@ -2620,56 +2620,56 @@ export default function ExpensesPage() {
                       </div>
 
                       {/* Health Insurance Deduction (Company GMC) */}
-                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-300 flex items-center justify-between">
                           <span>Corporate Health Insurance / GMC</span>
-                          <span className="text-[9px] font-mono text-rose-400 font-bold">Medical Cover</span>
+                          <span className="text-[9px] font-mono text-rose-700 dark:text-rose-400 font-bold">Medical Cover</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="0"
                             placeholder="505"
                             value={pfForm.healthInsuranceDeduction}
                             onChange={(e) => setPfForm(prev => ({ ...prev, healthInsuranceDeduction: e.target.value }))}
-                            className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                           />
                         </div>
                         <p className="text-[8px] font-mono text-slate-500">Monthly office group medical health deduction from salary (Default: ₹505)</p>
                       </div>
 
                       {/* Start Month */}
-                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-300 flex items-center justify-between">
                           <span>Employment / PF Start Month</span>
-                          <span className="text-[9px] font-mono text-slate-400 font-bold">YYYY-MM</span>
+                          <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 font-bold">YYYY-MM</span>
                         </label>
                         <input
                           type="month"
                           value={pfForm.startMonth}
                           onChange={(e) => setPfForm(prev => ({ ...prev, startMonth: e.target.value }))}
-                          className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 px-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                          className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 px-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                           required={pfForm.enabled}
                         />
                         <p className="text-[8px] font-mono text-slate-500">Used to compute months elapsed for total accumulated PF corpus</p>
                       </div>
 
                       {/* Initial Corpus */}
-                      <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                        <label className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center justify-between">
+                      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 space-y-1.5">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-300 flex items-center justify-between">
                           <span>Prior Existing PF Corpus (Opening Balance)</span>
-                          <span className="text-[9px] font-mono text-slate-400 font-bold">Optional</span>
+                          <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 font-bold">Optional</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-500">₹</span>
+                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="0"
                             placeholder="0"
                             value={pfForm.initialCorpus}
                             onChange={(e) => setPfForm(prev => ({ ...prev, initialCorpus: e.target.value }))}
-                            className="w-full bg-black/40 border border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-100 outline-none transition-all"
+                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                           />
                         </div>
                       </div>
@@ -2690,40 +2690,40 @@ export default function ExpensesPage() {
                         const totalCorpus = initial + (totalMonthlyPf * elapsed);
 
                         return (
-                          <div className="p-3.5 rounded-2xl bg-teal-950/30 border border-teal-500/20 font-mono space-y-1.5">
+                          <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-500/20 font-mono space-y-1.5">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-400">Total Salary Deductions (PF + Health):</span>
-                              <strong className="text-rose-400">₹{totalSalaryDeductions.toLocaleString()}/mo</strong>
+                              <span className="text-slate-600 dark:text-slate-400">Total Salary Deductions (PF + Health):</span>
+                              <strong className="text-rose-600 dark:text-rose-400">₹{totalSalaryDeductions.toLocaleString()}/mo</strong>
                             </div>
                             <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-slate-400">Monthly PF Pool (You ₹{emp} + Co. ₹{comp}):</span>
-                              <strong className="text-teal-400">₹{totalMonthlyPf.toLocaleString()}/mo</strong>
+                              <span className="text-slate-600 dark:text-slate-400">Monthly PF Pool (You ₹{emp} + Co. ₹{comp}):</span>
+                              <strong className="text-teal-700 dark:text-teal-400">₹{totalMonthlyPf.toLocaleString()}/mo</strong>
                             </div>
                             <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-slate-400">Elapsed Active Months:</span>
-                              <strong className="text-slate-200">{elapsed} Months</strong>
+                              <span className="text-slate-600 dark:text-slate-400">Elapsed Active Months:</span>
+                              <strong className="text-slate-900 dark:text-slate-200">{elapsed} Months</strong>
                             </div>
-                            <div className="flex items-center justify-between text-xs pt-1 border-t border-teal-500/20">
-                              <span className="text-slate-300 font-sans font-bold uppercase text-[10px]">Projected PF Corpus:</span>
-                              <strong className="text-emerald-400 font-black">₹{totalCorpus.toLocaleString()}</strong>
+                            <div className="flex items-center justify-between text-xs pt-1 border-t border-teal-200 dark:border-teal-500/20">
+                              <span className="text-slate-800 dark:text-slate-300 font-sans font-bold uppercase text-[10px]">Projected PF Corpus:</span>
+                              <strong className="text-emerald-700 dark:text-emerald-400 font-black">₹{totalCorpus.toLocaleString()}</strong>
                             </div>
                           </div>
                         );
                       })()}
                     </div>
                   ) : (
-                    <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-center text-xs text-slate-500 font-mono">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 text-center text-xs text-slate-500 font-mono">
                       PF Tracking is currently turned off for this account. Your liquid savings and monthly budget ledger will not calculate any PF deductions.
                     </div>
                   )}
                 </div>
 
                 {/* Fixed Footer */}
-                <div className="flex items-center justify-end p-4 px-6 border-t border-white/10 bg-slate-950/60 flex-shrink-0 gap-2">
+                <div className="flex items-center justify-end p-4 px-6 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/60 flex-shrink-0 gap-2">
                   <button
                     type="button"
                     onClick={() => setShowPfModal(false)}
-                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
                   >
                     Cancel
                   </button>

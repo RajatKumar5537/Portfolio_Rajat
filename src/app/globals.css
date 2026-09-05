@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-@variant light (.light &);
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
 
 :root {
   color-scheme: dark;
@@ -14,11 +15,11 @@
 
 .light {
   color-scheme: light;
-  --background: #f5f5f7;
-  --foreground: #1c1c1e;
-  --card-bg: rgba(255, 255, 255, 0.8);
-  --border-color: rgba(0, 0, 0, 0.05);
-  --grid-color: rgba(0, 0, 0, 0.01);
+  --background: #f4f6fb;
+  --foreground: #0f172a;
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --border-color: #e2e8f0;
+  --grid-color: rgba(0, 0, 0, 0.015);
   --ring-track: rgba(99, 102, 241, 0.15);
 }
 
@@ -393,132 +394,354 @@ body {
 }
 
 /* ==========================================================================
-   Light Mode Overrides
+   Light Mode Comprehensive Typography & Contrast Overrides
    ========================================================================== */
-.light .text-slate-100 { color: #09090b !important; }
-.light .text-slate-200 { color: #18181b !important; }
-.light .text-slate-300 { color: #27272a !important; }
-.light .text-slate-400 { color: #52525b !important; }
-.light .text-slate-500 { color: #71717a !important; }
-.light .text-white { color: #09090b !important; }
-.light .text-slate-200\/60 { color: rgba(24, 24, 27, 0.6) !important; }
-
-/* BG overrides */
-.light .bg-\[\#030308\] { background-color: var(--background) !important; }
-.light .bg-\[\#0c0c16\] { background-color: #f4f4f5 !important; }
-.light .bg-white\/\[0\.02\] { background-color: rgba(9, 9, 11, 0.02) !important; }
-.light .bg-white\/\[0\.01\] { background-color: rgba(9, 9, 11, 0.015) !important; }
-.light .bg-white\/\[0\.005\] { background-color: rgba(9, 9, 11, 0.008) !important; }
-.light .bg-slate-950\/20 { background-color: rgba(255, 255, 255, 0.6) !important; }
-.light .border-white\/5 { border-color: rgba(9, 9, 11, 0.06) !important; }
-.light .border-white\/10 { border-color: rgba(9, 9, 11, 0.08) !important; }
-
-/* Select fields option lists override */
-.light select option {
-  background-color: #ffffff !important;
-  color: #09090b !important;
+.light {
+  color-scheme: light;
+  --background: #f4f6fb;
+  --foreground: #0f172a;
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --border-color: #e2e8f0;
+  --grid-color: rgba(0, 0, 0, 0.015);
+  --ring-track: rgba(99, 102, 241, 0.15);
 }
 
-.light select optgroup {
-  background-color: #ffffff !important;
-  color: #71717a !important;
+.light body {
+  background-color: #f1f4f9 !important;
+  color: #0f172a !important;
+  background-image:
+    radial-gradient(ellipse at 10% 10%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+    radial-gradient(ellipse at 90% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 40%),
+    radial-gradient(ellipse at 55% 50%, rgba(20, 184, 166, 0.05) 0%, transparent 50%) !important;
 }
 
-/* Nav links active bg */
-.light .bg-indigo-500\/10 {
-  background-color: rgba(99, 102, 241, 0.08) !important;
-}
-.light .border-indigo-500\/15 {
-  border-color: rgba(99, 102, 241, 0.15) !important;
+/* Universal Headings & Titles in Light Mode */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+  color: #0f172a !important;
 }
 
-/* Colored Badge & Tag Overrides for Light Mode */
+/* Universal Text Contrast Overrides in Light Mode */
+.light .text-slate-100,
+.light .text-slate-200,
+.light .text-slate-300,
+.light .text-white {
+  color: #0f172a !important;
+}
+
+.light .text-slate-400 {
+  color: #475569 !important;
+}
+
+.light .text-slate-500 {
+  color: #64748b !important;
+}
+
+.light .text-slate-600 {
+  color: #64748b !important;
+}
+
+.light .text-slate-700 {
+  color: #334155 !important;
+}
+
+.light .text-slate-800 {
+  color: #1e293b !important;
+}
+
+.light .text-slate-900 {
+  color: #0f172a !important;
+}
+
+.light .text-slate-200\/60,
+.light .text-slate-300\/60,
+.light .text-white\/40,
+.light .text-white\/50,
+.light .text-white\/60 {
+  color: #64748b !important;
+}
+
+.light .text-white\/70,
+.light .text-white\/80,
+.light .text-white\/90 {
+  color: #1e293b !important;
+}
+
+/* Stat Cards in Light Mode */
+.light .mini-3d-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+.light .mini-3d-card:hover {
+  border-color: #c7d2fe !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08) !important;
+}
+
+.light .mini-3d-card h3,
+.light .mini-3d-card .mini-3d-card-value {
+  color: #0f172a !important;
+}
+
+.light .mini-3d-card span.text-slate-500,
+.light .mini-3d-card span.text-slate-400,
+.light .mini-3d-card span.text-slate-600,
+.light .mini-3d-card p.text-slate-500,
+.light .mini-3d-card p.text-slate-400,
+.light .mini-3d-card p.text-slate-600 {
+  color: #475569 !important;
+}
+
+/* Glass Card in Light Mode */
+.light .glass-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+}
+
+.light .glass-card:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08) !important;
+}
+
+.light .glass-card h2,
+.light .glass-card h3,
+.light .glass-card h4 {
+  color: #0f172a !important;
+}
+
+.light .glass-card p {
+  color: #475569 !important;
+}
+
+/* Wealth Hub in Light Mode */
+.light .glass-card.card-glow-teal {
+  background: #ffffff !important;
+  border: 1px solid #99f6e4 !important;
+  box-shadow: 0 4px 20px rgba(20, 184, 166, 0.08) !important;
+}
+
+.light .glass-card.card-glow-teal h4 {
+  color: #0f172a !important;
+}
+
+.light .glass-card.card-glow-teal p {
+  color: #475569 !important;
+}
+
+/* Rich Vibrant Colored Accents in Light Mode */
+.light .text-indigo-400 { color: #4338ca !important; }
+.light .text-indigo-500 { color: #4f46e5 !important; }
+.light .text-indigo-600 { color: #4338ca !important; }
+
+.light .text-purple-400 { color: #6d28d9 !important; }
+.light .text-purple-500 { color: #7c3aed !important; }
+.light .text-purple-600 { color: #6d28d9 !important; }
+
+.light .text-teal-400 { color: #0f766e !important; }
+.light .text-teal-500 { color: #0d9488 !important; }
+.light .text-teal-600 { color: #0f766e !important; }
+
+.light .text-emerald-400 { color: #047857 !important; }
+.light .text-emerald-500 { color: #059669 !important; }
+.light .text-emerald-600 { color: #047857 !important; }
+
+.light .text-red-400 { color: #b91c1c !important; }
+.light .text-red-500 { color: #dc2626 !important; }
+.light .text-red-600 { color: #b91c1c !important; }
+
+.light .text-rose-400 { color: #be123c !important; }
+.light .text-rose-500 { color: #e11d48 !important; }
+.light .text-rose-600 { color: #be123c !important; }
+
+.light .text-cyan-400 { color: #0e7490 !important; }
+.light .text-cyan-500 { color: #06b6d4 !important; }
+.light .text-cyan-600 { color: #0e7490 !important; }
+
+.light .text-amber-400 { color: #b45309 !important; }
+.light .text-amber-500 { color: #d97706 !important; }
+.light .text-amber-600 { color: #b45309 !important; }
+
+.light .text-orange-400 { color: #c2410c !important; }
+.light .text-orange-500 { color: #ea580c !important; }
+.light .text-orange-600 { color: #c2410c !important; }
+
+.light .text-blue-400 { color: #1d4ed8 !important; }
+.light .text-blue-500 { color: #2563eb !important; }
+.light .text-blue-600 { color: #1d4ed8 !important; }
+
+.light .text-sky-400 { color: #0369a1 !important; }
+.light .text-sky-500 { color: #0284c7 !important; }
+.light .text-sky-600 { color: #0369a1 !important; }
+
+/* Light Theme Badges and Containers */
 .light .bg-indigo-950\/20,
 .light .bg-indigo-950\/30,
 .light .bg-indigo-950\/40,
-.light .bg-indigo-950\/60 {
-  background-color: rgba(99, 102, 241, 0.08) !important;
-  border-color: rgba(99, 102, 241, 0.15) !important;
-}
-.light .text-indigo-400 {
-  color: #4f46e5 !important;
+.light .bg-indigo-950\/60,
+.light .bg-indigo-500\/10,
+.light .bg-indigo-500\/20 {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
 }
 
 .light .bg-purple-950\/5,
 .light .bg-purple-950\/20,
-.light .bg-purple-950\/40 {
-  background-color: rgba(168, 85, 247, 0.08) !important;
-  border-color: rgba(168, 85, 247, 0.15) !important;
-}
-.light .text-purple-400 {
-  color: #7c3aed !important;
+.light .bg-purple-950\/30,
+.light .bg-purple-950\/40,
+.light .bg-purple-950\/60,
+.light .bg-purple-500\/10,
+.light .bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
 }
 
 .light .bg-teal-950\/5,
 .light .bg-teal-950\/20,
+.light .bg-teal-950\/30,
 .light .bg-teal-950\/40,
 .light .bg-teal-950\/60,
-.light .bg-teal-950\/80 {
-  background-color: rgba(20, 184, 166, 0.12) !important;
-  border-color: rgba(20, 184, 166, 0.25) !important;
-}
-.light .text-teal-400 {
-  color: #0f766e !important;
+.light .bg-teal-950\/80,
+.light .bg-teal-500\/10,
+.light .bg-teal-500\/20 {
+  background-color: #f0fdfa !important;
+  border-color: #99f6e4 !important;
 }
 
 .light .bg-emerald-950\/5,
 .light .bg-emerald-950\/20,
+.light .bg-emerald-950\/30,
 .light .bg-emerald-950\/40,
 .light .bg-emerald-950\/60,
-.light .bg-emerald-950\/80 {
-  background-color: rgba(16, 185, 129, 0.12) !important;
-  border-color: rgba(16, 185, 129, 0.25) !important;
-}
-.light .text-emerald-400 {
-  color: #047857 !important;
+.light .bg-emerald-950\/80,
+.light .bg-emerald-500\/10,
+.light .bg-emerald-500\/20 {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
 }
 
 .light .bg-red-950\/5,
+.light .bg-red-950\/10,
 .light .bg-red-950\/20,
+.light .bg-red-950\/30,
 .light .bg-red-950\/40,
 .light .bg-red-950\/50,
 .light .bg-red-950\/60,
-.light .bg-red-950\/80 {
-  background-color: rgba(239, 68, 68, 0.12) !important;
-  border-color: rgba(239, 68, 68, 0.25) !important;
-}
-.light .text-red-400 {
-  color: #b91c1c !important;
+.light .bg-red-950\/80,
+.light .bg-red-500\/10,
+.light .bg-red-500\/20 {
+  background-color: #fef2f2 !important;
+  border-color: #fca5a5 !important;
 }
 
-.light .bg-orange-950\/20,
-.light .bg-orange-950\/40,
-.light .bg-orange-950\/60 {
-  background-color: rgba(249, 115, 22, 0.12) !important;
-  border-color: rgba(249, 115, 22, 0.25) !important;
-}
-.light .text-orange-400 {
-  color: #c2410c !important;
+.light .bg-cyan-950\/20,
+.light .bg-cyan-950\/30,
+.light .bg-cyan-950\/40,
+.light .bg-cyan-950\/60,
+.light .bg-cyan-500\/10,
+.light .bg-cyan-500\/20 {
+  background-color: #ecfeff !important;
+  border-color: #a5f3fc !important;
 }
 
 .light .bg-amber-950\/20,
+.light .bg-amber-950\/30,
 .light .bg-amber-950\/40,
-.light .bg-amber-950\/60 {
-  background-color: rgba(245, 158, 11, 0.12) !important;
-  border-color: rgba(245, 158, 11, 0.25) !important;
-}
-.light .text-amber-400 {
-  color: #b45309 !important;
+.light .bg-amber-950\/60,
+.light .bg-amber-500\/10,
+.light .bg-amber-500\/20 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
 }
 
-.light .bg-yellow-950\/20,
-.light .bg-yellow-950\/40,
-.light .bg-yellow-950\/60 {
-  background-color: rgba(234, 179, 8, 0.12) !important;
-  border-color: rgba(234, 179, 8, 0.25) !important;
+.light .bg-orange-950\/20,
+.light .bg-orange-950\/30,
+.light .bg-orange-950\/40,
+.light .bg-orange-950\/60,
+.light .bg-orange-500\/10,
+.light .bg-orange-500\/20 {
+  background-color: #fff7ed !important;
+  border-color: #fed7aa !important;
 }
-.light .text-yellow-400 {
-  color: #a16207 !important;
+
+.light .bg-blue-950\/20,
+.light .bg-blue-950\/30,
+.light .bg-blue-950\/40,
+.light .bg-blue-500\/10,
+.light .bg-blue-500\/20 {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+
+/* Background overrides in light mode */
+.light .bg-\[\#030308\],
+.light .bg-\[\#070711\] {
+  background-color: #f1f4f9 !important;
+}
+
+.light .bg-\[\#0c0c16\],
+.light .bg-\[\#0c0c16\]\/60,
+.light .bg-\[\#0c0c16\]\/90,
+.light .bg-\[\#0c0c16\]\/95,
+.light .bg-\[\#0a0a14\] {
+  background-color: #ffffff !important;
+}
+
+.light .bg-white\/\[0\.005\],
+.light .bg-white\/\[0\.01\],
+.light .bg-white\/\[0\.02\],
+.light .bg-white\/\[0\.03\],
+.light .bg-white\/5 {
+  background-color: #f8fafc !important;
+}
+
+.light .bg-white\/10 {
+  background-color: #f1f5f9 !important;
+}
+
+.light .border-white\/5,
+.light .border-white\/10,
+.light .border-white\/15,
+.light .border-white\/20,
+.light .border-white\/30 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Select fields option lists override */
+.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.light select optgroup {
+  background-color: #ffffff !important;
+  color: #64748b !important;
+}
+
+/* Inputs & Form controls in Light Mode */
+.light input,
+.light select,
+.light textarea {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.light input:focus,
+.light select:focus,
+.light textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.light form.bg-\[\#070711\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
 }
 
 /* Modal Dedicated Visible Scrollbars */
@@ -570,43 +793,6 @@ body {
 }
 .light ::-webkit-scrollbar-thumb:hover {
   background: rgba(99, 102, 241, 0.35) !important;
-}
-
-/* Light Mode Universal Typography & Form Element Contrast Overrides */
-.light .text-slate-100,
-.light .text-slate-200,
-.light .text-slate-300,
-.light .text-white {
-  color: #1c1c1e !important;
-}
-
-.light .text-slate-400 {
-  color: #48484a !important;
-}
-
-.light .text-slate-500 {
-  color: #636366 !important;
-}
-
-.light .text-slate-600 {
-  color: #8e8e93 !important;
-}
-
-.light input,
-.light select,
-.light textarea {
-  color: #1c1c1e !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
-  background-color: rgba(0, 0, 0, 0.02) !important;
-}
-
-.light input::placeholder {
-  color: #8e8e93 !important;
-}
-
-.light form.bg-\[\#070711\] {
-  background-color: rgba(0, 0, 0, 0.025) !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 /* Fix date input styling for Safari iOS */
