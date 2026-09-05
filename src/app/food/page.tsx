@@ -697,7 +697,7 @@ export default function FoodPage() {
                         type="date"
                         value={form.date}
                         onChange={(e) => setForm({ ...form, date: e.target.value })}
-                        className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 outline-none transition-all"
+                        className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-9 pr-4 text-base sm:text-xs text-slate-200 outline-none transition-all"
                         required
                       />
                     </div>
@@ -740,7 +740,7 @@ export default function FoodPage() {
                         }}
                         onFocus={() => setShowSuggestions(true)}
                         placeholder="Type food, e.g. Sattu, Dalma, Chicken"
-                        className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 placeholder-slate-600 outline-none transition-all"
+                        className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-9 pr-4 text-base sm:text-xs text-slate-200 placeholder-slate-600 outline-none transition-all"
                         required
                         autoComplete="off"
                       />
@@ -796,12 +796,13 @@ export default function FoodPage() {
                         </span>
                         <input
                           type="number"
+                          inputMode="decimal"
                           value={form.portion}
                           onChange={(e) => setForm({ ...form, portion: e.target.value })}
                           placeholder="100"
                           min="0.1"
                           step="any"
-                          className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-8 pr-4 text-xs text-slate-200 placeholder-slate-600 outline-none transition-all font-mono"
+                          className="w-full bg-white/[0.02] border border-white/5 focus:border-teal-500/50 rounded-xl py-2 pl-8 pr-4 text-base sm:text-xs text-slate-200 placeholder-slate-600 outline-none transition-all font-mono"
                           required
                         />
                       </div>
@@ -841,18 +842,20 @@ export default function FoodPage() {
                           <label className="text-[8px] uppercase text-slate-500 tracking-wider">Weight (Grams)</label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={form.portionGrams}
                             onChange={(e) => setForm({ ...form, portionGrams: e.target.value })}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 font-mono"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-base sm:text-xs text-slate-200 font-mono"
                           />
                         </div>
                         <div>
                           <label className="text-[8px] uppercase text-slate-500 tracking-wider">Protein per 100g</label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={form.proteinPer100g}
                             onChange={(e) => setForm({ ...form, proteinPer100g: e.target.value })}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-slate-200 font-mono"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-base sm:text-xs text-slate-200 font-mono"
                           />
                         </div>
                       </div>

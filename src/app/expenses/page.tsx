@@ -1586,13 +1586,11 @@ export default function ExpensesPage() {
                     </span>
                   </div>
                   <h3 className="text-xl font-black font-mono text-slate-900 dark:text-slate-100 mt-1">
-                    ₹{(lifetimeHealthInsurance > 0 ? lifetimeHealthInsurance : healthDeductionPerMonth * activePfMonths).toLocaleString()}
+                    ₹{(healthDeductionPerMonth * activePfMonths).toLocaleString()}
                   </h3>
                 </div>
                 <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2">
-                  {currentMonthHealthInsurance > 0
-                    ? `₹${currentMonthHealthInsurance.toLocaleString()} deducted in ${getContextLabel()}`
-                    : `₹${healthDeductionPerMonth}/mo Salary Deduction (GMC Mediclaim Cover)`}
+                  ₹{healthDeductionPerMonth}/mo × {activePfMonths} mos Salary Deduction (GMC Cover)
                 </p>
               </div>
             </div>
@@ -1752,7 +1750,7 @@ export default function ExpensesPage() {
                         name="date"
                         value={form.date}
                         onChange={handleInputChange}
-                        className="w-full bg-white/[0.02] border border-white/5 focus:border-purple-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 outline-none transition-all"
+                        className="w-full bg-white/[0.02] border border-white/5 focus:border-purple-500/50 rounded-xl py-2 pl-9 pr-4 text-base sm:text-xs text-slate-200 outline-none transition-all"
                         required
                       />
                     </div>
@@ -1773,7 +1771,7 @@ export default function ExpensesPage() {
                         placeholder="0.00"
                         min="0.01"
                         step="0.01"
-                        className="w-full bg-white/[0.02] border border-white/5 focus:border-purple-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 placeholder-slate-600 outline-none transition-all"
+                        className="w-full bg-white/[0.02] border border-white/5 focus:border-purple-500/50 rounded-xl py-2 pl-9 pr-4 text-base sm:text-xs text-slate-200 placeholder-slate-600 outline-none transition-all"
                         required
                       />
                     </div>
@@ -1790,7 +1788,7 @@ export default function ExpensesPage() {
                         name="category"
                         value={form.category}
                         onChange={handleInputChange}
-                        className="w-full bg-white/[0.02] border border-white/5 focus:border-purple-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 outline-none transition-all cursor-pointer"
+                        className="w-full bg-white/[0.02] border border-white/5 focus:border-purple-500/50 rounded-xl py-2 pl-9 pr-4 text-base sm:text-xs text-slate-200 outline-none transition-all cursor-pointer"
                         required
                       >
                         {activeCategories.map((cat) => (
@@ -1838,7 +1836,7 @@ export default function ExpensesPage() {
                         value={form.description}
                         onChange={handleInputChange}
                         placeholder="e.g. Broadband, Salary deposit"
-                        className="w-full bg-white/[0.02] border border-white/5 focus:border-purple-500/50 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200 placeholder-slate-600 outline-none transition-all"
+                        className="w-full bg-white/[0.02] border border-white/5 focus:border-purple-500/50 rounded-xl py-2 pl-9 pr-4 text-base sm:text-xs text-slate-200 placeholder-slate-600 outline-none transition-all"
                         required
                       />
                     </div>
@@ -2572,7 +2570,7 @@ export default function ExpensesPage() {
                               placeholder="e.g. 15000"
                               value={val}
                               onChange={(e) => setBudgetForm(prev => ({ ...prev, [cat]: e.target.value }))}
-                              className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-indigo-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all placeholder:text-slate-400"
+                              className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-indigo-500 rounded-xl py-2 pl-7 pr-3 text-base sm:text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all placeholder:text-slate-400"
                             />
                           </div>
 
@@ -2630,10 +2628,10 @@ export default function ExpensesPage() {
 
         {/* ── 🏛️ PROVIDENT FUND (PF) & WEALTH SETTINGS MODAL ── */}
         {showPfModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-            <div className="glass-card bg-white dark:bg-[#0a0a14] border border-teal-200 dark:border-teal-500/30 rounded-3xl max-w-lg w-full max-h-[88vh] shadow-2xl shadow-teal-950/20 dark:shadow-teal-950/60 flex flex-col overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn overflow-y-auto">
+            <div className="glass-card bg-white dark:bg-[#0a0a14] border border-teal-200 dark:border-teal-500/30 rounded-3xl max-w-lg w-full max-h-[90dvh] sm:max-h-[88vh] shadow-2xl shadow-teal-950/20 dark:shadow-teal-950/60 flex flex-col overflow-hidden">
               {/* Fixed Header */}
-              <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
+              <div className="flex items-center justify-between p-4 sm:p-6 pb-3 sm:pb-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
                   <span className="p-2 rounded-xl bg-teal-100 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/20 text-teal-700 dark:text-teal-400">
                     <Landmark size={18} />
@@ -2661,7 +2659,7 @@ export default function ExpensesPage() {
 
               {/* Scrollable Form Body */}
               <form onSubmit={handleSavePfSettings} className="flex flex-col flex-grow overflow-hidden">
-                <div className="p-6 overflow-y-auto flex-grow max-h-[62vh] space-y-4 custom-modal-scrollbar">
+                <div className="p-4 sm:p-6 overflow-y-auto flex-grow max-h-[62vh] space-y-4 custom-modal-scrollbar overscroll-contain">
                   {/* Opt-in Active Toggle */}
                   <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-500/30 flex items-center justify-between">
                     <div>
@@ -2692,15 +2690,16 @@ export default function ExpensesPage() {
                           <span className="text-[9px] font-mono text-teal-700 dark:text-teal-400 font-bold">Salary Deduction</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
+                          <span className="absolute left-3 text-sm sm:text-xs font-mono font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="0"
                             step="100"
+                            inputMode="numeric"
                             placeholder="1800"
                             value={pfForm.employeeContribution}
                             onChange={(e) => setPfForm(prev => ({ ...prev, employeeContribution: e.target.value }))}
-                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
+                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2.5 sm:py-2 pl-7 pr-3 text-base sm:text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                             required={pfForm.enabled}
                           />
                         </div>
@@ -2714,15 +2713,16 @@ export default function ExpensesPage() {
                           <span className="text-[9px] font-mono text-indigo-700 dark:text-indigo-400 font-bold">100% Match</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
+                          <span className="absolute left-3 text-sm sm:text-xs font-mono font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="0"
                             step="100"
+                            inputMode="numeric"
                             placeholder="1800"
                             value={pfForm.employerContribution}
                             onChange={(e) => setPfForm(prev => ({ ...prev, employerContribution: e.target.value }))}
-                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
+                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2.5 sm:py-2 pl-7 pr-3 text-base sm:text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                             required={pfForm.enabled}
                           />
                         </div>
@@ -2736,14 +2736,15 @@ export default function ExpensesPage() {
                           <span className="text-[9px] font-mono text-rose-700 dark:text-rose-400 font-bold">Medical Cover</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
+                          <span className="absolute left-3 text-sm sm:text-xs font-mono font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="0"
+                            inputMode="numeric"
                             placeholder="505"
                             value={pfForm.healthInsuranceDeduction}
                             onChange={(e) => setPfForm(prev => ({ ...prev, healthInsuranceDeduction: e.target.value }))}
-                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
+                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2.5 sm:py-2 pl-7 pr-3 text-base sm:text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                           />
                         </div>
                         <p className="text-[8px] font-mono text-slate-500">Monthly office group medical health deduction from salary (Default: ₹505)</p>
@@ -2759,7 +2760,7 @@ export default function ExpensesPage() {
                           type="month"
                           value={pfForm.startMonth}
                           onChange={(e) => setPfForm(prev => ({ ...prev, startMonth: e.target.value }))}
-                          className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 px-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
+                          className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2.5 sm:py-2 px-3 text-base sm:text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                           required={pfForm.enabled}
                         />
                         <p className="text-[8px] font-mono text-slate-500">Used to compute months elapsed for total accumulated PF corpus</p>
@@ -2772,14 +2773,15 @@ export default function ExpensesPage() {
                           <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 font-bold">Optional</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-xs font-mono font-bold text-slate-400">₹</span>
+                          <span className="absolute left-3 text-sm sm:text-xs font-mono font-bold text-slate-400">₹</span>
                           <input
                             type="number"
                             min="0"
+                            inputMode="numeric"
                             placeholder="0"
                             value={pfForm.initialCorpus}
                             onChange={(e) => setPfForm(prev => ({ ...prev, initialCorpus: e.target.value }))}
-                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
+                            className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 focus:border-teal-500 rounded-xl py-2.5 sm:py-2 pl-7 pr-3 text-base sm:text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none transition-all"
                           />
                         </div>
                       </div>
