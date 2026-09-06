@@ -28,7 +28,8 @@ const MOTIVATIONAL_QUOTES = [
 
 export default function LearningPage() {
   const { data: session } = useSession();
-  const isRajat = session?.user?.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+  const userEmailLower = session?.user?.email?.toLowerCase();
+  const isRajat = userEmailLower === "kumarrajatpradhan5537@gmail.com" || userEmailLower === "kumarrajatpradhan5364@gmail.com";
   const userIdentifier = (session?.user as any)?.id || session?.user?.email || "guest";
 
   const [mounted, setMounted] = useState(false);
@@ -100,7 +101,8 @@ export default function LearningPage() {
     // Fetch roadmap from database
     const fetchRoadmapData = async () => {
       try {
-        const isRajatUser = session?.user?.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+        const uEmail = session?.user?.email?.toLowerCase();
+        const isRajatUser = uEmail === "kumarrajatpradhan5537@gmail.com" || uEmail === "kumarrajatpradhan5364@gmail.com";
         const uId = (session?.user as any)?.id || session?.user?.email || "guest";
 
         const res = await fetch("/api/tracking/study/roadmap");

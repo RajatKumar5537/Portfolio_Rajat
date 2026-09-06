@@ -14,7 +14,8 @@ import {
 
 export default function ExpensesPage() {
   const { data: session } = useSession();
-  const isRajat = session?.user?.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+  const userEmailLower = session?.user?.email?.toLowerCase();
+  const isRajat = userEmailLower === "kumarrajatpradhan5537@gmail.com" || userEmailLower === "kumarrajatpradhan5364@gmail.com";
   const userIdentifier = (session?.user as any)?.id || session?.user?.email || "guest";
 
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -139,7 +140,8 @@ export default function ExpensesPage() {
   // 1. Initial load from LocalStorage cache & MongoDB database sync
   useEffect(() => {
     if (!session?.user) return;
-    const isRajatUser = session.user.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+    const uEmail = session.user.email?.toLowerCase();
+    const isRajatUser = uEmail === "kumarrajatpradhan5537@gmail.com" || uEmail === "kumarrajatpradhan5364@gmail.com";
     const uId = (session.user as any).id || session.user.email || "guest";
     const expKey = `custom_expense_categories_${uId}`;
     const incKey = `custom_income_categories_${uId}`;
@@ -304,7 +306,8 @@ export default function ExpensesPage() {
   // 2. Dynamic generation of custom lists based on transaction history
   useEffect(() => {
     if (!session?.user) return;
-    const isRajatUser = session.user.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+    const uEmail = session.user.email?.toLowerCase();
+    const isRajatUser = uEmail === "kumarrajatpradhan5537@gmail.com" || uEmail === "kumarrajatpradhan5364@gmail.com";
     const uId = (session.user as any).id || session.user.email || "guest";
     const expKey = `custom_expense_categories_${uId}`;
     const incKey = `custom_income_categories_${uId}`;
@@ -819,13 +822,39 @@ export default function ExpensesPage() {
   // Monthly Total PF = Employee Share (₹1800) + Employer Share (₹1800) = ₹3600/month
   const monthlyTotalPF = (Number(pfSettings.employeeContribution) || 0) + (Number(pfSettings.employerContribution) || 0);
 
-  // Calculate number of active months since startMonth for PF compounding
+  // Calculate number of active months since startMonth for PF compounding based on selected period
   const calculatePfMonths = () => {
     try {
-      const start = pfSettings.startMonth ? new Date(pfSettings.startMonth + "-01") : new Date("2024-10-01");
-      const now = new Date();
-      const monthsDiff = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()) + 1;
-      return Math.max(1, monthsDiff);
+      const [startYear, startM] = (pfSettings.startMonth || "2024-10").split("-").map(Number);
+      const startTotalMonths = (startYear || 2024) * 12 + (startM ? startM - 1 : 0);
+
+      let targetYear = new Date().getFullYear();
+      let targetMonth = new Date().getMonth(); // 0-indexed (0=Jan, 7=Aug, 8=Sep)
+
+      if (filterMode === "range") {
+        if (endDate) {
+          const parts = endDate.split("-").map(Number);
+          if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            targetYear = parts[0];
+            targetMonth = parts[1] - 1;
+          }
+        }
+      } else {
+        // Month mode
+        if (selectedYear !== -1) {
+          targetYear = selectedYear;
+        }
+        if (selectedMonth !== -1) {
+          targetMonth = selectedMonth;
+        } else if (selectedYear !== -1 && selectedYear < new Date().getFullYear()) {
+          // If All Months selected for a past year, calculate through December of that year
+          targetMonth = 11;
+        }
+      }
+
+      const targetTotalMonths = targetYear * 12 + targetMonth;
+      const monthsDiff = targetTotalMonths - startTotalMonths + 1;
+      return Math.max(0, monthsDiff);
     } catch {
       return 12;
     }

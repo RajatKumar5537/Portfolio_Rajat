@@ -14,7 +14,7 @@ export async function GET() {
     }
 
     const userEmail = session.user.email?.toLowerCase() || "";
-    const isRajatUser = userEmail === "kumarrajatpradhan5537@gmail.com";
+    const isRajatUser = userEmail === "kumarrajatpradhan5537@gmail.com" || userEmail === "kumarrajatpradhan5364@gmail.com";
 
     await dbConnect();
 

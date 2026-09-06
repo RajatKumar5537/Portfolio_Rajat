@@ -13,7 +13,8 @@ import {
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const isRajat = session?.user?.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+  const userEmailLower = session?.user?.email?.toLowerCase();
+  const isRajat = userEmailLower === "kumarrajatpradhan5537@gmail.com" || userEmailLower === "kumarrajatpradhan5364@gmail.com";
 
   const [data, setData] = useState({
     expenses: [] as any[],
@@ -34,12 +35,13 @@ export default function DashboardPage() {
     employerContribution: 0,
     healthInsuranceDeduction: 0,
     initialCorpus: 0,
-    startMonth: "2024-01",
+    startMonth: "2024-10",
   });
 
   useEffect(() => {
     if (!session?.user) return;
-    const isRajatUser = session.user.email?.toLowerCase() === "kumarrajatpradhan5537@gmail.com";
+    const uEmail = session.user.email?.toLowerCase();
+    const isRajatUser = uEmail === "kumarrajatpradhan5537@gmail.com" || uEmail === "kumarrajatpradhan5364@gmail.com";
     const uId = (session.user as any).id || session.user.email || "guest";
     const budgetKey = `category_budgets_${uId}`;
     const pfKey = `pf_settings_${uId}`;
@@ -70,7 +72,7 @@ export default function DashboardPage() {
           employerContribution: Number(parsed.employerContribution) || (isRajatUser ? 1800 : 0),
           healthInsuranceDeduction: Number(parsed.healthInsuranceDeduction) || (isRajatUser ? 505 : 0),
           initialCorpus: Number(parsed.initialCorpus) || 0,
-          startMonth: parsed.startMonth || "2024-01",
+          startMonth: parsed.startMonth || "2024-10",
         });
       } catch {}
     } else {
@@ -80,7 +82,7 @@ export default function DashboardPage() {
         employerContribution: isRajatUser ? 1800 : 0,
         healthInsuranceDeduction: isRajatUser ? 505 : 0,
         initialCorpus: 0,
-        startMonth: "2024-01",
+        startMonth: "2024-10",
       };
       setPfSettings(defaultPf);
     }
@@ -99,7 +101,7 @@ export default function DashboardPage() {
               employerContribution: Number(dbData.pfSettings.employerContribution) || (isRajatUser ? 1800 : 0),
               healthInsuranceDeduction: Number(dbData.pfSettings.healthInsuranceDeduction) || (isRajatUser ? 505 : 0),
               initialCorpus: Number(dbData.pfSettings.initialCorpus) || 0,
-              startMonth: dbData.pfSettings.startMonth || "2024-01",
+              startMonth: dbData.pfSettings.startMonth || "2024-10",
             };
             setPfSettings(normalizedPf);
             localStorage.setItem(pfKey, JSON.stringify(normalizedPf));
@@ -338,11 +340,42 @@ export default function DashboardPage() {
   const monthlyTotalPF = pfSettings.enabled
     ? (Number(pfSettings.employeeContribution) || 0) + (Number(pfSettings.employerContribution) || 0)
     : 0;
-  const [pfStartYear, pfStartM] = (pfSettings.startMonth || "2024-01").split("-").map(Number);
-  const now = new Date();
-  const activePfMonths = pfSettings.enabled
-    ? Math.max(1, (now.getFullYear() - (pfStartYear || 2024)) * 12 + ((now.getMonth() + 1) - (pfStartM || 1)) + 1)
-    : 0;
+
+  const calculateActivePfMonths = () => {
+    if (!pfSettings.enabled) return 0;
+    try {
+      const [pfStartYear, pfStartM] = (pfSettings.startMonth || "2024-10").split("-").map(Number);
+      const startTotalMonths = (pfStartYear || 2024) * 12 + (pfStartM ? pfStartM - 1 : 0);
+
+      let targetYear = new Date().getFullYear();
+      let targetMonth = new Date().getMonth();
+
+      if (selectedDate) {
+        const parts = selectedDate.split("-").map(Number);
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          targetYear = parts[0];
+          targetMonth = parts[1] - 1;
+        }
+      } else {
+        if (selectedYear !== -1) {
+          targetYear = selectedYear;
+        }
+        if (selectedMonth !== -1) {
+          targetMonth = selectedMonth;
+        } else if (selectedYear !== -1 && selectedYear < new Date().getFullYear()) {
+          targetMonth = 11;
+        }
+      }
+
+      const targetTotalMonths = targetYear * 12 + targetMonth;
+      const monthsDiff = targetTotalMonths - startTotalMonths + 1;
+      return Math.max(0, monthsDiff);
+    } catch {
+      return 0;
+    }
+  };
+
+  const activePfMonths = calculateActivePfMonths();
   const totalAccumulatedPF = pfSettings.enabled
     ? (Number(pfSettings.initialCorpus) || 0) + (monthlyTotalPF * activePfMonths)
     : 0;
