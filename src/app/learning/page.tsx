@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Navigation from "@/components/Navigation";
-import { BookOpen, Play, Calendar, Trash2, Loader2, Sparkles, Flame, Plus, Settings, ChevronLeft, ChevronRight, Pencil, Check, X } from "lucide-react";
+import { BookOpen, Play, Calendar, Trash2, Loader2, Sparkles, Flame, Plus, Settings, ChevronLeft, ChevronRight, Pencil, Check, X, ListTodo, CheckCircle2, Clock, PlayCircle, Layers, Filter, ArrowRight, RotateCcw, Kanban, LayoutGrid, List } from "lucide-react";
+
+export type StudyStatus = "todo" | "in_progress" | "completed";
 
 // Default configurations
 const DEFAULT_START_DATE = new Date("2026-08-25T00:00:00");
@@ -54,6 +56,36 @@ export default function LearningPage() {
   const ITEMS_PER_PAGE = 10;
   const logsRef = useRef<HTMLDivElement>(null);
 
+  // Status Filter ("all" | "todo" | "in_progress" | "completed")
+  const [statusFilter, setStatusFilter] = useState<"all" | StudyStatus>("all");
+
+  // View Mode: "board" (Jira-style cards) or "list" (Table/List)
+  const [viewMode, setViewMode] = useState<"board" | "list">("board");
+  const [mobileBoardTab, setMobileBoardTab] = useState<"all" | StudyStatus>("all");
+
+  // Inline Task Bar inputs for each Jira column
+  const [inlineTaskInput, setInlineTaskInput] = useState<{
+    todo: string;
+    in_progress: string;
+    completed: string;
+  }>({
+    todo: "",
+    in_progress: "",
+    completed: "",
+  });
+
+  const [inlineDurationInput, setInlineDurationInput] = useState<{
+    todo: string;
+    in_progress: string;
+    completed: string;
+  }>({
+    todo: "30",
+    in_progress: "30",
+    completed: "30",
+  });
+
+  const [columnSubmitting, setColumnSubmitting] = useState<StudyStatus | null>(null);
+
   // Tabs
   const [activeTab, setActiveTab] = useState<"roadmap" | "studied">("roadmap");
 
@@ -68,16 +100,39 @@ export default function LearningPage() {
 
   // Study log inline edit
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
-  const [editLogForm, setEditLogForm] = useState({ topic: "", durationMinutes: "", date: "" });
+  const [editLogForm, setEditLogForm] = useState<{ topic: string; durationMinutes: string; date: string; status: StudyStatus }>({
+    topic: "",
+    durationMinutes: "",
+    date: "",
+    status: "completed",
+  });
   
-  // Topic input state
+  // Quick Add Topic input state
   const [newTopicText, setNewTopicText] = useState("");
   const [newDuration, setNewDuration] = useState("30");
+  const [newStatus, setNewStatus] = useState<StudyStatus>("completed");
 
-  // Stopwatch state
+  // Stopwatch state & active session task tracking
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [sessionSeconds, setSessionSeconds] = useState(0);
+  const [activeSessionTask, setActiveSessionTask] = useState<{ id?: string; topic: string } | null>(null);
+  const [selectedTaskForTimer, setSelectedTaskForTimer] = useState<string>("");
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Save Session Modal State
+  const [showSaveSessionModal, setShowSaveSessionModal] = useState(false);
+  const [saveSessionForm, setSaveSessionForm] = useState<{
+    id?: string;
+    topic: string;
+    durationMinutes: string;
+    status: StudyStatus;
+    date: string;
+  }>({
+    topic: "",
+    durationMinutes: "30",
+    status: "completed",
+    date: new Date().toISOString().split("T")[0],
+  });
 
   // Settings State
   const [showSettings, setShowSettings] = useState(false);
@@ -177,6 +232,12 @@ export default function LearningPage() {
 
     // Persistent stopwatch initial load
     const stopwatchActive = localStorage.getItem("study_stopwatch_is_active") === "true";
+    const savedTaskId = localStorage.getItem("study_stopwatch_task_id") || undefined;
+    const savedTaskTopic = localStorage.getItem("study_stopwatch_task_topic") || "";
+    if (savedTaskTopic) {
+      setActiveSessionTask({ id: savedTaskId, topic: savedTaskTopic });
+    }
+
     if (stopwatchActive) {
       const startTime = Number(localStorage.getItem("study_stopwatch_start_time") || Date.now());
       const accumulated = Number(localStorage.getItem("study_stopwatch_accumulated_seconds") || 0);
@@ -192,6 +253,14 @@ export default function LearningPage() {
     // Sync state if stopwatch status is changed globally (e.g. from the float pill on other pages)
     const handleStopwatchChanged = () => {
       const active = localStorage.getItem("study_stopwatch_is_active") === "true";
+      const syncTopic = localStorage.getItem("study_stopwatch_task_topic") || "";
+      const syncId = localStorage.getItem("study_stopwatch_task_id") || undefined;
+      if (syncTopic) {
+        setActiveSessionTask({ id: syncId, topic: syncTopic });
+      } else {
+        setActiveSessionTask(null);
+      }
+
       if (active) {
         setIsSessionActive(true);
         const startTime = Number(localStorage.getItem("study_stopwatch_start_time") || Date.now());
@@ -327,7 +396,8 @@ export default function LearningPage() {
         body: JSON.stringify({
           topic: newTopicText.trim(),
           durationMinutes: parseInt(newDuration) || 0,
-          completed: true,
+          status: newStatus,
+          completed: newStatus === "completed",
         }),
       });
 
@@ -348,6 +418,239 @@ export default function LearningPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleQuickAddColumnTask = async (status: StudyStatus, e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const text = (inlineTaskInput[status] || "").trim();
+    if (!text) return;
+    const dur = parseInt(inlineDurationInput[status]) || 0;
+
+    setColumnSubmitting(status);
+    try {
+      const res = await fetch("/api/tracking/study", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: text,
+          durationMinutes: dur,
+          status: status,
+          completed: status === "completed",
+        }),
+      });
+
+      if (res.ok) {
+        const newLog = await res.json();
+        setStudyLogs((prev) => [newLog, ...prev]);
+        setInlineTaskInput((prev) => ({ ...prev, [status]: "" }));
+      }
+    } catch (err) {
+      console.error(`Error adding ${status} task:`, err);
+    } finally {
+      setColumnSubmitting(null);
+    }
+  };
+
+  const handleCycleStatus = async (log: any) => {
+    const currentStatus: StudyStatus = log.status || (log.completed ? "completed" : "todo");
+    const nextStatus: StudyStatus = currentStatus === "todo" ? "in_progress" : currentStatus === "in_progress" ? "completed" : "todo";
+    
+    // Optimistic state update
+    setStudyLogs((prev) =>
+      prev.map((l) => (l._id === log._id ? { ...l, status: nextStatus, completed: nextStatus === "completed" } : l))
+    );
+
+    try {
+      const res = await fetch(`/api/tracking/study?id=${log._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: nextStatus,
+          completed: nextStatus === "completed",
+        }),
+      });
+      if (!res.ok) {
+        fetchStudyLogs();
+      }
+    } catch (err) {
+      console.error("Error cycling status:", err);
+      fetchStudyLogs();
+    }
+  };
+
+  const handleSetStatus = async (log: any, targetStatus: StudyStatus) => {
+    setStudyLogs((prev) =>
+      prev.map((l) => (l._id === log._id ? { ...l, status: targetStatus, completed: targetStatus === "completed" } : l))
+    );
+
+    try {
+      const res = await fetch(`/api/tracking/study?id=${log._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: targetStatus,
+          completed: targetStatus === "completed",
+        }),
+      });
+      if (!res.ok) {
+        fetchStudyLogs();
+      }
+    } catch (err) {
+      console.error("Error setting status:", err);
+      fetchStudyLogs();
+    }
+  };
+
+  const handleStartTimerForTask = (log: any) => {
+    const startTime = Date.now();
+    localStorage.setItem("study_stopwatch_is_active", "true");
+    localStorage.setItem("study_stopwatch_start_time", String(startTime));
+    localStorage.setItem("study_stopwatch_accumulated_seconds", "0");
+    localStorage.setItem("study_stopwatch_task_id", log._id);
+    localStorage.setItem("study_stopwatch_task_topic", log.topic);
+
+    setActiveSessionTask({ id: log._id, topic: log.topic });
+    setSelectedTaskForTimer(log._id);
+
+    // If currently 'todo', transition to 'in_progress'
+    if (log.status === "todo") {
+      handleSetStatus(log, "in_progress");
+    }
+
+    setIsSessionActive(true);
+    setSessionSeconds(0);
+    window.dispatchEvent(new Event("study-stopwatch-changed"));
+  };
+
+  const handleToggleSession = () => {
+    if (!isSessionActive) {
+      // Starting timer
+      let topicToTrack = "";
+      let taskIdToTrack: string | undefined = undefined;
+
+      if (selectedTaskForTimer) {
+        const found = studyLogs.find((l) => l._id === selectedTaskForTimer);
+        if (found) {
+          topicToTrack = found.topic;
+          taskIdToTrack = found._id;
+          if (found.status === "todo") {
+            handleSetStatus(found, "in_progress");
+          }
+        }
+      }
+
+      const startTime = Date.now();
+      localStorage.setItem("study_stopwatch_is_active", "true");
+      localStorage.setItem("study_stopwatch_start_time", String(startTime));
+      localStorage.setItem("study_stopwatch_accumulated_seconds", "0");
+      if (taskIdToTrack) {
+        localStorage.setItem("study_stopwatch_task_id", taskIdToTrack);
+      } else {
+        localStorage.removeItem("study_stopwatch_task_id");
+      }
+      if (topicToTrack) {
+        localStorage.setItem("study_stopwatch_task_topic", topicToTrack);
+        setActiveSessionTask({ id: taskIdToTrack, topic: topicToTrack });
+      } else {
+        localStorage.removeItem("study_stopwatch_task_topic");
+        setActiveSessionTask(null);
+      }
+
+      setIsSessionActive(true);
+      setSessionSeconds(0);
+      window.dispatchEvent(new Event("study-stopwatch-changed"));
+    } else {
+      // Stopping timer -> Open modal to review status & duration
+      const mins = Math.max(1, Math.round(sessionSeconds / 60));
+      const currentTopic = activeSessionTask?.topic || "";
+
+      setSaveSessionForm({
+        id: activeSessionTask?.id,
+        topic: currentTopic,
+        durationMinutes: String(mins),
+        status: "completed",
+        date: new Date().toISOString().split("T")[0],
+      });
+      setShowSaveSessionModal(true);
+
+      // Pause timer while modal is open
+      setIsSessionActive(false);
+      localStorage.setItem("study_stopwatch_is_active", "false");
+      localStorage.setItem("study_stopwatch_accumulated_seconds", String(sessionSeconds));
+      window.dispatchEvent(new Event("study-stopwatch-changed"));
+    }
+  };
+
+  const handleSaveSessionConfirm = async () => {
+    const { id: taskId, topic, durationMinutes, status, date } = saveSessionForm;
+    if (!topic.trim()) return;
+    const durNum = parseInt(durationMinutes) || 1;
+
+    try {
+      if (taskId) {
+        // Update existing task
+        const res = await fetch(`/api/tracking/study?id=${taskId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: topic.trim(),
+            durationMinutes: durNum,
+            status: status,
+            completed: status === "completed",
+            date: date,
+          }),
+        });
+        if (res.ok) {
+          const updated = await res.json();
+          setStudyLogs((prev) => prev.map((l) => (l._id === taskId ? updated : l)));
+        }
+      } else {
+        // Create new study log
+        const res = await fetch("/api/tracking/study", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: topic.trim(),
+            durationMinutes: durNum,
+            status: status,
+            completed: status === "completed",
+            date: date,
+          }),
+        });
+        if (res.ok) {
+          const newLog = await res.json();
+          setStudyLogs((prev) => [newLog, ...prev]);
+        }
+      }
+    } catch (err) {
+      console.error("Error saving session:", err);
+    } finally {
+      localStorage.removeItem("study_stopwatch_is_active");
+      localStorage.removeItem("study_stopwatch_start_time");
+      localStorage.removeItem("study_stopwatch_accumulated_seconds");
+      localStorage.removeItem("study_stopwatch_task_id");
+      localStorage.removeItem("study_stopwatch_task_topic");
+      setActiveSessionTask(null);
+      setSelectedTaskForTimer("");
+      setSessionSeconds(0);
+      setIsSessionActive(false);
+      setShowSaveSessionModal(false);
+      window.dispatchEvent(new Event("study-stopwatch-changed"));
+    }
+  };
+
+  const handleSaveSessionDiscard = () => {
+    localStorage.removeItem("study_stopwatch_is_active");
+    localStorage.removeItem("study_stopwatch_start_time");
+    localStorage.removeItem("study_stopwatch_accumulated_seconds");
+    localStorage.removeItem("study_stopwatch_task_id");
+    localStorage.removeItem("study_stopwatch_task_topic");
+    setActiveSessionTask(null);
+    setSelectedTaskForTimer("");
+    setSessionSeconds(0);
+    setIsSessionActive(false);
+    setShowSaveSessionModal(false);
+    window.dispatchEvent(new Event("study-stopwatch-changed"));
   };
 
   const handleDeleteLog = async (id: string) => {
@@ -372,6 +675,7 @@ export default function LearningPage() {
       topic: log.topic,
       durationMinutes: String(log.durationMinutes),
       date: new Date(log.date).toISOString().split("T")[0],
+      status: log.status || (log.completed ? "completed" : "todo"),
     });
   };
 
@@ -425,63 +729,6 @@ export default function LearningPage() {
     setNewMilestoneForm({ name: "", desc: "" });
     setShowAddMilestoneForm(false);
     saveRoadmapToDB(goalStartDate, inputDuration, inputDurationUnit, updated);
-  };
-
-  const handleToggleSession = async () => {
-    if (isSessionActive) {
-      const topicName = prompt("What did you study during this session?", "Algorithms Practice");
-      if (topicName === null) {
-        // User clicked cancel, do nothing (keep session active)
-        return;
-      }
-      const finalTopic = topicName.trim() || "Algorithms Practice";
-      const minutes = Math.max(1, Math.round(sessionSeconds / 60));
-
-      setIsSessionActive(false);
-      setSessionSeconds(0);
-
-      // Clean up localStorage persistence
-      localStorage.removeItem("study_stopwatch_is_active");
-      localStorage.removeItem("study_stopwatch_start_time");
-      localStorage.removeItem("study_stopwatch_accumulated_seconds");
-      window.dispatchEvent(new Event("study-stopwatch-changed"));
-
-      try {
-        const res = await fetch("/api/tracking/study", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            topic: finalTopic,
-            durationMinutes: minutes,
-            completed: true,
-          }),
-        });
-
-        const newLog = await res.json();
-        if (res.ok) {
-          setStudyLogs([newLog, ...studyLogs]);
-
-          // Shift selectors
-          const newLogDate = new Date(newLog.date);
-          setSelectedMonth(newLogDate.getMonth());
-          setSelectedYear(newLogDate.getFullYear());
-
-          setActiveTab("studied");
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    } else {
-      // Start stopwatch session
-      const startTime = Date.now();
-      localStorage.setItem("study_stopwatch_is_active", "true");
-      localStorage.setItem("study_stopwatch_start_time", String(startTime));
-      localStorage.setItem("study_stopwatch_accumulated_seconds", "0");
-      window.dispatchEvent(new Event("study-stopwatch-changed"));
-
-      setIsSessionActive(true);
-      setSessionSeconds(0);
-    }
   };
 
   const formatStopwatch = (totalSecs: number) => {
@@ -567,9 +814,11 @@ export default function LearningPage() {
   const strokeDash = 2 * Math.PI * radius;
   const strokeOffset = isGoalSet ? strokeDash - (percentProgress / 100) * strokeDash : strokeDash;
 
-  // Streak calculations (based on overall logs)
+  // Streak calculations (based on completed logs)
   const completedDates = new Set(
-    studyLogs.filter((t) => t.completed).map((t) => new Date(t.date).toDateString())
+    studyLogs
+      .filter((t) => t.status === "completed" || (t.completed && t.status !== "todo" && t.status !== "in_progress"))
+      .map((t) => new Date(t.date).toDateString())
   );
   let currentStreak = 0;
   if (completedDates.size > 0) {
@@ -604,13 +853,30 @@ export default function LearningPage() {
     return monthMatches && yearMatches;
   });
 
+  // Status breakdown counts
+  const allCount = filteredStudyLogs.length;
+  const todoCount = filteredStudyLogs.filter((t) => (t.status || (t.completed ? "completed" : "todo")) === "todo").length;
+  const inProgressCount = filteredStudyLogs.filter((t) => (t.status || (t.completed ? "completed" : "todo")) === "in_progress").length;
+  const completedCount = filteredStudyLogs.filter((t) => (t.status || (t.completed ? "completed" : "todo")) === "completed").length;
+
+  const todoTasks = filteredStudyLogs.filter((t) => (t.status || (t.completed ? "completed" : "todo")) === "todo");
+  const inProgressTasks = filteredStudyLogs.filter((t) => (t.status || (t.completed ? "completed" : "todo")) === "in_progress");
+  const completedTasks = filteredStudyLogs.filter((t) => (t.status || (t.completed ? "completed" : "todo")) === "completed");
+
+  // Filter study logs by active status filter tab
+  const displayedStudyLogs = filteredStudyLogs.filter((log) => {
+    if (statusFilter === "all") return true;
+    const s = log.status || (log.completed ? "completed" : "todo");
+    return s === statusFilter;
+  });
+
   // Calculate total study time in period
-  const totalStudyMinutes = filteredStudyLogs.reduce((acc, curr) => acc + curr.durationMinutes, 0);
+  const totalStudyMinutes = filteredStudyLogs.reduce((acc, curr) => acc + (curr.durationMinutes || 0), 0);
   const totalStudyHours = (totalStudyMinutes / 60).toFixed(1);
 
   // Pagination calculations
-  const totalPages = Math.ceil(filteredStudyLogs.length / ITEMS_PER_PAGE);
-  const paginatedStudyLogs = filteredStudyLogs.slice(
+  const totalPages = Math.max(1, Math.ceil(displayedStudyLogs.length / ITEMS_PER_PAGE));
+  const paginatedStudyLogs = displayedStudyLogs.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -688,6 +954,146 @@ export default function LearningPage() {
                 }`}
               >
                 <Check size={12} /> Save Milestone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Save Study Session Modal (Interactive Status & Time) ── */}
+      {showSaveSessionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) handleSaveSessionDiscard(); }}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />
+
+          {/* Modal card */}
+          <div className="relative z-10 w-full max-w-lg bg-[#0d0d1a] light:bg-white border border-teal-500/30 light:border-slate-200 rounded-2xl shadow-2xl shadow-black/80 light:shadow-slate-300/60 p-5 sm:p-6 space-y-4 animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/5 light:border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-500/10 light:bg-teal-50 border border-teal-500/20 text-teal-400 light:text-teal-600 flex items-center justify-center">
+                  <PlayCircle size={16} />
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest text-teal-400 light:text-teal-600 font-mono font-bold">Study Session Complete</p>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-100 light:text-slate-900">Save & Log Study Session</h3>
+                </div>
+              </div>
+              <button
+                onClick={handleSaveSessionDiscard}
+                className="text-slate-500 hover:text-slate-300 light:hover:text-slate-700 p-1.5 rounded-lg hover:bg-white/5 light:hover:bg-slate-100 transition-all cursor-pointer"
+                title="Discard session"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Topic Input */}
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono font-bold">Topic / Subject</label>
+              <input
+                type="text"
+                placeholder="What did you study during this session?"
+                value={saveSessionForm.topic}
+                onChange={(e) => setSaveSessionForm({ ...saveSessionForm, topic: e.target.value })}
+                className="w-full bg-white/[0.04] light:bg-slate-50 border border-white/10 light:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 light:text-slate-900 outline-none focus:border-teal-500 transition-all"
+                autoFocus
+              />
+            </div>
+
+            {/* Duration & Date row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono font-bold">Duration (Minutes)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={saveSessionForm.durationMinutes}
+                  onChange={(e) => setSaveSessionForm({ ...saveSessionForm, durationMinutes: e.target.value })}
+                  className="w-full bg-white/[0.04] light:bg-slate-50 border border-white/10 light:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 light:text-slate-900 outline-none focus:border-teal-500 font-mono font-bold"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono font-bold">Date</label>
+                <input
+                  type="date"
+                  value={saveSessionForm.date}
+                  onChange={(e) => setSaveSessionForm({ ...saveSessionForm, date: e.target.value })}
+                  className="w-full bg-white/[0.04] light:bg-slate-50 border border-white/10 light:border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 light:text-slate-900 outline-none focus:border-teal-500 font-mono font-bold"
+                />
+              </div>
+            </div>
+
+            {/* Status Selection Buttons */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-[10px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono font-bold">Set Task Status</label>
+              <div className="grid grid-cols-3 gap-2">
+                {/* To Do */}
+                <button
+                  type="button"
+                  onClick={() => setSaveSessionForm({ ...saveSessionForm, status: "todo" })}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all cursor-pointer touch-manipulation ${
+                    saveSessionForm.status === "todo"
+                      ? "bg-amber-500/15 light:bg-amber-50 border-amber-500/50 light:border-amber-400 text-amber-300 light:text-amber-800 shadow-sm"
+                      : "bg-white/[0.02] light:bg-slate-50 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-amber-500/30"
+                  }`}
+                >
+                  <Clock size={16} className="mb-1" />
+                  <span className="text-xs font-bold">To Do</span>
+                  <span className="text-[9px] opacity-75 mt-0.5">Planned</span>
+                </button>
+
+                {/* In Progress */}
+                <button
+                  type="button"
+                  onClick={() => setSaveSessionForm({ ...saveSessionForm, status: "in_progress" })}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all cursor-pointer touch-manipulation ${
+                    saveSessionForm.status === "in_progress"
+                      ? "bg-sky-500/15 light:bg-sky-50 border-sky-500/50 light:border-sky-400 text-sky-300 light:text-sky-800 shadow-sm"
+                      : "bg-white/[0.02] light:bg-slate-50 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-sky-500/30"
+                  }`}
+                >
+                  <Loader2 size={16} className="mb-1 animate-spin" />
+                  <span className="text-xs font-bold">In Progress</span>
+                  <span className="text-[9px] opacity-75 mt-0.5">Working</span>
+                </button>
+
+                {/* Completed */}
+                <button
+                  type="button"
+                  onClick={() => setSaveSessionForm({ ...saveSessionForm, status: "completed" })}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all cursor-pointer touch-manipulation ${
+                    saveSessionForm.status === "completed"
+                      ? "bg-emerald-500/15 light:bg-emerald-50 border-emerald-500/50 light:border-emerald-400 text-emerald-300 light:text-emerald-800 shadow-sm"
+                      : "bg-white/[0.02] light:bg-slate-50 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-emerald-500/30"
+                  }`}
+                >
+                  <CheckCircle2 size={16} className="mb-1" />
+                  <span className="text-xs font-bold">Completed</span>
+                  <span className="text-[9px] opacity-75 mt-0.5">Finished</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t border-white/5 light:border-slate-100">
+              <button
+                type="button"
+                onClick={handleSaveSessionDiscard}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-red-400 light:text-slate-600 light:hover:text-red-600 border border-white/5 light:border-slate-200 hover:bg-red-500/10 light:hover:bg-red-50 transition-all cursor-pointer text-center"
+              >
+                Discard Session
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSessionConfirm}
+                disabled={!saveSessionForm.topic.trim()}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-teal-600 hover:bg-teal-500 text-white shadow-lg shadow-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer text-center"
+              >
+                Save & Record Session
               </button>
             </div>
           </div>
@@ -809,7 +1215,7 @@ export default function LearningPage() {
                         type="date"
                         value={inputStartDate}
                         onChange={(e) => setInputStartDate(e.target.value)}
-                        className="w-full bg-[#121224] light:bg-white border border-white/10 light:border-slate-300 rounded-lg p-2 text-xs text-slate-100 light:text-slate-900 outline-none focus:border-indigo-500 transition-all font-mono font-bold shadow-sm"
+                        className="w-full bg-[#121224] light:bg-white border border-white/10 light:border-slate-300 rounded-lg p-2 text-base sm:text-xs text-slate-100 light:text-slate-900 outline-none focus:border-indigo-500 transition-all font-mono font-bold shadow-sm touch-manipulation"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -819,7 +1225,7 @@ export default function LearningPage() {
                           type="number"
                           value={inputDuration}
                           onChange={(e) => setInputDuration(parseInt(e.target.value) || 1)}
-                          className="w-full bg-[#121224] light:bg-white border border-white/10 light:border-slate-300 rounded-lg p-2 text-xs text-slate-100 light:text-slate-900 outline-none focus:border-indigo-500 transition-all font-mono font-bold shadow-sm"
+                          className="w-full bg-[#121224] light:bg-white border border-white/10 light:border-slate-300 rounded-lg p-2 text-base sm:text-xs text-slate-100 light:text-slate-900 outline-none focus:border-indigo-500 transition-all font-mono font-bold shadow-sm touch-manipulation"
                         />
                       </div>
                       <div className="space-y-1">
@@ -912,16 +1318,62 @@ export default function LearningPage() {
                         </div>
                       </div>
 
-                      {/* Track Session Stopwatch (embedded) */}
+                      {/* Track Session Stopwatch (embedded with Task Link & Status) */}
                       <div className={`p-4 rounded-xl border transition-all ${
                         isSessionActive
-                          ? "border-teal-500/25 bg-teal-950/20 light:bg-teal-50"
-                          : "border-white/5 light:border-slate-200 bg-white/[0.03] light:bg-slate-100"
-                      } text-center`}>
-                        <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400 light:text-slate-600 mb-1">TRACK SESSION</h3>
-                        <div className="text-2xl sm:text-3xl font-black font-mono text-slate-100 light:text-slate-900 mb-3 tracking-wider">
+                          ? "border-sky-500/30 bg-sky-950/20 light:bg-sky-50/80 shadow-lg shadow-sky-500/5"
+                          : "border-white/5 light:border-slate-200 bg-white/[0.03] light:bg-slate-50"
+                      } text-center space-y-3`}>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400 light:text-slate-600">STUDY SESSION</h3>
+                          {isSessionActive ? (
+                            <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-sky-400 light:text-sky-700 bg-sky-500/10 light:bg-sky-100 border border-sky-500/20 light:border-sky-300 px-2 py-0.5 rounded-full font-mono">
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                              IN PROGRESS
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 light:text-slate-500 font-mono">
+                              READY
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Active Task Name Indicator or Task Picker */}
+                        {isSessionActive ? (
+                          <div className="bg-sky-500/10 light:bg-sky-100/70 border border-sky-500/20 light:border-sky-300/60 rounded-lg py-1.5 px-3">
+                            <p className="text-[9px] uppercase tracking-wider text-sky-400 light:text-sky-700 font-mono">Focus Task</p>
+                            <p className="text-xs font-bold text-slate-100 light:text-slate-900 truncate">
+                              {activeSessionTask?.topic || "General Study Practice"}
+                            </p>
+                          </div>
+                        ) : (
+                          <div>
+                            {studyLogs.filter((l) => l.status === "todo" || l.status === "in_progress").length > 0 && (
+                              <div className="text-left space-y-1">
+                                <label className="text-[9px] uppercase tracking-wider text-slate-500 light:text-slate-600 font-mono font-bold">Link to Task (Optional)</label>
+                                <select
+                                  value={selectedTaskForTimer}
+                                  onChange={(e) => setSelectedTaskForTimer(e.target.value)}
+                                  className="w-full bg-white/[0.04] light:bg-white border border-white/10 light:border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 light:text-slate-800 outline-none focus:border-indigo-500 cursor-pointer"
+                                >
+                                  <option value="" className="bg-[#0c0c16] light:bg-white text-slate-300 light:text-slate-700">None (General Session)</option>
+                                  {studyLogs
+                                    .filter((l) => l.status === "todo" || l.status === "in_progress")
+                                    .map((l) => (
+                                      <option key={l._id} value={l._id} className="bg-[#0c0c16] light:bg-white text-slate-200 light:text-slate-900">
+                                        [{l.status === "todo" ? "TO DO" : "IN PROGRESS"}] {l.topic}
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="text-2xl sm:text-3xl font-black font-mono text-slate-100 light:text-slate-900 tracking-wider">
                           {formatStopwatch(sessionSeconds)}
                         </div>
+
                         <button
                           onClick={handleToggleSession}
                           style={{ color: "#ffffff" }}
@@ -998,7 +1450,7 @@ export default function LearningPage() {
                           <div>
                             <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Milestone Name</label>
                             <input type="text" value={editMilestoneForm.name} onChange={e => setEditMilestoneForm({...editMilestoneForm, name: e.target.value})}
-                              className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
+                              className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-base sm:text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 touch-manipulation" />
                           </div>
                           <div>
                             <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Description</label>
@@ -1096,145 +1548,854 @@ export default function LearningPage() {
                   >
                     <Plus size={14} /> Add Milestone
                   </button>
-              </>
-                  );
-                })()
-              ) : (
-                <div className="space-y-6">
-                  {/* Quick Add Form */}
-                  <form onSubmit={handleLogTopic} className="glass-card card-glow-indigo p-4 rounded-xl border border-white/5 flex flex-col md:flex-row gap-3 items-end">
-                    <div className="flex-grow space-y-1 w-full">
-                      <label className="text-[9px] uppercase font-bold text-slate-500">Topic Studied</label>
-                      <input
-                        type="text"
-                        value={newTopicText}
-                        onChange={(e) => setNewTopicText(e.target.value)}
-                        placeholder="What topic did you practice?"
-                        className="w-full bg-white/[0.02] border border-white/5 rounded-lg p-2 text-xs text-slate-300 outline-none"
-                      />
+                </>
+              );
+            })()
+          ) : (
+                <div className="space-y-4">
+                  {/* Top Bar with Header, Total stats & View Mode Switcher */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 light:text-slate-800 font-mono">
+                        Topics & Tasks
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                        ({allCount} items &middot; <span className="text-indigo-400">{totalStudyHours}h</span>)
+                      </span>
                     </div>
-                    <div className="w-full md:w-32 space-y-1">
-                      <label className="text-[9px] uppercase font-bold text-slate-500">Minutes</label>
-                      <input
-                        type="number"
-                        value={newDuration}
-                        onChange={(e) => setNewDuration(e.target.value)}
-                        placeholder="30"
-                        className="w-full bg-white/[0.02] border border-white/5 rounded-lg p-2 text-xs text-slate-300 outline-none font-mono"
-                      />
+
+                    {/* View Mode Toggle: Board vs List */}
+                    <div className="flex items-center gap-1 bg-white/[0.04] light:bg-slate-100 p-1 rounded-xl border border-white/5 light:border-slate-200 self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("board")}
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                          viewMode === "board"
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-900"
+                        }`}
+                      >
+                        <Kanban size={12} />
+                        <span>Board</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewMode("list")}
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                          viewMode === "list"
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-900"
+                        }`}
+                      >
+                        <List size={12} />
+                        <span>List</span>
+                      </button>
                     </div>
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider py-2 px-4 rounded-lg flex items-center gap-1.5 h-10 w-full md:w-auto justify-center cursor-pointer"
-                    >
-                      <Plus size={14} />
-                      <span>Log</span>
-                    </button>
+                  </div>
+
+                  {/* Universal Quick Add Task Form (Top Bar) */}
+                  <form onSubmit={handleLogTopic} className="glass-card card-glow-indigo p-3.5 sm:p-4 rounded-2xl border border-white/5 light:border-slate-200 space-y-2.5">
+                    <div className="flex flex-col sm:flex-row gap-2.5 items-end">
+                      <div className="flex-grow space-y-1 w-full">
+                        <label className="text-[9px] uppercase font-bold text-slate-400 light:text-slate-600 font-mono">Create New Topic / Task</label>
+                        <input
+                          type="text"
+                          value={newTopicText}
+                          onChange={(e) => setNewTopicText(e.target.value)}
+                          placeholder="Enter a topic or study goal..."
+                          className="w-full bg-white/[0.04] light:bg-slate-50 border border-white/10 light:border-slate-300 rounded-xl px-3.5 py-2 text-base sm:text-xs text-slate-100 light:text-slate-900 outline-none focus:border-indigo-500 transition-all placeholder:text-slate-500 touch-manipulation"
+                        />
+                      </div>
+                      <div className="w-full sm:w-24 space-y-1">
+                        <label className="text-[9px] uppercase font-bold text-slate-400 light:text-slate-600 font-mono">Minutes</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={newDuration}
+                          onChange={(e) => setNewDuration(e.target.value)}
+                          placeholder="30"
+                          className="w-full bg-white/[0.04] light:bg-slate-50 border border-white/10 light:border-slate-300 rounded-xl px-3 py-2 text-base sm:text-xs text-slate-100 light:text-slate-900 outline-none font-mono focus:border-indigo-500 transition-all touch-manipulation"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={submitting || !newTopicText.trim()}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded-xl flex items-center gap-1.5 h-[38px] w-full sm:w-auto justify-center cursor-pointer shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                      >
+                        <Plus size={14} />
+                        <span>Add Task</span>
+                      </button>
+                    </div>
+
+                    {/* Quick Status Selection Chips */}
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-white/5 light:border-slate-100">
+                      <span className="text-[9px] uppercase font-bold text-slate-400 light:text-slate-600 font-mono">Column target:</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* To Do */}
+                        <button
+                          type="button"
+                          onClick={() => setNewStatus("todo")}
+                          className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer touch-manipulation ${
+                            newStatus === "todo"
+                              ? "bg-amber-500/20 light:bg-amber-100 border-amber-500/50 light:border-amber-400 text-amber-300 light:text-amber-800"
+                              : "bg-white/[0.02] light:bg-slate-100 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-amber-500/30"
+                          }`}
+                        >
+                          <Clock size={11} />
+                          <span>To Do</span>
+                        </button>
+
+                        {/* In Progress */}
+                        <button
+                          type="button"
+                          onClick={() => setNewStatus("in_progress")}
+                          className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer touch-manipulation ${
+                            newStatus === "in_progress"
+                              ? "bg-sky-500/20 light:bg-sky-100 border-sky-500/50 light:border-sky-400 text-sky-300 light:text-sky-800"
+                              : "bg-white/[0.02] light:bg-slate-100 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-sky-500/30"
+                          }`}
+                        >
+                          <Loader2 size={11} className={newStatus === "in_progress" ? "animate-spin" : ""} />
+                          <span>In Progress</span>
+                        </button>
+
+                        {/* Completed */}
+                        <button
+                          type="button"
+                          onClick={() => setNewStatus("completed")}
+                          className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer touch-manipulation ${
+                            newStatus === "completed"
+                              ? "bg-emerald-500/20 light:bg-emerald-100 border-emerald-500/50 light:border-emerald-400 text-emerald-300 light:text-emerald-800"
+                              : "bg-white/[0.02] light:bg-slate-100 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-emerald-500/30"
+                          }`}
+                        >
+                          <CheckCircle2 size={11} />
+                          <span>Completed</span>
+                        </button>
+                      </div>
+                    </div>
                   </form>
 
-                  {/* Log List with Pagination */}
-                  <div className="space-y-3">
-                    {filteredStudyLogs.length === 0 ? (
-                      <p className="text-center text-xs text-slate-600 italic py-8">No learning logs completed for {getContextLabel()}.</p>
-                    ) : (
-                      <div className="space-y-3 flex flex-col justify-between">
-                        <div className="overflow-y-auto max-h-[350px] pr-2 space-y-3">
-                          {paginatedStudyLogs.map((log) =>
-                            editingLogId === log._id ? (
-                              /* ── INLINE EDIT LOG ── */
-                              <div key={log._id} className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 space-y-2">
-                                <div>
-                                  <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Topic</label>
-                                  <input type="text" value={editLogForm.topic} onChange={e => setEditLogForm({...editLogForm, topic: e.target.value})}
-                                    className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Duration (min)</label>
-                                    <input type="number" value={editLogForm.durationMinutes} onChange={e => setEditLogForm({...editLogForm, durationMinutes: e.target.value})}
-                                      className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
-                                  </div>
-                                  <div>
-                                    <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Date</label>
-                                    <input type="date" value={editLogForm.date} onChange={e => setEditLogForm({...editLogForm, date: e.target.value})}
-                                      className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50" />
-                                  </div>
-                                </div>
-                                <div className="flex justify-end gap-2">
-                                  <button onClick={() => setEditingLogId(null)} className="flex items-center gap-1 text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 cursor-pointer"><X size={12} /> Cancel</button>
-                                  <button onClick={() => handleEditLogSave(log._id)} className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg cursor-pointer"><Check size={12} /> Save</button>
-                                </div>
-                              </div>
-                            ) : (
-                              /* ── READ VIEW ── */
-                              <div
-                                key={log._id}
-                                className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-all group"
-                              >
-                                <div>
-                                  <h4 className="text-xs font-bold text-slate-200">{log.topic}</h4>
-                                  <div className="flex gap-2 items-center mt-1">
-                                    <span className="text-[9px] font-mono text-indigo-400 bg-indigo-950/20 border border-indigo-500/10 px-1.5 py-0.5 rounded">
-                                      {log.durationMinutes} min
-                                    </span>
-                                    <span className="text-[9px] text-slate-500 font-mono">
-                                      {new Date(log.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <button onClick={() => handleEditLogStart(log)}
-                                    className="text-slate-500 hover:text-indigo-400 p-1.5 rounded-lg transition-all cursor-pointer hover:bg-indigo-500/10"
-                                    title="Edit Entry">
-                                    <Pencil size={13} />
-                                  </button>
-                                  <button onClick={() => handleDeleteLog(log._id)}
-                                    className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg transition-all cursor-pointer hover:bg-red-500/10"
-                                    title="Delete Entry">
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </div>
-                            )
-                          )}
-                        </div>
+                  {/* ─────────────────────────────────────────────────────────────
+                      1. JIRA-STYLE 3-CARD KANBAN BOARD VIEW
+                     ───────────────────────────────────────────────────────────── */}
+                  {viewMode === "board" ? (
+                    <div className="space-y-3">
+                      {/* Mobile Column Switcher (Visible on small screens) */}
+                      <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setMobileBoardTab("all")}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border whitespace-nowrap transition-all ${
+                            mobileBoardTab === "all"
+                              ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                              : "bg-white/[0.02] light:bg-slate-100 text-slate-400 light:text-slate-600 border-white/5 light:border-slate-200"
+                          }`}
+                        >
+                          All Columns ({allCount})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMobileBoardTab("todo")}
+                          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border whitespace-nowrap transition-all ${
+                            mobileBoardTab === "todo"
+                              ? "bg-amber-500/25 light:bg-amber-100 border-amber-500/60 light:border-amber-400 text-amber-300 light:text-amber-900 shadow-sm font-black"
+                              : "bg-white/[0.02] light:bg-slate-100 text-slate-400 light:text-slate-600 border-white/5 light:border-slate-200"
+                          }`}
+                        >
+                          <Clock size={11} />
+                          <span>To Do ({todoCount})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMobileBoardTab("in_progress")}
+                          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border whitespace-nowrap transition-all ${
+                            mobileBoardTab === "in_progress"
+                              ? "bg-sky-500/25 light:bg-sky-100 border-sky-500/60 light:border-sky-400 text-sky-300 light:text-sky-900 shadow-sm font-black"
+                              : "bg-white/[0.02] light:bg-slate-100 text-slate-400 light:text-slate-600 border-white/5 light:border-slate-200"
+                          }`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                          <span>In Progress ({inProgressCount})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMobileBoardTab("completed")}
+                          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border whitespace-nowrap transition-all ${
+                            mobileBoardTab === "completed"
+                              ? "bg-emerald-500/25 light:bg-emerald-100 border-emerald-500/60 light:border-emerald-400 text-emerald-300 light:text-emerald-900 shadow-sm font-black"
+                              : "bg-white/[0.02] light:bg-slate-100 text-slate-400 light:text-slate-600 border-white/5 light:border-slate-200"
+                          }`}
+                        >
+                          <CheckCircle2 size={11} />
+                          <span>Done ({completedCount})</span>
+                        </button>
+                      </div>
 
-                        {/* Pagination Bar */}
-                        {totalPages > 1 && (
-                          <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-2 font-sans text-xs">
-                            <button
-                              onClick={() => {
-                                setCurrentPage((p) => Math.max(1, p - 1));
-                                if (logsRef.current) {
-                                  logsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-                                }
-                              }}
-                              disabled={currentPage === 1}
-                              className="px-3 py-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] border border-white/5 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-bold uppercase tracking-wider text-[10px] cursor-pointer"
+                      {/* 3 Jira Columns Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-start">
+                        {/* ────── COLUMN 1: TO DO ────── */}
+                        {(mobileBoardTab === "all" || mobileBoardTab === "todo") && (
+                          <div className="glass-card bg-[#0b0c16]/90 light:bg-white border border-amber-500/20 light:border-slate-200 rounded-2xl p-3 sm:p-3.5 space-y-3 flex flex-col min-h-[360px] shadow-sm">
+                            {/* Column Header */}
+                            <div className="flex items-center justify-between border-b border-amber-500/10 light:border-slate-100 pb-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-amber-500/15 light:bg-amber-100 text-amber-400 light:text-amber-700 flex items-center justify-center">
+                                  <Clock size={13} />
+                                </div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-amber-300 light:text-amber-800 font-mono">
+                                  To Do
+                                </h4>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/15 light:bg-amber-100 text-amber-300 light:text-amber-800 text-[10px] font-mono font-bold">
+                                {todoTasks.length}
+                              </span>
+                            </div>
+
+                            {/* Modern Inline Task Bar for To Do */}
+                            <form
+                              onSubmit={(e) => handleQuickAddColumnTask("todo", e)}
+                              className="p-1.5 rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/10 light:border-slate-300 flex items-center gap-1.5 transition-all focus-within:border-amber-500/60"
                             >
-                              Previous
-                            </button>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">
-                              Page {currentPage} of {totalPages}
-                            </span>
-                            <button
-                              onClick={() => {
-                                setCurrentPage((p) => Math.min(totalPages, p + 1));
-                                if (logsRef.current) {
-                                  logsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-                                }
-                              }}
-                              disabled={currentPage === totalPages}
-                              className="px-3 py-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] border border-white/5 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-bold uppercase tracking-wider text-[10px] cursor-pointer"
+                              <input
+                                type="text"
+                                placeholder="+ Add task to To Do..."
+                                value={inlineTaskInput.todo}
+                                onChange={(e) => setInlineTaskInput({ ...inlineTaskInput, todo: e.target.value })}
+                                className="bg-transparent text-base sm:text-xs text-slate-100 light:text-slate-900 outline-none flex-grow min-w-0 placeholder:text-slate-500 px-1.5 touch-manipulation"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="30"
+                                title="Minutes"
+                                value={inlineDurationInput.todo}
+                                onChange={(e) => setInlineDurationInput({ ...inlineDurationInput, todo: e.target.value })}
+                                className="w-12 sm:w-11 bg-white/5 light:bg-white border border-white/10 light:border-slate-300 rounded-lg px-1 py-1 text-base sm:text-[10px] text-slate-200 light:text-slate-800 font-mono text-center outline-none focus:border-amber-500 touch-manipulation"
+                              />
+                              <button
+                                type="submit"
+                                disabled={columnSubmitting === "todo" || !inlineTaskInput.todo.trim()}
+                                className="w-6 h-6 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer flex-shrink-0"
+                                title="Add task to To Do"
+                              >
+                                <Plus size={13} />
+                              </button>
+                            </form>
+
+                            {/* Task Cards List */}
+                            <div className="space-y-2.5 overflow-y-auto max-h-[440px] pr-1 flex-grow">
+                              {todoTasks.length === 0 ? (
+                                <div className="text-center py-8 px-2 border border-dashed border-white/5 light:border-slate-200 rounded-xl">
+                                  <Clock size={20} className="mx-auto text-amber-400/40 mb-1" />
+                                  <p className="text-[11px] text-slate-500 italic">No tasks in To Do</p>
+                                </div>
+                              ) : (
+                                todoTasks.map((log) => (
+                                  <div
+                                    key={log._id}
+                                    className="p-3 rounded-xl border border-white/5 light:border-slate-200 bg-white/[0.02] light:bg-slate-50/80 hover:border-amber-500/30 transition-all space-y-2 shadow-sm group"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h5 className="text-xs font-bold text-slate-100 light:text-slate-900 leading-snug">
+                                        {log.topic}
+                                      </h5>
+                                      <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                          onClick={() => handleEditLogStart(log)}
+                                          className="text-slate-400 hover:text-indigo-400 light:hover:text-indigo-600 p-1 rounded transition-colors"
+                                          title="Edit Task"
+                                        >
+                                          <Pencil size={11} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteLog(log._id)}
+                                          className="text-slate-400 hover:text-red-400 light:hover:text-red-600 p-1 rounded transition-colors"
+                                          title="Delete Task"
+                                        >
+                                          <Trash2 size={11} />
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 light:text-slate-500">
+                                      <span className="bg-amber-500/10 light:bg-amber-50 text-amber-400 light:text-amber-800 px-1.5 py-0.5 rounded font-bold">
+                                        {log.durationMinutes || 0}m
+                                      </span>
+                                      <span>
+                                        {new Date(log.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                      </span>
+                                    </div>
+
+                                    {/* Action Buttons: Start Timer & Move */}
+                                    <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/5 light:border-slate-200">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartTimerForTask(log)}
+                                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-teal-500/10 light:bg-teal-50 hover:bg-teal-500/20 text-teal-300 light:text-teal-700 border border-teal-500/20 light:border-teal-300 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                                        title="Start Stopwatch on this task"
+                                      >
+                                        <Play size={10} />
+                                        <span>Timer</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSetStatus(log, "in_progress")}
+                                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-sky-500/10 light:bg-sky-50 hover:bg-sky-500/20 text-sky-300 light:text-sky-700 border border-sky-500/20 light:border-sky-300 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                                        title="Move to In Progress"
+                                      >
+                                        <ArrowRight size={10} />
+                                        <span>Progress</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSetStatus(log, "completed")}
+                                        className="p-1 rounded-lg bg-emerald-500/10 light:bg-emerald-50 hover:bg-emerald-500/20 text-emerald-300 light:text-emerald-700 border border-emerald-500/20 light:border-emerald-300 transition-all cursor-pointer"
+                                        title="Mark Done"
+                                      >
+                                        <Check size={11} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ────── COLUMN 2: IN PROGRESS ────── */}
+                        {(mobileBoardTab === "all" || mobileBoardTab === "in_progress") && (
+                          <div className="glass-card bg-[#0b0c16]/90 light:bg-white border border-sky-500/25 light:border-slate-200 rounded-2xl p-3 sm:p-3.5 space-y-3 flex flex-col min-h-[360px] shadow-sm">
+                            {/* Column Header */}
+                            <div className="flex items-center justify-between border-b border-sky-500/10 light:border-slate-100 pb-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-sky-500/15 light:bg-sky-100 text-sky-400 light:text-sky-700 flex items-center justify-center">
+                                  <Loader2 size={13} className="animate-spin" />
+                                </div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-sky-300 light:text-sky-800 font-mono">
+                                  In Progress
+                                </h4>
+                                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                              </div>
+                              <span className="px-2 py-0.5 rounded-md bg-sky-500/15 light:bg-sky-100 text-sky-300 light:text-sky-800 text-[10px] font-mono font-bold">
+                                {inProgressTasks.length}
+                              </span>
+                            </div>
+
+                            {/* Modern Inline Task Bar for In Progress */}
+                            <form
+                              onSubmit={(e) => handleQuickAddColumnTask("in_progress", e)}
+                              className="p-1.5 rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/10 light:border-slate-300 flex items-center gap-1.5 transition-all focus-within:border-sky-500/60"
                             >
-                              Next
-                            </button>
+                              <input
+                                type="text"
+                                placeholder="+ Add in-progress task..."
+                                value={inlineTaskInput.in_progress}
+                                onChange={(e) => setInlineTaskInput({ ...inlineTaskInput, in_progress: e.target.value })}
+                                className="bg-transparent text-base sm:text-xs text-slate-100 light:text-slate-900 outline-none flex-grow min-w-0 placeholder:text-slate-500 px-1.5 touch-manipulation"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="30"
+                                title="Minutes"
+                                value={inlineDurationInput.in_progress}
+                                onChange={(e) => setInlineDurationInput({ ...inlineDurationInput, in_progress: e.target.value })}
+                                className="w-12 sm:w-11 bg-white/5 light:bg-white border border-white/10 light:border-slate-300 rounded-lg px-1 py-1 text-base sm:text-[10px] text-slate-200 light:text-slate-800 font-mono text-center outline-none focus:border-sky-500 touch-manipulation"
+                              />
+                              <button
+                                type="submit"
+                                disabled={columnSubmitting === "in_progress" || !inlineTaskInput.in_progress.trim()}
+                                className="w-6 h-6 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center justify-center font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer flex-shrink-0"
+                                title="Add task to In Progress"
+                              >
+                                <Plus size={13} />
+                              </button>
+                            </form>
+
+                            {/* Task Cards List */}
+                            <div className="space-y-2.5 overflow-y-auto max-h-[440px] pr-1 flex-grow">
+                              {inProgressTasks.length === 0 ? (
+                                <div className="text-center py-8 px-2 border border-dashed border-white/5 light:border-slate-200 rounded-xl">
+                                  <Loader2 size={20} className="mx-auto text-sky-400/40 mb-1" />
+                                  <p className="text-[11px] text-slate-500 italic">No tasks in progress</p>
+                                </div>
+                              ) : (
+                                inProgressTasks.map((log) => {
+                                  const isCurrentlyTiming = isSessionActive && activeSessionTask?.id === log._id;
+                                  return (
+                                    <div
+                                      key={log._id}
+                                      className={`p-3 rounded-xl border transition-all space-y-2 shadow-sm group ${
+                                        isCurrentlyTiming
+                                          ? "border-teal-500/50 light:border-teal-400 bg-teal-950/20 light:bg-teal-50/80 ring-1 ring-teal-500/30"
+                                          : "border-sky-500/25 light:border-sky-200 bg-sky-950/10 light:bg-sky-50/60 hover:border-sky-500/40"
+                                      }`}
+                                    >
+                                      {isCurrentlyTiming && (
+                                        <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold text-teal-400 light:text-teal-700 bg-teal-500/10 px-2 py-0.5 rounded-md">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                                          <span>ACTIVE STOPWATCH RUNNING</span>
+                                        </div>
+                                      )}
+
+                                      <div className="flex items-start justify-between gap-2">
+                                        <h5 className="text-xs font-bold text-slate-100 light:text-slate-900 leading-snug">
+                                          {log.topic}
+                                        </h5>
+                                        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                          <button
+                                            onClick={() => handleEditLogStart(log)}
+                                            className="text-slate-400 hover:text-indigo-400 light:hover:text-indigo-600 p-1 rounded transition-colors"
+                                            title="Edit Task"
+                                          >
+                                            <Pencil size={11} />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteLog(log._id)}
+                                            className="text-slate-400 hover:text-red-400 light:hover:text-red-600 p-1 rounded transition-colors"
+                                            title="Delete Task"
+                                          >
+                                            <Trash2 size={11} />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 light:text-slate-500">
+                                        <span className="bg-sky-500/10 light:bg-sky-100 text-sky-400 light:text-sky-800 px-1.5 py-0.5 rounded font-bold">
+                                          {log.durationMinutes || 0}m
+                                        </span>
+                                        <span>
+                                          {new Date(log.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                        </span>
+                                      </div>
+
+                                      {/* Action Buttons: Timer, Done & Back to To Do */}
+                                      <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/5 light:border-slate-200">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartTimerForTask(log)}
+                                          className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-teal-500/10 light:bg-teal-50 hover:bg-teal-500/20 text-teal-300 light:text-teal-700 border border-teal-500/20 light:border-teal-300 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                                          title="Focus Stopwatch on this task"
+                                        >
+                                          <Play size={10} />
+                                          <span>{isCurrentlyTiming ? "Timing" : "Timer"}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSetStatus(log, "completed")}
+                                          className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-emerald-500/10 light:bg-emerald-50 hover:bg-emerald-500/20 text-emerald-300 light:text-emerald-700 border border-emerald-500/20 light:border-emerald-300 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                                          title="Mark Completed"
+                                        >
+                                          <Check size={11} />
+                                          <span>Done</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSetStatus(log, "todo")}
+                                          className="p-1 rounded-lg bg-amber-500/10 light:bg-amber-50 hover:bg-amber-500/20 text-amber-300 light:text-amber-700 border border-amber-500/20 light:border-amber-300 transition-all cursor-pointer"
+                                          title="Move back to To Do"
+                                        >
+                                          <RotateCcw size={11} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ────── COLUMN 3: DONE ────── */}
+                        {(mobileBoardTab === "all" || mobileBoardTab === "completed") && (
+                          <div className="glass-card bg-[#0b0c16]/90 light:bg-white border border-emerald-500/20 light:border-slate-200 rounded-2xl p-3 sm:p-3.5 space-y-3 flex flex-col min-h-[360px] shadow-sm">
+                            {/* Column Header */}
+                            <div className="flex items-center justify-between border-b border-emerald-500/10 light:border-slate-100 pb-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-emerald-500/15 light:bg-emerald-100 text-emerald-400 light:text-emerald-700 flex items-center justify-center">
+                                  <CheckCircle2 size={13} />
+                                </div>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-300 light:text-emerald-800 font-mono">
+                                  Done
+                                </h4>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 light:bg-emerald-100 text-emerald-300 light:text-emerald-800 text-[10px] font-mono font-bold">
+                                {completedTasks.length}
+                              </span>
+                            </div>
+
+                            {/* Modern Inline Task Bar for Done */}
+                            <form
+                              onSubmit={(e) => handleQuickAddColumnTask("completed", e)}
+                              className="p-1.5 rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/10 light:border-slate-300 flex items-center gap-1.5 transition-all focus-within:border-emerald-500/60"
+                            >
+                              <input
+                                type="text"
+                                placeholder="+ Add completed task..."
+                                value={inlineTaskInput.completed}
+                                onChange={(e) => setInlineTaskInput({ ...inlineTaskInput, completed: e.target.value })}
+                                className="bg-transparent text-base sm:text-xs text-slate-100 light:text-slate-900 outline-none flex-grow min-w-0 placeholder:text-slate-500 px-1.5 touch-manipulation"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="30"
+                                title="Minutes"
+                                value={inlineDurationInput.completed}
+                                onChange={(e) => setInlineDurationInput({ ...inlineDurationInput, completed: e.target.value })}
+                                className="w-12 sm:w-11 bg-white/5 light:bg-white border border-white/10 light:border-slate-300 rounded-lg px-1 py-1 text-base sm:text-[10px] text-slate-200 light:text-slate-800 font-mono text-center outline-none focus:border-emerald-500 touch-manipulation"
+                              />
+                              <button
+                                type="submit"
+                                disabled={columnSubmitting === "completed" || !inlineTaskInput.completed.trim()}
+                                className="w-6 h-6 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer flex-shrink-0"
+                                title="Add completed task"
+                              >
+                                <Plus size={13} />
+                              </button>
+                            </form>
+
+                            {/* Task Cards List */}
+                            <div className="space-y-2.5 overflow-y-auto max-h-[440px] pr-1 flex-grow">
+                              {completedTasks.length === 0 ? (
+                                <div className="text-center py-8 px-2 border border-dashed border-white/5 light:border-slate-200 rounded-xl">
+                                  <CheckCircle2 size={20} className="mx-auto text-emerald-400/40 mb-1" />
+                                  <p className="text-[11px] text-slate-500 italic">No completed tasks yet</p>
+                                </div>
+                              ) : (
+                                completedTasks.map((log) => (
+                                  <div
+                                    key={log._id}
+                                    className="p-3 rounded-xl border border-emerald-500/15 light:border-slate-200 bg-white/[0.01] light:bg-white hover:border-emerald-500/30 transition-all space-y-2 shadow-sm group"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h5 className="text-xs font-bold text-slate-400 light:text-slate-500 line-through leading-snug">
+                                        {log.topic}
+                                      </h5>
+                                      <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                          onClick={() => handleEditLogStart(log)}
+                                          className="text-slate-400 hover:text-indigo-400 light:hover:text-indigo-600 p-1 rounded transition-colors"
+                                          title="Edit Task"
+                                        >
+                                          <Pencil size={11} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteLog(log._id)}
+                                          className="text-slate-400 hover:text-red-400 light:hover:text-red-600 p-1 rounded transition-colors"
+                                          title="Delete Task"
+                                        >
+                                          <Trash2 size={11} />
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 light:text-slate-500">
+                                      <span className="bg-emerald-500/10 light:bg-emerald-50 text-emerald-400 light:text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+                                        {log.durationMinutes || 0}m
+                                      </span>
+                                      <span>
+                                        {new Date(log.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                      </span>
+                                    </div>
+
+                                    {/* Action Buttons: Reopen to To Do or Progress */}
+                                    <div className="flex items-center gap-1.5 pt-1.5 border-t border-white/5 light:border-slate-100">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSetStatus(log, "todo")}
+                                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-amber-500/10 light:bg-amber-50 hover:bg-amber-500/20 text-amber-300 light:text-amber-700 border border-amber-500/20 light:border-amber-300 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                                        title="Reopen as To Do"
+                                      >
+                                        <RotateCcw size={10} />
+                                        <span>Reopen</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          handleSetStatus(log, "in_progress");
+                                          handleStartTimerForTask(log);
+                                        }}
+                                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-teal-500/10 light:bg-teal-50 hover:bg-teal-500/20 text-teal-300 light:text-teal-700 border border-teal-500/20 light:border-teal-300 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                                        title="Resume in Progress & Start Timer"
+                                      >
+                                        <Play size={10} />
+                                        <span>Resume</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    /* ─────────────────────────────────────────────────────────────
+                        2. LINEAR PAGINATED LIST VIEW
+                       ───────────────────────────────────────────────────────────── */
+                    <div className="space-y-4">
+                      {/* Status Filter Chips Bar */}
+                      <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => { setStatusFilter("all"); setCurrentPage(1); }}
+                            className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                              statusFilter === "all"
+                                ? "bg-indigo-600 text-white border-indigo-500 shadow-sm"
+                                : "bg-white/[0.02] light:bg-slate-100 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-900"
+                            }`}
+                          >
+                            All ({allCount})
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => { setStatusFilter("todo"); setCurrentPage(1); }}
+                            className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                              statusFilter === "todo"
+                                ? "bg-amber-500/25 light:bg-amber-100 border-amber-500/60 light:border-amber-400 text-amber-300 light:text-amber-900 shadow-sm font-black"
+                                : "bg-white/[0.02] light:bg-slate-100 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-amber-500/30"
+                            }`}
+                          >
+                            <Clock size={11} className="text-amber-400 light:text-amber-600" />
+                            <span>To Do ({todoCount})</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => { setStatusFilter("in_progress"); setCurrentPage(1); }}
+                            className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                              statusFilter === "in_progress"
+                                ? "bg-sky-500/25 light:bg-sky-100 border-sky-500/60 light:border-sky-400 text-sky-300 light:text-sky-900 shadow-sm font-black"
+                                : "bg-white/[0.02] light:bg-slate-100 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-sky-500/30"
+                            }`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                            <span>In Progress ({inProgressCount})</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => { setStatusFilter("completed"); setCurrentPage(1); }}
+                            className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                              statusFilter === "completed"
+                                ? "bg-emerald-500/25 light:bg-emerald-100 border-emerald-500/60 light:border-emerald-400 text-emerald-300 light:text-emerald-900 shadow-sm font-black"
+                                : "bg-white/[0.02] light:bg-slate-100 border-white/5 light:border-slate-200 text-slate-400 light:text-slate-600 hover:border-emerald-500/30"
+                            }`}
+                          >
+                            <CheckCircle2 size={11} className="text-emerald-400 light:text-emerald-600" />
+                            <span>Completed ({completedCount})</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Log List with Pagination */}
+                      <div className="space-y-3">
+                        {displayedStudyLogs.length === 0 ? (
+                          <div className="text-center py-10 px-4 border border-dashed border-white/10 light:border-slate-200 rounded-2xl">
+                            <ListTodo size={28} className="mx-auto text-slate-600 light:text-slate-400 mb-2" />
+                            <p className="text-xs text-slate-400 light:text-slate-600 font-medium">
+                              {statusFilter === "all"
+                                ? `No study logs found for ${getContextLabel()}.`
+                                : `No tasks in "${statusFilter.replace("_", " ")}" status for ${getContextLabel()}.`}
+                            </p>
+                            <p className="text-[10px] text-slate-500 light:text-slate-400 mt-1">
+                              Add a new topic above or start the study stopwatch!
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 flex flex-col justify-between">
+                            <div className="overflow-y-auto max-h-[380px] pr-1.5 space-y-2.5">
+                              {paginatedStudyLogs.map((log) => {
+                                const currentStatus: StudyStatus = log.status || (log.completed ? "completed" : "todo");
+                                return editingLogId === log._id ? (
+                                  /* ── INLINE EDIT LOG ── */
+                                  <div key={log._id} className="p-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5 light:bg-indigo-50/50 space-y-2.5">
+                                    <div>
+                                      <label className="text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono font-bold">Topic</label>
+                                      <input
+                                        type="text"
+                                        value={editLogForm.topic}
+                                        onChange={(e) => setEditLogForm({ ...editLogForm, topic: e.target.value })}
+                                        className="w-full mt-0.5 bg-white/5 light:bg-white border border-white/10 light:border-slate-300 rounded-lg px-2.5 py-1.5 text-base sm:text-xs text-slate-100 light:text-slate-900 focus:outline-none focus:border-indigo-500 touch-manipulation"
+                                      />
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                      <div>
+                                        <label className="text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono font-bold">Duration (min)</label>
+                                        <input
+                                          type="number"
+                                          value={editLogForm.durationMinutes}
+                                          onChange={(e) => setEditLogForm({ ...editLogForm, durationMinutes: e.target.value })}
+                                          className="w-full mt-0.5 bg-white/5 light:bg-white border border-white/10 light:border-slate-300 rounded-lg px-2.5 py-1.5 text-base sm:text-xs text-slate-100 light:text-slate-900 focus:outline-none focus:border-indigo-500 font-mono touch-manipulation"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono font-bold">Date</label>
+                                        <input
+                                          type="date"
+                                          value={editLogForm.date}
+                                          onChange={(e) => setEditLogForm({ ...editLogForm, date: e.target.value })}
+                                          className="w-full mt-0.5 bg-white/5 light:bg-white border border-white/10 light:border-slate-300 rounded-lg px-2.5 py-1.5 text-base sm:text-xs text-slate-100 light:text-slate-900 focus:outline-none focus:border-indigo-500 font-mono touch-manipulation"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono font-bold">Status</label>
+                                        <select
+                                          value={editLogForm.status}
+                                          onChange={(e) => setEditLogForm({ ...editLogForm, status: e.target.value as StudyStatus })}
+                                          className="w-full mt-0.5 bg-white/5 light:bg-white border border-white/10 light:border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 light:text-slate-900 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                                        >
+                                          <option value="todo" className="bg-[#0c0c16] light:bg-white text-slate-200 light:text-slate-900">To Do</option>
+                                          <option value="in_progress" className="bg-[#0c0c16] light:bg-white text-slate-200 light:text-slate-900">In Progress</option>
+                                          <option value="completed" className="bg-[#0c0c16] light:bg-white text-slate-200 light:text-slate-900">Completed</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                    <div className="flex justify-end gap-2 pt-1">
+                                      <button
+                                        onClick={() => setEditingLogId(null)}
+                                        className="flex items-center gap-1 text-xs text-slate-400 light:text-slate-600 px-3 py-1.5 rounded-lg border border-white/10 light:border-slate-200 hover:bg-white/5 light:hover:bg-slate-100 cursor-pointer"
+                                      >
+                                        <X size={12} /> Cancel
+                                      </button>
+                                      <button
+                                        onClick={() => handleEditLogSave(log._id)}
+                                        className="flex items-center gap-1 text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg cursor-pointer"
+                                      >
+                                        <Check size={12} /> Save
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* ── READ VIEW ITEM ── */
+                                  <div
+                                    key={log._id}
+                                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-all gap-3 ${
+                                      currentStatus === "completed"
+                                        ? "border-emerald-500/15 light:border-emerald-200/60 bg-white/[0.01] light:bg-white"
+                                        : currentStatus === "in_progress"
+                                        ? "border-sky-500/25 light:border-sky-300 bg-sky-950/10 light:bg-sky-50/50 shadow-sm"
+                                        : "border-white/5 light:border-slate-200 bg-white/[0.02] light:bg-white"
+                                    }`}
+                                  >
+                                    <div className="flex items-start gap-3 min-w-0 flex-grow">
+                                      {/* 1-Click Interactive Status Badge */}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCycleStatus(log)}
+                                        title={`Current status: ${currentStatus.replace("_", " ").toUpperCase()}. Click to cycle.`}
+                                        className={`flex items-center gap-1 text-[10px] font-bold font-mono px-2.5 py-1 rounded-lg border transition-all cursor-pointer touch-manipulation flex-shrink-0 ${
+                                          currentStatus === "completed"
+                                            ? "bg-emerald-500/15 light:bg-emerald-50 border-emerald-500/30 light:border-emerald-300 text-emerald-300 light:text-emerald-800 hover:bg-emerald-500/25"
+                                            : currentStatus === "in_progress"
+                                            ? "bg-sky-500/20 light:bg-sky-50 border-sky-500/40 light:border-sky-300 text-sky-300 light:text-sky-800 hover:bg-sky-500/30 animate-pulse-subtle"
+                                            : "bg-amber-500/15 light:bg-amber-50 border-amber-500/30 light:border-amber-300 text-amber-300 light:text-amber-800 hover:bg-amber-500/25"
+                                        }`}
+                                      >
+                                        {currentStatus === "completed" && <CheckCircle2 size={12} />}
+                                        {currentStatus === "in_progress" && <Loader2 size={12} className="animate-spin" />}
+                                        {currentStatus === "todo" && <Clock size={12} />}
+                                        <span>
+                                          {currentStatus === "completed" ? "Completed" : currentStatus === "in_progress" ? "In Progress" : "To Do"}
+                                        </span>
+                                      </button>
+
+                                      <div className="min-w-0 flex-grow">
+                                        <h4 className={`text-xs font-bold truncate ${
+                                          currentStatus === "completed"
+                                            ? "line-through text-slate-400 light:text-slate-500"
+                                            : "text-slate-100 light:text-slate-900"
+                                        }`}>
+                                          {log.topic}
+                                        </h4>
+                                        <div className="flex flex-wrap gap-2 items-center mt-1">
+                                          <span className="text-[9px] font-mono text-indigo-400 light:text-indigo-700 bg-indigo-950/20 light:bg-indigo-50 border border-indigo-500/10 light:border-indigo-200 px-1.5 py-0.5 rounded font-bold">
+                                            {log.durationMinutes} min
+                                          </span>
+                                          <span className="text-[9px] text-slate-400 light:text-slate-500 font-mono">
+                                            {new Date(log.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Item Actions */}
+                                    <div className="flex items-center gap-1 justify-end flex-shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-white/5 light:border-slate-100">
+                                      {/* Quick Launch Stopwatch on this task */}
+                                      {currentStatus !== "completed" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartTimerForTask(log)}
+                                          className="flex items-center gap-1 text-[10px] font-bold text-teal-400 light:text-teal-700 bg-teal-500/10 light:bg-teal-50 hover:bg-teal-500/20 light:hover:bg-teal-100 border border-teal-500/20 light:border-teal-200 px-2 py-1 rounded-lg transition-all cursor-pointer"
+                                          title="Start Study Session Timer for this task"
+                                        >
+                                          <Play size={10} />
+                                          <span>Timer</span>
+                                        </button>
+                                      )}
+
+                                      <button
+                                        onClick={() => handleEditLogStart(log)}
+                                        className="text-slate-400 hover:text-indigo-400 light:text-slate-500 light:hover:text-indigo-600 p-1.5 rounded-lg transition-all cursor-pointer hover:bg-indigo-500/10 light:hover:bg-indigo-50"
+                                        title="Edit Entry"
+                                      >
+                                        <Pencil size={13} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteLog(log._id)}
+                                        className="text-slate-400 hover:text-red-400 light:text-slate-500 light:hover:text-red-600 p-1.5 rounded-lg transition-all cursor-pointer hover:bg-red-500/10 light:hover:bg-red-50"
+                                        title="Delete Entry"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Pagination Bar */}
+                            {totalPages > 1 && (
+                              <div className="flex items-center justify-between border-t border-white/5 light:border-slate-200 pt-3.5 mt-1 font-sans text-xs">
+                                <button
+                                  onClick={() => {
+                                    setCurrentPage((p) => Math.max(1, p - 1));
+                                    if (logsRef.current) {
+                                      logsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }
+                                  }}
+                                  disabled={currentPage === 1}
+                                  className="px-3 py-1.5 rounded-lg bg-white/[0.02] light:bg-slate-100 hover:bg-white/[0.08] light:hover:bg-slate-200 border border-white/5 light:border-slate-200 text-slate-400 light:text-slate-700 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-bold uppercase tracking-wider text-[10px] cursor-pointer"
+                                >
+                                  Previous
+                                </button>
+                                <span className="text-[10px] font-bold text-slate-400 light:text-slate-600 uppercase tracking-widest font-mono">
+                                  Page {currentPage} of {totalPages}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setCurrentPage((p) => Math.min(totalPages, p + 1));
+                                    if (logsRef.current) {
+                                      logsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }
+                                  }}
+                                  disabled={currentPage === totalPages}
+                                  className="px-3 py-1.5 rounded-lg bg-white/[0.02] light:bg-slate-100 hover:bg-white/[0.08] light:hover:bg-slate-200 border border-white/5 light:border-slate-200 text-slate-400 light:text-slate-700 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-bold uppercase tracking-wider text-[10px] cursor-pointer"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

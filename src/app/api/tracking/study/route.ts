@@ -14,8 +14,13 @@ export async function GET() {
     const userId = (session.user as any).id;
     await dbConnect();
 
-    const logs = await StudyLog.find({ userId }).sort({ date: -1 });
-    return NextResponse.json(logs);
+    const logs = await StudyLog.find({ userId }).sort({ date: -1 }).lean();
+    const normalizedLogs = logs.map((log: any) => ({
+      ...log,
+      status: log.status || (log.completed ? "completed" : "todo"),
+    }));
+
+    return NextResponse.json(normalizedLogs);
   } catch (error: any) {
     console.error("GET StudyLogs Error: ", error);
     return NextResponse.json({ error: "Failed to fetch study logs" }, { status: 500 });
@@ -30,11 +35,14 @@ export async function POST(req: Request) {
     }
 
     const userId = (session.user as any).id;
-    const { date, topic, durationMinutes, completed, objective } = await req.json();
+    const { date, topic, durationMinutes, completed, status, objective } = await req.json();
 
     if (!topic || durationMinutes === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const resolvedStatus = status || (completed === false ? "todo" : "completed");
+    const resolvedCompleted = resolvedStatus === "completed";
 
     await dbConnect();
 
@@ -43,7 +51,8 @@ export async function POST(req: Request) {
       date: date ? new Date(date) : new Date(),
       topic,
       durationMinutes: parseInt(durationMinutes),
-      completed: completed ?? true,
+      completed: resolvedCompleted,
+      status: resolvedStatus,
       objective: objective || "",
     });
 
@@ -99,13 +108,28 @@ export async function PUT(req: Request) {
     }
 
     const userId = (session.user as any).id;
-    const { topic, durationMinutes, date } = await req.json();
+    const body = await req.json();
+    const { topic, durationMinutes, date, status, completed, objective } = body;
+
+    const updateData: any = {};
+    if (topic !== undefined) updateData.topic = topic;
+    if (durationMinutes !== undefined) updateData.durationMinutes = parseInt(durationMinutes);
+    if (date !== undefined) updateData.date = new Date(date);
+    if (objective !== undefined) updateData.objective = objective;
+
+    if (status !== undefined) {
+      updateData.status = status;
+      updateData.completed = status === "completed";
+    } else if (completed !== undefined) {
+      updateData.completed = Boolean(completed);
+      updateData.status = completed ? "completed" : "todo";
+    }
 
     await dbConnect();
 
     const updated = await StudyLog.findOneAndUpdate(
       { _id: id, userId },
-      { topic, durationMinutes: parseInt(durationMinutes), date: date ? new Date(date) : undefined },
+      { $set: updateData },
       { new: true }
     );
 

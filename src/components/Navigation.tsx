@@ -73,30 +73,49 @@ export default function Navigation() {
   }, []);
 
   const handleStopPersistentSession = async () => {
-    const topicName = prompt("What did you study during this session?", "Algorithms Practice");
+    const savedTaskId = localStorage.getItem("study_stopwatch_task_id") || null;
+    const savedTopic = localStorage.getItem("study_stopwatch_task_topic") || "Algorithms Practice";
+
+    const topicName = prompt("What did you study during this session?", savedTopic);
     if (topicName === null) return; // Discard click
 
-    const finalTopic = topicName.trim() || "Algorithms Practice";
+    const finalTopic = topicName.trim() || savedTopic || "Algorithms Practice";
     const minutes = Math.max(1, Math.round(stopwatchSeconds / 60));
 
     // Clear local storage persistent states
     localStorage.removeItem("study_stopwatch_is_active");
     localStorage.removeItem("study_stopwatch_start_time");
     localStorage.removeItem("study_stopwatch_accumulated_seconds");
+    localStorage.removeItem("study_stopwatch_task_topic");
+    localStorage.removeItem("study_stopwatch_task_id");
     
     // Notify all listeners
     window.dispatchEvent(new Event("study-stopwatch-changed"));
 
     try {
-      await fetch("/api/tracking/study", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: finalTopic,
-          durationMinutes: minutes,
-          completed: true,
-        }),
-      });
+      if (savedTaskId) {
+        await fetch(`/api/tracking/study?id=${savedTaskId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: finalTopic,
+            durationMinutes: minutes,
+            status: "completed",
+            completed: true,
+          }),
+        });
+      } else {
+        await fetch("/api/tracking/study", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: finalTopic,
+            durationMinutes: minutes,
+            status: "completed",
+            completed: true,
+          }),
+        });
+      }
     } catch (err) {
       console.error("Error saving persistent study log:", err);
     }

@@ -448,7 +448,7 @@ export default function DashboardPage() {
     
     const completedDates = new Set(
       data.studyLogs
-        .filter((t) => t.completed)
+        .filter((t) => t.status === "completed" || (t.completed && t.status !== "todo" && t.status !== "in_progress"))
         .map((t) => new Date(t.date).toDateString())
     );
 

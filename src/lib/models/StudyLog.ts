@@ -27,6 +27,11 @@ const StudyLogSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    status: {
+      type: String,
+      enum: ["todo", "in_progress", "completed"],
+      default: "completed",
+    },
     objective: {
       type: String,
       trim: true,
