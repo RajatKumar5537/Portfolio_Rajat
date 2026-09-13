@@ -330,7 +330,7 @@ export default function MessageInputBar({
         paddingLeft: "max(10px, env(safe-area-inset-left, 0px))",
         paddingRight: "max(10px, env(safe-area-inset-right, 0px))",
       }}
-      className="safe-bottom-input relative z-20 border-t border-white/10 bg-[#0A0A0E] px-2.5 sm:px-6 pt-2.5 sm:pt-3 select-none flex-shrink-0 transition-colors w-full max-w-full overflow-hidden"
+      className="safe-bottom-input relative z-30 border-t border-white/10 bg-[#0A0A0E] px-2.5 sm:px-6 pt-2.5 sm:pt-3 select-none flex-shrink-0 transition-colors w-full max-w-full overflow-visible"
     >
       {/* 1. QUOTED REPLY BANNER */}
       {replyTo && (
@@ -371,10 +371,15 @@ export default function MessageInputBar({
 
       {/* 3. SCREEN EFFECTS QUICK POPOVER */}
       {showEffectsPicker && (
-        <div
-          ref={effectsRef}
-          className="absolute bottom-16 left-3 sm:left-6 z-50 w-[calc(100vw-24px)] max-w-sm bg-[#14141E]/98 backdrop-blur-3xl border border-white/20 rounded-3xl p-3.5 shadow-2xl shadow-black/95 animate-in fade-in slide-in-from-bottom-3 duration-200"
-        >
+        <>
+          <div
+            onClick={() => setShowEffectsPicker(false)}
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs cursor-pointer transition-opacity"
+          />
+          <div
+            ref={effectsRef}
+            className="absolute bottom-14 sm:bottom-16 left-2 sm:left-6 z-50 w-[calc(100vw-24px)] max-w-sm bg-[#14141E]/98 backdrop-blur-3xl border border-white/20 rounded-3xl p-3.5 shadow-2xl shadow-black/95 animate-in fade-in slide-in-from-bottom-3 duration-200"
+          >
           <div className="flex items-center justify-between px-2 pb-2 mb-2 border-b border-white/10">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-400" />
@@ -425,6 +430,7 @@ export default function MessageInputBar({
             })}
           </div>
         </div>
+        </>
       )}
 
       {/* 4. EMOJI PICKER DROPDOWN */}
