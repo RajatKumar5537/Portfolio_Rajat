@@ -250,7 +250,7 @@ export default function ProfileSettingsModal({
           className="w-full max-w-lg bg-[#111116] border border-white/15 rounded-3xl overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.95),0_0_30px_rgba(0,122,255,0.15)] backdrop-blur-3xl flex flex-col my-auto max-h-[85dvh]"
         >
           {/* Header */}
-          <div className="px-5 py-3.5 flex items-center justify-between border-b border-white/10 bg-white/[0.02] flex-shrink-0">
+          <div className="px-5 py-3.5 flex items-center justify-between border-b border-white/10 bg-[#111116] flex-shrink-0 z-20 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-2xl bg-blue-600/20 text-[#007AFF] flex items-center justify-center border border-blue-500/30 shadow-inner">
                 {activeTab === "profile" ? <Sparkles className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4 text-emerald-400" />}
@@ -270,7 +270,7 @@ export default function ProfileSettingsModal({
           </div>
 
           {/* Symmetrical Tabs */}
-          <div className="px-5 pt-3 pb-2 border-b border-white/10 bg-white/[0.01] flex items-center gap-2 flex-shrink-0">
+          <div className="px-5 pt-3 pb-2.5 border-b border-white/10 bg-[#111116] flex items-center gap-2 flex-shrink-0 z-20 shadow-sm">
             <button
               type="button"
               onClick={() => setActiveTab("profile")}

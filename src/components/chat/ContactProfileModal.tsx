@@ -119,7 +119,7 @@ export default function ContactProfileModal({
           className="w-full max-w-lg bg-[#0b0b1a] border border-white/15 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[88vh] my-auto"
         >
           {/* Header Bar with Close Button */}
-          <div className="px-6 py-4 sm:py-5 flex items-center justify-between border-b border-white/10 bg-white/[0.03] flex-shrink-0">
+          <div className="px-6 py-4 sm:py-5 flex items-center justify-between border-b border-white/10 bg-[#0b0b1a] flex-shrink-0 z-20 shadow-sm">
             <div>
               <h2 className="text-base font-bold text-white tracking-tight">
                 {conversation.type === "group" ? "Group Details" : "Contact Profile"}

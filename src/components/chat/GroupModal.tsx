@@ -91,7 +91,7 @@ export default function GroupModal({
           className="w-full max-w-lg max-h-[85dvh] flex flex-col bg-neutral-900/95 border border-white/15 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-2xl my-auto"
         >
           {/* Header Bar */}
-          <div className="px-6 py-4 sm:py-5 flex items-center justify-between border-b border-white/10 bg-white/[0.03] flex-shrink-0">
+          <div className="px-6 py-4 sm:py-5 flex items-center justify-between border-b border-white/10 bg-[#16161c] flex-shrink-0 z-20 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30 shadow-inner">
                 <Users className="w-5 h-5" />

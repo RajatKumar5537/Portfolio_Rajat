@@ -122,7 +122,7 @@ export default function ContactModal({
           className="w-full max-w-2xl min-h-[500px] max-h-[88dvh] bg-[#0E0E12]/98 border border-white/15 rounded-3xl overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.95),0_0_30px_rgba(0,122,255,0.15)] backdrop-blur-3xl flex flex-col my-auto"
         >
           {/* Header Bar */}
-          <div className="px-6 sm:px-8 py-5 flex items-center justify-between border-b border-white/10 bg-white/[0.02] flex-shrink-0">
+          <div className="px-6 sm:px-8 py-5 flex items-center justify-between border-b border-white/10 bg-[#0E0E12] flex-shrink-0 z-20 shadow-sm">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-blue-600/20 text-[#007AFF] flex items-center justify-center border border-blue-500/30 shadow-inner">
                 <Users className="w-5 h-5" />
