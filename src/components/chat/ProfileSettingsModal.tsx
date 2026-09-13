@@ -91,7 +91,12 @@ export default function ProfileSettingsModal({
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (_) {
+        if (!res.ok) throw new Error("Server returned an error (" + res.status + ")");
+      }
       if (!res.ok) {
         throw new Error(data.error || "Failed to update profile");
       }
@@ -146,7 +151,12 @@ export default function ProfileSettingsModal({
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (_) {
+        if (!res.ok) throw new Error("Server returned an error (" + res.status + ")");
+      }
       if (!res.ok) {
         throw new Error(data.error || "Failed to update password");
       }
@@ -199,7 +209,12 @@ export default function ProfileSettingsModal({
         }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (_) {
+        if (!res.ok) throw new Error("Server returned an error (" + res.status + ")");
+      }
       if (!res.ok) {
         throw new Error(data.error || "Failed to update Security PIN");
       }
