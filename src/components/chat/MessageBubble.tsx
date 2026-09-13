@@ -14,6 +14,12 @@ import {
   Download,
   Copy,
   Info,
+  Phone,
+  PhoneCall,
+  PhoneMissed,
+  PhoneOff,
+  Video,
+  VideoOff,
 } from "lucide-react";
 import TapbackMenu from "./TapbackMenu";
 import InvisibleInk from "../effects/InvisibleInk";
@@ -38,7 +44,7 @@ export interface MessageProps {
   isMe: boolean;
   text: string;
   effect?: "fireworks" | "balloons" | "confetti" | "lasers" | "love" | "shooting_star" | "good_morning" | "good_night" | "invisible_ink" | "slam" | "loud" | "gentle" | null;
-  mediaType?: "image" | "video" | "audio" | "file" | null;
+  mediaType?: "image" | "video" | "audio" | "file" | "call" | null;
   mediaData?: string | null;
   mediaName?: string | null;
   mediaSize?: string | null;
@@ -230,6 +236,27 @@ export default function MessageBubble({
     }
     return { initial: { opacity: 0, scale: 0.97, y: 4 }, animate: { opacity: 1, scale: 1, y: 0 }, transition: { duration: 0.15 } };
   };
+
+  const isCallMessage = Boolean(
+    message.mediaType === "call" ||
+    (message.text && (
+      message.text.includes("📞") ||
+      message.text.includes("🎥") ||
+      message.text.toLowerCase().includes("call •") ||
+      message.text.toLowerCase().includes("missed") ||
+      message.text.toLowerCase().includes("cancelled call")
+    ))
+  );
+
+  const isVideoCall = Boolean(
+    message.text?.includes("🎥") || message.text?.toLowerCase().includes("video")
+  );
+  const isMissedCall = Boolean(
+    message.text?.toLowerCase().includes("missed") || message.text?.toLowerCase().includes("declined")
+  );
+  const isCancelledCall = Boolean(
+    message.text?.toLowerCase().includes("cancelled")
+  );
 
   const motionProps = getMotionProps();
 
@@ -433,10 +460,54 @@ export default function MessageBubble({
                       <Download className="w-4 h-4 opacity-80 hover:opacity-100 ml-1" />
                     </a>
                   )}
-                  {/* Clean Native iMessage Typography: Card perfectly hugs text in both width & height */}
+                  {/* Clean Native iMessage Typography / Call History Badge */}
                   {message.text && (
                     <div className="select-text">
-                      {message.effect === "invisible_ink" ? (
+                      {isCallMessage ? (
+                        <div className="flex items-center gap-3 py-1 px-1 min-w-[200px] sm:min-w-[230px]">
+                          <div
+                            className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md ${
+                              isMissedCall || isCancelledCall
+                                ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                            }`}
+                          >
+                            {isVideoCall ? (
+                              isMissedCall || isCancelledCall ? (
+                                <VideoOff className="w-5 h-5 stroke-[2.2]" />
+                              ) : (
+                                <Video className="w-5 h-5 stroke-[2.2]" />
+                              )
+                            ) : isMissedCall || isCancelledCall ? (
+                              <PhoneMissed className="w-5 h-5 stroke-[2.2]" />
+                            ) : (
+                              <PhoneCall className="w-5 h-5 stroke-[2.2]" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <div
+                              className={`text-[13px] sm:text-[13.5px] font-bold tracking-tight truncate ${
+                                isMissedCall ? "text-rose-400" : isCancelledCall ? "text-amber-400" : "text-white"
+                              }`}
+                            >
+                              {isMissedCall
+                                ? isVideoCall ? "Missed Video Call" : "Missed Voice Call"
+                                : isCancelledCall
+                                ? isVideoCall ? "Cancelled Video Call" : "Cancelled Voice Call"
+                                : isVideoCall ? "Video Call" : "Voice Call"}
+                            </div>
+                            <div className="text-[11px] text-slate-300/85 font-mono mt-0.5 truncate">
+                              {message.text.includes("•")
+                                ? message.text.split("•")[1].trim()
+                                : isMissedCall
+                                ? "No answer"
+                                : isCancelledCall
+                                ? "Cancelled"
+                                : "Connected"}
+                            </div>
+                          </div>
+                        </div>
+                      ) : message.effect === "invisible_ink" ? (
                         <InvisibleInk>
                           <p className={`whitespace-pre-wrap break-words [word-break:break-word] leading-[1.38] text-[15px] sm:text-[15.5px] font-normal text-white tracking-[-0.01em] m-0 p-0 ${
                             isShortText ? "text-center" : "text-left"

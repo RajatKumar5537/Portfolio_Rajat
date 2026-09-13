@@ -49,7 +49,7 @@ const MessageSchema = new Schema(
     },
     mediaType: {
       type: String,
-      enum: ["image", "video", "audio", "file", null],
+      enum: ["image", "video", "audio", "file", "call", null],
       default: null,
     },
     mediaData: {

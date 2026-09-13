@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import Call from "@/lib/models/Call";
+import Message from "@/lib/models/Message";
+import Conversation from "@/lib/models/Conversation";
+import { encryptMessage } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -136,7 +139,7 @@ export async function POST(req: Request) {
     // 3. DECLINE / END
     if (action === "decline" || action === "end") {
       const endedAt = new Date();
-      const existing = await Call.findById(callId).lean();
+      const existing: any = await Call.findById(callId).lean();
       const durationSec = existing?.startedAt
         ? Math.max(0, Math.floor((endedAt.getTime() - new Date(existing.startedAt).getTime()) / 1000))
         : 0;
@@ -149,6 +152,57 @@ export async function POST(req: Request) {
         },
         { new: true }
       );
+
+      // Log call into conversation message history if not already ended/declined
+      if (existing && existing.status !== "ended" && existing.status !== "declined") {
+        try {
+          const isVideo = existing.callType === "video";
+          let callText = "";
+          if (action === "decline") {
+            callText = isVideo ? "🎥 Missed video call" : "📞 Missed audio call";
+          } else if (existing.status === "accepted" && durationSec > 0) {
+            const mins = Math.floor(durationSec / 60);
+            const secs = durationSec % 60;
+            const durText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            callText = isVideo ? `🎥 Video call • ${durText}` : `📞 Audio call • ${durText}`;
+          } else if (existing.status === "ringing") {
+            callText = isVideo ? "🎥 Cancelled video call" : "📞 Cancelled call";
+          } else {
+            callText = isVideo ? "🎥 Video call ended" : "📞 Audio call ended";
+          }
+
+          const encrypted = encryptMessage(callText);
+          await Message.create({
+            conversationId: existing.conversationId,
+            senderId: existing.callerId,
+            senderName: existing.callerName || "User",
+            senderAvatar: existing.callerAvatar || "",
+            content: encrypted.content,
+            iv: encrypted.iv,
+            authTag: encrypted.authTag,
+            mediaType: "call",
+            audioDuration: durationSec,
+            readBy: [{ userId: existing.recipientId, readAt: endedAt }],
+          });
+
+          // Sync conversation last message
+          await Conversation.findByIdAndUpdate(existing.conversationId, {
+            $set: {
+              lastMessage: {
+                text: callText,
+                senderId: existing.callerId,
+                senderName: existing.callerName,
+                createdAt: endedAt,
+                mediaType: "call",
+              },
+              updatedAt: endedAt,
+            },
+          });
+        } catch (logErr) {
+          console.error("Failed to log call history message:", logErr);
+        }
+      }
+
       return NextResponse.json({ success: true, call: updatedCall });
     }
 
