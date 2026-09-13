@@ -247,10 +247,10 @@ export default function ProfileSettingsModal({
           initial={{ opacity: 0, scale: 0.96, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 10 }}
-          className="w-full max-w-lg bg-[#111116] border border-white/15 rounded-3xl overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.95),0_0_30px_rgba(0,122,255,0.15)] backdrop-blur-3xl flex flex-col my-auto max-h-[85dvh]"
+          className="w-full max-w-lg bg-[#0c0c14] border border-white/20 rounded-3xl overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.95),0_0_40px_rgba(0,122,255,0.15)] backdrop-blur-3xl flex flex-col my-auto max-h-[85dvh]"
         >
           {/* Header */}
-          <div className="px-5 py-3.5 flex items-center justify-between border-b border-white/10 bg-[#111116] flex-shrink-0 z-20 shadow-sm">
+          <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 bg-[#0c0c14] flex-shrink-0 z-20 shadow-md">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-2xl bg-blue-600/20 text-[#007AFF] flex items-center justify-center border border-blue-500/30 shadow-inner">
                 {activeTab === "profile" ? <Sparkles className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4 text-emerald-400" />}
@@ -270,7 +270,7 @@ export default function ProfileSettingsModal({
           </div>
 
           {/* Symmetrical Tabs */}
-          <div className="px-5 pt-3 pb-2.5 border-b border-white/10 bg-[#111116] flex items-center gap-2 flex-shrink-0 z-20 shadow-sm">
+          <div className="px-5 pt-3 pb-3 border-b border-white/10 bg-[#0c0c14] flex items-center gap-2 flex-shrink-0 z-20 shadow-md">
             <button
               type="button"
               onClick={() => setActiveTab("profile")}
@@ -342,7 +342,7 @@ export default function ProfileSettingsModal({
                     <label className="text-[11px] font-bold text-neutral-300 block mb-1.5 tracking-wide uppercase font-mono">
                       Display Name
                     </label>
-                    <div className="flex items-center gap-3 px-3.5 h-12 bg-neutral-850 border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all">
+                    <div className="flex items-center gap-3 px-3.5 h-12 bg-[#080812] border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all shadow-inner">
                       <User className="w-4 h-4 text-[#007AFF] flex-shrink-0" />
                       <input
                         type="text"
@@ -360,7 +360,7 @@ export default function ProfileSettingsModal({
                     <label className="text-[11px] font-bold text-neutral-300 block mb-1.5 tracking-wide uppercase font-mono">
                       Status / Bio
                     </label>
-                    <div className="flex items-center gap-3 px-3.5 h-12 bg-neutral-850 border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all">
+                    <div className="flex items-center gap-3 px-3.5 h-12 bg-[#080812] border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all shadow-inner">
                       <Smile className="w-4 h-4 text-[#30D158] flex-shrink-0" />
                       <input
                         type="text"
@@ -387,7 +387,7 @@ export default function ProfileSettingsModal({
               </form>
 
               {/* Bottom Action Bar */}
-              <div className="px-5 py-3 border-t border-white/10 bg-[#0c0c10] backdrop-blur-xl flex items-center justify-between flex-shrink-0 rounded-b-3xl">
+              <div className="px-5 py-3 border-t border-white/10 bg-[#0c0c14] backdrop-blur-xl flex items-center justify-between flex-shrink-0 rounded-b-3xl">
                 <span className="text-[11px] text-neutral-400 flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-[#007AFF]" />
                   <span>Public details encrypted</span>
@@ -431,13 +431,13 @@ export default function ProfileSettingsModal({
 
           {/* TAB 2: SECURITY & PASSWORD TAB */}
           {activeTab === "security" && (
-            <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
+            <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 relative z-0">
               <div className="p-4 sm:p-5 space-y-6">
                 {/* SECTION A: CHANGE PASSWORD */}
-                <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#16161c]">
+                <div className="rounded-2xl overflow-hidden border border-white/15 bg-[#151522] shadow-xl">
                   {/* Section Header */}
-                  <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border-b border-white/10">
-                    <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center flex-shrink-0">
+                  <div className="flex items-center gap-3 px-4 py-3.5 bg-white/[0.04] border-b border-white/10">
+                    <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
                       <KeyRound className="w-4 h-4 text-[#007AFF]" />
                     </div>
                     <div>
@@ -465,7 +465,7 @@ export default function ProfileSettingsModal({
                       <label className="text-[11px] font-bold text-neutral-300 block mb-1.5 uppercase font-mono tracking-wider">
                         Current Password
                       </label>
-                      <div className="flex items-center gap-3 px-3.5 h-12 bg-neutral-900/90 border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all">
+                      <div className="flex items-center gap-3 px-3.5 h-12 bg-[#090912] border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all shadow-inner">
                         <Lock className="w-4 h-4 text-neutral-400 flex-shrink-0" />
                         <input
                           type={showCurrentPass ? "text" : "password"}
@@ -490,7 +490,7 @@ export default function ProfileSettingsModal({
                       <label className="text-[11px] font-bold text-neutral-300 block mb-1.5 uppercase font-mono tracking-wider">
                         New Password
                       </label>
-                      <div className="flex items-center gap-3 px-3.5 h-12 bg-neutral-900/90 border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all">
+                      <div className="flex items-center gap-3 px-3.5 h-12 bg-[#090912] border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all shadow-inner">
                         <KeyRound className="w-4 h-4 text-neutral-400 flex-shrink-0" />
                         <input
                           type={showNewPass ? "text" : "password"}
@@ -515,7 +515,7 @@ export default function ProfileSettingsModal({
                       <label className="text-[11px] font-bold text-neutral-300 block mb-1.5 uppercase font-mono tracking-wider">
                         Confirm New Password
                       </label>
-                      <div className="flex items-center gap-3 px-3.5 h-12 bg-neutral-900/90 border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all">
+                      <div className="flex items-center gap-3 px-3.5 h-12 bg-[#090912] border border-white/15 focus-within:border-[#007AFF] focus-within:ring-2 focus-within:ring-blue-500/25 rounded-xl transition-all shadow-inner">
                         <Check className="w-4 h-4 text-neutral-400 flex-shrink-0" />
                         <input
                           type={showConfirmPass ? "text" : "password"}
@@ -550,10 +550,10 @@ export default function ProfileSettingsModal({
                 </div>
 
                 {/* SECTION B: SECURITY PIN */}
-                <div className="rounded-2xl overflow-hidden border border-white/10 bg-[#16161c]">
+                <div className="rounded-2xl overflow-hidden border border-white/15 bg-[#151522] shadow-xl">
                   {/* Section Header */}
-                  <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border-b border-white/10">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center flex-shrink-0">
+                  <div className="flex items-center gap-3 px-4 py-3.5 bg-white/[0.04] border-b border-white/10">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div>
@@ -581,7 +581,7 @@ export default function ProfileSettingsModal({
                       <label className="text-[11px] font-bold text-neutral-300 block mb-1.5 uppercase font-mono tracking-wider">
                         Current Account Password
                       </label>
-                      <div className="flex items-center gap-3 px-3.5 h-12 bg-neutral-900/90 border border-white/15 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/25 rounded-xl transition-all">
+                      <div className="flex items-center gap-3 px-3.5 h-12 bg-[#090912] border border-white/15 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/25 rounded-xl transition-all shadow-inner">
                         <Lock className="w-4 h-4 text-neutral-400 flex-shrink-0" />
                         <input
                           type={showPinCurrentPass ? "text" : "password"}
@@ -601,26 +601,25 @@ export default function ProfileSettingsModal({
                       </div>
                     </div>
 
-                    {/* PIN input */}
+                    {/* New PIN */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-[11px] font-bold text-neutral-300 block uppercase font-mono tracking-wider">
+                        <label className="text-[11px] font-bold text-neutral-300 uppercase font-mono tracking-wider">
                           New Recovery PIN
                         </label>
-                        <span className="text-[10px] text-neutral-400 font-mono">4-6 digits</span>
+                        <span className="text-[10px] text-neutral-500 font-mono">4-6 digits</span>
                       </div>
-                      <div className="flex items-center gap-3 px-3.5 h-12 bg-neutral-900/90 border border-white/15 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/25 rounded-xl transition-all">
+                      <div className="flex items-center gap-3 px-3.5 h-12 bg-[#090912] border border-white/15 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/25 rounded-xl transition-all shadow-inner">
                         <ShieldCheck className="w-4 h-4 text-neutral-400 flex-shrink-0" />
                         <input
                           type={showPin ? "text" : "password"}
                           inputMode="numeric"
-                          pattern="[0-9]*"
                           maxLength={6}
                           required
                           value={securityPin}
-                          onChange={(e) => setSecurityPin(e.target.value)}
+                          onChange={(e) => setSecurityPin(e.target.value.replace(/\D/g, ""))}
                           placeholder="Enter 4-6 digit PIN"
-                          className="flex-1 bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none font-medium font-mono"
+                          className="flex-1 bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none font-mono tracking-widest font-bold"
                         />
                         <button
                           type="button"
@@ -637,18 +636,17 @@ export default function ProfileSettingsModal({
                       <label className="text-[11px] font-bold text-neutral-300 block mb-1.5 uppercase font-mono tracking-wider">
                         Confirm Recovery PIN
                       </label>
-                      <div className="flex items-center gap-3 px-3.5 h-12 bg-neutral-900/90 border border-white/15 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/25 rounded-xl transition-all">
+                      <div className="flex items-center gap-3 px-3.5 h-12 bg-[#090912] border border-white/15 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/25 rounded-xl transition-all shadow-inner">
                         <Check className="w-4 h-4 text-neutral-400 flex-shrink-0" />
                         <input
                           type={showPin ? "text" : "password"}
                           inputMode="numeric"
-                          pattern="[0-9]*"
                           maxLength={6}
                           required
                           value={confirmPin}
-                          onChange={(e) => setConfirmPin(e.target.value)}
+                          onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
                           placeholder="Re-enter 4-6 digit PIN"
-                          className="flex-1 bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none font-medium font-mono"
+                          className="flex-1 bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none font-mono tracking-widest font-bold"
                         />
                       </div>
                     </div>
