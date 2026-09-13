@@ -24,13 +24,49 @@ const UserSchema = new Schema(
       type: String,
       required: false, // Optional to support legacy accounts
     },
+    avatar: {
+      type: String,
+      default: "",
+    },
+    statusMessage: {
+      type: String,
+      default: "Available",
+      trim: true,
+    },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastSeen: {
+      type: Date,
+      default: Date.now,
+    },
+    soundEnabled: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
+export interface IUserDocument {
+  _id: any;
+  name: string;
+  email: string;
+  password: string;
+  securityPin?: string;
+  avatar?: string;
+  statusMessage?: string;
+  isOnline?: boolean;
+  lastSeen?: Date;
+  soundEnabled?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 // Mongoose model caching to prevent re-compilation on hot-reload
-const User = models.User || model("User", UserSchema);
+const User = (models.User || model<IUserDocument>("User", UserSchema)) as mongoose.Model<IUserDocument>;
 
 export default User;

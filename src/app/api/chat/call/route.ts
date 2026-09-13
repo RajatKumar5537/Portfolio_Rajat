@@ -1,242 +1,192 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
-import ChatCall from "@/lib/models/ChatCall";
-import ChatMessage from "@/lib/models/ChatMessage";
-import { encryptMessage } from "@/lib/crypto";
+import Call from "@/lib/models/Call";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.email) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await dbConnect();
-    const currentUserEmail = session.user.email.toLowerCase().trim();
-    const currentUser = await User.findOne({ email: currentUserEmail });
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || currentUserEmail);
+    let currentUserId = (session.user as any).id;
+    if (!currentUserId) {
+      const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() }).lean();
+      if (!currentUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      currentUserId = currentUser._id.toString();
+    }
 
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(req.url, "http://localhost:3000");
     const callId = searchParams.get("callId");
 
     if (callId) {
-      const call = await ChatCall.findById(callId).lean();
-      if (!call) {
-        return NextResponse.json({ error: "Call not found" }, { status: 404 });
-      }
-      return NextResponse.json({ call });
+      const call = await Call.findById(callId).lean();
+      return NextResponse.json(call);
     }
 
-    // Check for incoming ringing calls for the current user created within last 45 seconds
-    const cutoff = new Date(Date.now() - 45 * 1000);
-    const incomingCall = await ChatCall.findOne({
-      $or: [{ recipientId: currentUserId }, { recipientEmail: currentUserEmail }],
-      status: "ringing",
-      createdAt: { $gte: cutoff },
+    // Check for active or incoming calls for this user
+    const activeCall = await Call.findOne({
+      $or: [{ callerId: currentUserId }, { recipientId: currentUserId }],
+      status: { $in: ["ringing", "accepted"] },
     })
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .lean();
 
-    return NextResponse.json({ incomingCall: incomingCall || null });
+    return NextResponse.json(activeCall || null);
   } catch (error: any) {
-    console.error("GET Chat Call Error:", error);
-    return NextResponse.json({ error: "Failed to fetch call status" }, { status: 500 });
+    console.error("GET Call Error:", error);
+    return NextResponse.json({ error: "Failed to fetch call" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.email) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { recipientId, recipientName, recipientEmail, offer, candidates, callType } = await req.json();
-    if (!recipientId && !recipientEmail) {
-      return NextResponse.json({ error: "Recipient is required" }, { status: 400 });
     }
 
     await dbConnect();
-    const currentUserEmail = session.user.email.toLowerCase().trim();
-    const currentUser = await User.findOne({ email: currentUserEmail });
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || currentUserEmail);
-    const currentUserName = currentUser?.name || session.user.name || currentUserEmail.split("@")[0] || "User";
+    const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
+    if (!currentUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    const currentUserId = currentUser._id.toString();
 
-    let targetEmail = (recipientEmail || "").toLowerCase().trim();
-    let targetUserId = recipientId || "";
-    let targetUserName = recipientName || "Friend";
+    const {
+      action,
+      callId,
+      conversationId,
+      recipientId,
+      callType,
+      offer,
+      answer,
+      candidate,
+      isCaller,
+    } = await req.json();
 
-    if (!targetUserId && targetEmail) {
-      const targetUser = await User.findOne({ email: targetEmail });
-      if (targetUser) {
-        targetUserId = targetUser._id.toString();
-        targetUserName = targetUser.name || targetEmail.split("@")[0];
+    // 1. INITIATE A CALL
+    if (action === "initiate") {
+      if (!conversationId || !recipientId) {
+        return NextResponse.json({ error: "conversationId and recipientId are required" }, { status: 400 });
       }
+
+      const recipient = await User.findById(recipientId);
+      if (!recipient) {
+        return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
+      }
+
+      // Terminate any previous dangling calls
+      await Call.updateMany(
+        {
+          $or: [{ callerId: currentUserId }, { recipientId: currentUserId }],
+          status: { $in: ["ringing", "accepted"] },
+        },
+        { status: "ended", endedAt: new Date() }
+      );
+
+      const newCall = await Call.create({
+        conversationId,
+        callerId: currentUserId,
+        callerName: currentUser.name,
+        callerAvatar: currentUser.avatar || "",
+        recipientId: recipient._id.toString(),
+        recipientName: recipient.name,
+        recipientAvatar: recipient.avatar || "",
+        callType: callType || "audio",
+        status: "ringing",
+        offer: offer || "",
+        answer: "",
+        callerCandidates: [],
+        recipientCandidates: [],
+        startedAt: new Date(),
+      });
+
+      return NextResponse.json(newCall, { status: 201 });
     }
 
-    const roomId = [currentUserId, targetUserId || targetEmail].sort().join(":");
-
-    // Cancel any previous ringing calls between these two users
-    await ChatCall.updateMany(
-      { roomId, status: "ringing" },
-      { $set: { status: "missed", endedAt: new Date() } }
-    );
-
-    const call = await ChatCall.create({
-      callerId: currentUserId,
-      callerName: currentUserName,
-      callerEmail: currentUserEmail,
-      recipientId: targetUserId || targetEmail,
-      recipientName: targetUserName,
-      recipientEmail: targetEmail,
-      roomId,
-      callType: callType === "video" ? "video" : "audio",
-      status: "ringing",
-      offer: offer || "",
-      callerCandidates: candidates ? (Array.isArray(candidates) ? candidates.map((c: any) => typeof c === "string" ? c : JSON.stringify(c)) : [JSON.stringify(candidates)]) : [],
-    });
-
-    return NextResponse.json({ success: true, callId: call._id.toString(), call });
-  } catch (error: any) {
-    console.error("POST Chat Call Error:", error);
-    return NextResponse.json({ error: "Failed to initiate call" }, { status: 500 });
-  }
-}
-
-export async function PUT(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { callId, action, answer, candidate, durationSec } = await req.json();
+    // Existing call modifications
     if (!callId) {
-      return NextResponse.json({ error: "callId is required" }, { status: 400 });
+      return NextResponse.json({ error: "callId is required for this action" }, { status: 400 });
     }
 
-    await dbConnect();
-    const currentUserEmail = session.user.email.toLowerCase().trim();
-    const currentUser = await User.findOne({ email: currentUserEmail });
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || currentUserEmail);
-
-    const call: any = await ChatCall.findById(callId);
+    const call = await Call.findById(callId);
     if (!call) {
-      return NextResponse.json({ error: "Call session not found" }, { status: 404 });
+      return NextResponse.json({ error: "Call not found" }, { status: 404 });
     }
 
-    const isCaller = call.callerId === currentUserId || call.callerEmail === currentUserEmail;
-    const isRecipient = call.recipientId === currentUserId || call.recipientEmail === currentUserEmail;
-
-    if (!isCaller && !isRecipient) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-
-    if (action === "answer") {
-      call.status = "accepted";
-      call.answer = answer || "";
-      call.startedAt = new Date();
-      if (candidate) {
-        call.recipientCandidates.push(typeof candidate === "string" ? candidate : JSON.stringify(candidate));
+    // 2. ACCEPT
+    if (action === "accept") {
+      const updateData: any = { status: "accepted" };
+      if (answer) {
+        updateData.answer = typeof answer === "string" ? answer : JSON.stringify(answer);
       }
-      await call.save();
-      return NextResponse.json({ success: true, call });
+      const updatedCall = await Call.findByIdAndUpdate(callId, updateData, { new: true });
+      return NextResponse.json({ success: true, call: updatedCall });
     }
 
-    if (action === "ice-candidate") {
+    // 3. DECLINE / END
+    if (action === "decline" || action === "end") {
+      const endedAt = new Date();
+      const existing = await Call.findById(callId).lean();
+      const durationSec = existing?.startedAt
+        ? Math.max(0, Math.floor((endedAt.getTime() - new Date(existing.startedAt).getTime()) / 1000))
+        : 0;
+      const updatedCall = await Call.findByIdAndUpdate(
+        callId,
+        {
+          status: action === "decline" ? "declined" : "ended",
+          endedAt,
+          durationSec,
+        },
+        { new: true }
+      );
+      return NextResponse.json({ success: true, call: updatedCall });
+    }
+
+    // 4. SIGNAL OFFER
+    if (action === "signal-offer") {
+      const updatedCall = await Call.findByIdAndUpdate(
+        callId,
+        { offer: typeof offer === "string" ? offer : JSON.stringify(offer) },
+        { new: true }
+      );
+      return NextResponse.json({ success: true, call: updatedCall });
+    }
+
+    // 5. SIGNAL ANSWER
+    if (action === "signal-answer") {
+      const updatedCall = await Call.findByIdAndUpdate(
+        callId,
+        { answer: typeof answer === "string" ? answer : JSON.stringify(answer) },
+        { new: true }
+      );
+      return NextResponse.json({ success: true, call: updatedCall });
+    }
+
+    // 6. ICE CANDIDATE (Atomic $push prevents VersionError and lost candidates)
+    if (action === "candidate") {
       if (candidate) {
-        const candidateStr = typeof candidate === "string" ? candidate : JSON.stringify(candidate);
-        const updateQuery = isCaller 
-          ? { $addToSet: { callerCandidates: candidateStr } } 
-          : { $addToSet: { recipientCandidates: candidateStr } };
-        await ChatCall.findByIdAndUpdate(callId, updateQuery);
+        const candStr = typeof candidate === "string" ? candidate : JSON.stringify(candidate);
+        const updateField = isCaller ? "callerCandidates" : "recipientCandidates";
+        await Call.findByIdAndUpdate(callId, {
+          $push: { [updateField]: candStr },
+        });
       }
       return NextResponse.json({ success: true });
     }
 
-    if (action === "decline") {
-      call.status = "declined";
-      call.endedAt = new Date();
-      await call.save();
-
-      // Log missed call in chat
-      try {
-        const isVideo = call.callType === "video";
-        const iconAndLabel = isVideo ? "🎥 Missed video call" : "📞 Missed voice call";
-        const encrypted = encryptMessage(iconAndLabel);
-        await ChatMessage.create({
-          senderId: call.callerId,
-          recipientId: call.recipientId,
-          roomId: call.roomId,
-          participants: [call.callerId, call.recipientId],
-          sender: call.callerName,
-          content: encrypted.content,
-          iv: encrypted.iv,
-          authTag: encrypted.authTag,
-          isDelivered: true,
-          isRead: false,
-          mediaType: null,
-          mediaDataUrl: null,
-          mediaName: null,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        });
-      } catch (logErr) {
-        console.error("Error logging declined call message:", logErr);
-      }
-
-      return NextResponse.json({ success: true, call });
-    }
-
-    if (action === "end") {
-      const now = new Date();
-      call.status = "ended";
-      call.endedAt = now;
-      if (durationSec !== undefined) {
-        call.durationSec = durationSec;
-      } else if (call.startedAt) {
-        call.durationSec = Math.max(0, Math.floor((now.getTime() - new Date(call.startedAt).getTime()) / 1000));
-      }
-      await call.save();
-
-      // Log completed call in chat
-      try {
-        const isVideo = call.callType === "video";
-        const prefix = isVideo ? "🎥 Video call" : "📞 Voice call";
-        const mins = Math.floor(call.durationSec / 60);
-        const secs = call.durationSec % 60;
-        const durText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-        const logText = call.durationSec > 0 ? `${prefix} • ${durText}` : `${prefix} ended`;
-
-        const encrypted = encryptMessage(logText);
-        await ChatMessage.create({
-          senderId: currentUserId,
-          recipientId: isCaller ? call.recipientId : call.callerId,
-          roomId: call.roomId,
-          participants: [call.callerId, call.recipientId],
-          sender: isCaller ? call.callerName : call.recipientName,
-          content: encrypted.content,
-          iv: encrypted.iv,
-          authTag: encrypted.authTag,
-          isDelivered: true,
-          isRead: true,
-          mediaType: null,
-          mediaDataUrl: null,
-          mediaName: null,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        });
-      } catch (logErr) {
-        console.error("Error logging call end message:", logErr);
-      }
-
-      return NextResponse.json({ success: true, call });
-    }
-
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error: any) {
-    console.error("PUT Chat Call Error:", error);
-    return NextResponse.json({ error: "Failed to update call" }, { status: 500 });
+    console.error("POST Call Error:", error);
+    return NextResponse.json({ error: "Failed to process call signaling" }, { status: 500 });
   }
 }

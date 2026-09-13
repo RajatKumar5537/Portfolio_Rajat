@@ -82,7 +82,7 @@ export function encryptMessage(text: string): EncryptedData {
   };
 }
 
-export function decryptMessage(data: EncryptedData): string {
+export function decryptMessage(data: { content?: string; iv?: string; authTag?: string }): string {
   try {
     if (!data.content || !data.iv || !data.authTag) return "";
     const iv = Buffer.from(data.iv, "hex");
@@ -97,4 +97,27 @@ export function decryptMessage(data: EncryptedData): string {
     console.error("Failed to decrypt message:", err);
     return "[Encrypted Message - Unable to Decrypt]";
   }
+}
+
+/**
+ * Encrypts any sensitive string field into an `enc:iv:authTag:content` token for safe DB storage.
+ */
+export function encryptField(plainText?: string | null): string {
+  if (!plainText) return "";
+  const { content, iv, authTag } = encryptMessage(plainText);
+  return `enc:${iv}:${authTag}:${content}`;
+}
+
+/**
+ * Decrypts a field stored in `enc:iv:authTag:content` format. If not encrypted, returns original string.
+ */
+export function decryptField(ciphertextOrPlain?: string | null): string {
+  if (!ciphertextOrPlain) return "";
+  if (!ciphertextOrPlain.startsWith("enc:")) {
+    return ciphertextOrPlain; // Legacy or plaintext
+  }
+  const parts = ciphertextOrPlain.split(":");
+  if (parts.length < 4) return ciphertextOrPlain;
+  const [, iv, authTag, content] = parts;
+  return decryptMessage({ content, iv, authTag });
 }

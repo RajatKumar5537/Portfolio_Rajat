@@ -1,114 +1,86 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
-import ChatPresence from "@/lib/models/ChatPresence";
+import Presence from "@/lib/models/Presence";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ activeUsers: [] });
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await dbConnect();
-    const currentUserEmail = session.user.email?.toLowerCase().trim();
-    const currentUser = currentUserEmail ? await User.findOne({ email: currentUserEmail }) : null;
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
+    const { searchParams } = new URL(req.url, "http://localhost:3000");
+    const conversationId = searchParams.get("conversationId");
 
-    // Return presences from the last 7 days so lastSeenAt timestamp is available when offline
-    const weekThreshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const cutoff = new Date(Date.now() - 15 * 1000); // active within last 15s
 
-    const presences = await ChatPresence.find({
-      lastSeenAt: { $gt: weekThreshold },
-    })
-      .sort({ lastSeenAt: -1 })
-      .lean();
+    const query: any = {
+      lastActiveAt: { $gt: cutoff },
+    };
 
-    const now = Date.now();
-    const seenMap = new Map<string, boolean>();
-    const activeUsers: any[] = [];
-
-    for (const p of presences as any[]) {
-      const pEmail = p.userEmail?.toLowerCase().trim() || (p.userId.includes("@") ? p.userId.toLowerCase().trim() : "");
-      const key = pEmail || p.userId;
-
-      // Deduplicate to always retain the most recent presence record per user
-      if (key && seenMap.has(key)) continue;
-      if (key) seenMap.set(key, true);
-
-      const lastSeenDate = p.lastSeenAt ? new Date(p.lastSeenAt) : null;
-      // Consider online if heartbeat was within the last 45 seconds (resilient to mobile background throttling)
-      const isOnline = lastSeenDate ? (now - lastSeenDate.getTime()) < 45000 : false;
-
-      const isMe = 
-        p.userId === currentUserId || 
-        p.userId === currentUserEmail ||
-        (currentUserEmail && pEmail && pEmail === currentUserEmail) ||
-        (currentUser && p.userId === currentUser._id.toString());
-
-      activeUsers.push({
-        userId: p.userId,
-        userEmail: pEmail,
-        userName: p.userName,
-        isTyping: isOnline && !!p.isTyping,
-        isOnline: isOnline,
-        isMe,
-        lastSeenAt: lastSeenDate ? lastSeenDate.toISOString() : null,
-      });
+    if (conversationId) {
+      query.activeConversationId = conversationId;
     }
 
-    return NextResponse.json({ activeUsers });
+    const presences = await Presence.find(query).lean();
+    return NextResponse.json(presences);
   } catch (error: any) {
-    console.error("GET Chat Presence Error:", error);
-    return NextResponse.json({ activeUsers: [] });
+    console.error("GET Presence Error:", error);
+    return NextResponse.json({ error: "Failed to fetch presence" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { isTyping = false, customName } = await req.json();
-    await dbConnect();
+    let currentUserId = (session.user as any).id;
+    let userName = session.user.name || "User";
+    let userEmail = session.user.email || "";
 
-    const currentUserEmail = session.user.email?.toLowerCase().trim() || "";
-    const currentUser = currentUserEmail ? await User.findOne({ email: currentUserEmail }) : null;
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
-    const defaultName = currentUser?.name || session.user.name || currentUserEmail.split("@")[0] || "User";
-    const userName = customName && customName.trim() ? customName.trim() : defaultName;
-
-    const lookupQuery = [
-      ...(currentUserId ? [{ userId: currentUserId }] : []),
-      ...(currentUserEmail ? [{ userId: currentUserEmail }, { userEmail: currentUserEmail }] : []),
-    ];
-
-    let presence: any = await ChatPresence.findOne({ $or: lookupQuery });
-
-    if (presence) {
-      presence.userId = currentUserId;
-      presence.userEmail = currentUserEmail;
-      presence.userName = userName;
-      presence.isTyping = !!isTyping;
-      presence.lastSeenAt = new Date();
-      await presence.save();
-    } else {
-      await ChatPresence.create({
-        userId: currentUserId,
-        userEmail: currentUserEmail,
-        userName,
-        isTyping: !!isTyping,
-        lastSeenAt: new Date(),
-      });
+    if (!currentUserId) {
+      const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() }).lean();
+      if (!currentUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      currentUserId = currentUser._id.toString();
+      userName = currentUser.name || userName;
+      userEmail = currentUser.email || userEmail;
     }
 
-    return NextResponse.json({ success: true });
+    const { activeConversationId, isTypingIn } = await req.json();
+
+    const presencePromise = Presence.findOneAndUpdate(
+      { userId: currentUserId },
+      {
+        userEmail,
+        userName,
+        activeConversationId: activeConversationId || null,
+        isTypingIn: isTypingIn || null,
+        lastActiveAt: new Date(),
+      },
+      { upsert: true, new: true }
+    );
+
+    const userPromise = User.findByIdAndUpdate(currentUserId, {
+      isOnline: true,
+      lastSeen: new Date(),
+    });
+
+    const [presence] = await Promise.all([presencePromise, userPromise]);
+
+    return NextResponse.json({ success: true, presence });
   } catch (error: any) {
-    console.error("POST Chat Presence Error:", error);
+    console.error("POST Presence Error:", error);
     return NextResponse.json({ error: "Failed to update presence" }, { status: 500 });
   }
 }

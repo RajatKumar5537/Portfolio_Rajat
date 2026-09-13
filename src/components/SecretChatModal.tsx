@@ -1,194 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { 
-  X, Send, Reply, Pencil, Trash2, Shield, User, 
-  Sparkles, RefreshCw, Check, Ban, Smile, Copy, CheckCheck,
-  Users, ChevronDown, UserCheck, UserPlus, UserMinus, Bell, Lock, Delete, Info,
-  Paperclip, Image as ImageIcon, Film, Download, Loader2, CornerDownRight,
-  Search, Phone, PhoneCall, PhoneIncoming, PhoneOff, Mic, MicOff, Volume2, ArrowLeft,
-  UserX, Clock, AlertTriangle, Video, VideoOff, Settings, ShieldCheck, Mail
-} from "lucide-react";
-
-interface ReplyToData {
-  id: string;
-  sender: string;
-  text: string;
-}
-
-interface MessageItem {
-  _id: string;
-  senderId: string;
-  recipientId: string;
-  sender: string;
-  text: string;
-  mediaType?: "image" | "video" | null;
-  mediaData?: string | null;
-  mediaName?: string | null;
-  replyTo?: ReplyToData | null;
-  isRead: boolean;
-  isDelivered?: boolean;
-  deliveredAt?: string | null;
-  readAt?: string | null;
-  isEdited: boolean;
-  isDeleted?: boolean;
-  retentionHours: number;
-  createdAt: string;
-}
-
-interface AcceptedFriend {
-  connectionId: string;
-  partnerId: string;
-  partnerName: string;
-  partnerEmail?: string;
-  roomId: string;
-  retentionHours?: number;
-  unreadCount?: number;
-  lastMessage?: {
-    text: string;
-    sender: string;
-    senderId: string;
-    isMe: boolean;
-    isRead: boolean;
-    isDelivered: boolean;
-    createdAt: string;
-  } | null;
-}
-
-interface PendingIncomingRequest {
-  connectionId: string;
-  requesterId: string;
-  requesterName: string;
-  requesterEmail: string;
-  createdAt: string;
-}
-
-interface PendingOutgoingRequest {
-  connectionId: string;
-  recipientEmail: string;
-  recipientName: string;
-  createdAt: string;
-}
-
-interface ActiveUser {
-  userId: string;
-  userEmail?: string;
-  userName: string;
-  isTyping: boolean;
-  isOnline: boolean;
-  isMe: boolean;
-  lastSeenAt: string | null;
-}
-
-interface CallSession {
-  callId: string;
-  callerId: string;
-  callerName: string;
-  recipientId: string;
-  recipientName: string;
-  roomId: string;
-  callType: "audio" | "video";
-  status: "calling" | "incoming" | "connected";
-  isMuted: boolean;
-  isVideoOff: boolean;
-  durationSec: number;
-}
-
-const EMOJI_CATEGORIES = [
-  {
-    id: "smileys",
-    name: "Smileys & People",
-    icon: "😊",
-    emojis: [
-      "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "🥲", "🥹", "☺️", "😊", 
-      "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", 
-      "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳", "😏", 
-      "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", 
-      "😢", "😭", "😮‍💨", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", 
-      "😨", "😰", "😥", "😓", "🤗", "🤔", "🫣", "🤭", "🤫", "🤥", "😶", "😐", 
-      "😑", "😬", "🫠", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", 
-      "😪", "😵", "😵‍💫", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", 
-      "🤠", "😈", "👿", "🤡", "💩", "👻", "💀", "☠️", "👽", "👾", "🤖"
-    ]
-  },
-  {
-    id: "gestures",
-    name: "Hands & Gestures",
-    icon: "👍",
-    emojis: [
-      "👍", "👎", "👊", "✊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", 
-      "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "👃", "🤏", "👈", 
-      "👉", "👆", "👇", "☝️", "✌️", "🤞", "🫰", "🤟", "🤘", "🤙", "🖐️", "✋", 
-      "👌", "🤌", "👋", "🫡", "🫶", "🫂"
-    ]
-  },
-  {
-    id: "hearts",
-    name: "Hearts & Love",
-    icon: "❤️",
-    emojis: [
-      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹", 
-      "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "💌", "💋", "💐", 
-      "🌹", "🥀", "🌺", "🌸", "🌷", "🌻"
-    ]
-  },
-  {
-    id: "reactions",
-    name: "Sparkles & Reactions",
-    icon: "🔥",
-    emojis: [
-      "🔥", "💯", "✨", "🌟", "⭐", "💥", "⚡", "💫", "🌈", "☀️", "🌙", "🪐", 
-      "🚀", "🛸", "🎉", "🎊", "🎈", "🎁", "🏆", "🥇", "🎯", "🎲", "👑", "💎", 
-      "💡", "🔑", "🔒", "🔓", "🔔", "📣", "🚨", "⚠️", "⛔", "✅", "❌", "❓"
-    ]
-  },
-  {
-    id: "activities",
-    name: "Food & Activities",
-    icon: "☕",
-    emojis: [
-      "☕", "🍵", "🧋", "🍻", "🥂", "🍷", "🍕", "🍔", "🍟", "🌮", "🍣", "🍩", 
-      "🍫", "🍿", "🥑", "🍎", "🍓", "🎂", "🏋️", "🏃", "🧘", "🚴", "🏊", "⚽", 
-      "🏀", "🎮", "🎧", "🎬", "🚗", "✈️", "🏖️", "⛺"
-    ]
-  }
-];
-
-function formatWhatsAppTime(dateString?: string | null) {
-  if (!dateString) return "";
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return "";
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0 && d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) {
-    return "Yesterday";
-  }
-  if (diffDays < 7) {
-    return d.toLocaleDateString([], { weekday: "short" });
-  }
-  return d.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-function cleanPreviewText(rawText?: string | null): string {
-  if (!rawText) return "";
-  const trimmed = rawText.trim();
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      return parsed.text || (parsed.mediaType === "image" ? "📷 Photo" : parsed.mediaType === "video" ? "🎥 Video" : trimmed);
-    } catch (_) {
-      return trimmed;
-    }
-  }
-  return trimmed;
-}
+import ConversationList, { ConversationItem } from "@/components/chat/ConversationList";
+import ChatHeader from "@/components/chat/ChatHeader";
+import MessageBubble, { MessageProps } from "@/components/chat/MessageBubble";
+import MessageInputBar from "@/components/chat/MessageInputBar";
+import FullScreenEffects from "@/components/effects/FullScreenEffects";
+import GroupModal from "@/components/chat/GroupModal";
+import ContactModal from "@/components/chat/ContactModal";
+import SearchModal from "@/components/chat/SearchModal";
+import ContactProfileModal from "@/components/chat/ContactProfileModal";
+import ProfileSettingsModal from "@/components/chat/ProfileSettingsModal";
+import CallModal from "@/components/call/CallModal";
+import { soundEngine } from "@/lib/audio";
+import { MessageSquare, Sparkles, Shield, Lock, X } from "lucide-react";
 
 interface SecretChatModalProps {
   isOpen: boolean;
@@ -196,2741 +22,1063 @@ interface SecretChatModalProps {
   onMessagesRead?: () => void;
 }
 
-export default function SecretChatModal({ isOpen, onClose, onMessagesRead }: SecretChatModalProps) {
-  const { data: session } = useSession();
-  
-  // Current user account info
+export default function SecretChatModal({
+  isOpen,
+  onClose,
+  onMessagesRead,
+}: SecretChatModalProps) {
+  const { data: session, status } = useSession();
+
+  // Navigation & State
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<MessageProps[]>([]);
+  const [replyTo, setReplyTo] = useState<any | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+
+  // Real-time Effects
+  const [activeEffect, setActiveEffect] = useState<any | null>(null);
+
+  // Presence & Typing
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+
+  // Modals
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isMyProfileModalOpen, setIsMyProfileModalOpen] = useState(false);
+  const [customProfile, setCustomProfile] = useState<{ name?: string; avatar?: string; statusMessage?: string }>({});
+
+  // Delete Confirmation & Toast
+  const [deleteConfirmMessageId, setDeleteConfirmMessageId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<any>(null);
+
+  // WebRTC Call State
+  const [activeCall, setActiveCall] = useState<any | null>(null);
+
+  // Contacts & Pending Requests
+  const [pendingIncomingRequests, setPendingIncomingRequests] = useState<any[]>([]);
+  const prevIncomingRequestsCountRef = useRef<number | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(null), 2800);
+  };
+
+  // Current user details
   const currentUserId = (session?.user as any)?.id || session?.user?.email || "";
-  const accountName = session?.user?.name || session?.user?.email?.split("@")[0] || "User";
-  const [customName, setCustomName] = useState("");
-  const currentSender = customName.trim() || accountName;
+  const currentUserName = customProfile.name || session?.user?.name || "User";
+  const currentUserAvatar = customProfile.avatar || (session?.user as any)?.image || "";
+  const currentUserStatus = customProfile.statusMessage || "Active now";
 
-  // Connections state (Friend Request / Accept model)
-  const [acceptedFriends, setAcceptedFriends] = useState<AcceptedFriend[]>([]);
-  const [pendingIncoming, setPendingIncoming] = useState<PendingIncomingRequest[]>([]);
-  const [pendingOutgoing, setPendingOutgoing] = useState<PendingOutgoingRequest[]>([]);
-  const [selectedFriend, setSelectedFriend] = useState<AcceptedFriend | null>(null);
-  const selectedFriendRef = useRef<AcceptedFriend | null>(null);
-  selectedFriendRef.current = selectedFriend;
+  // Scroll ref & Effect tracking
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const prevMessagesCountRef = useRef(0);
+  const prevTotalUnreadRef = useRef<number | null>(null);
+  const playedEffectIdsRef = useRef<Set<string>>(new Set());
+  const isFetchingMessagesRef = useRef(false);
+  const isFetchingConversationsRef = useRef(false);
 
-  // WhatsApp Layout States
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "unread" | "requests">("all");
-  const [mobileView, setMobileView] = useState<"list" | "chat">("chat");
-  const mobileViewRef = useRef<"list" | "chat">(mobileView);
-  mobileViewRef.current = mobileView;
-  
-  // UI Panels
-  const [showAddFriendForm, setShowAddFriendForm] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const showProfileModalRef = useRef(showProfileModal);
-  showProfileModalRef.current = showProfileModal;
-  const [requestEmailInput, setRequestEmailInput] = useState("");
-  const [requestStatusMsg, setRequestStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
-
-  const [messages, setMessages] = useState<MessageItem[]>([]);
-  const [inputText, setInputText] = useState("");
-  const [retentionHours, setRetentionHours] = useState<number>(24);
-  const [replyingTo, setReplyingTo] = useState<ReplyToData | null>(null);
-  
-  // Online presence & typing state
-  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
-  const isTypingRef = useRef<boolean>(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Inline edit state
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
-
-  // Mobile Tap-to-Action Menu state
-  const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
-
-  // Copy message state
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  // Message Info Modal state
-  const [selectedInfoMsg, setSelectedInfoMsg] = useState<MessageItem | null>(null);
-
-  // Photo & Video Sharing state
-  const [stagedMedia, setStagedMedia] = useState<{
-    type: "image" | "video";
-    dataUrl: string;
-    name: string;
-  } | null>(null);
-  const [isCompressingMedia, setIsCompressingMedia] = useState(false);
-  const [mediaError, setMediaError] = useState<string | null>(null);
-  const [lightboxMedia, setLightboxMedia] = useState<{
-    type: "image" | "video";
-    url: string;
-    name?: string;
-    msgId?: string;
-    isMe?: boolean;
-  } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // WebRTC Voice & Video Calling State & References
-  const [activeCall, setActiveCall] = useState<CallSession | null>(null);
-  const activeCallRef = useRef<CallSession | null>(null);
-  activeCallRef.current = activeCall;
-
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteStreamRef = useRef<MediaStream | null>(null);
-  const processedCandidatesRef = useRef<Set<string>>(new Set());
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const callTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const attachMediaStreams = useCallback(() => {
-    if (localVideoRef.current && localStreamRef.current) {
-      if (localVideoRef.current.srcObject !== localStreamRef.current) {
-        localVideoRef.current.srcObject = localStreamRef.current;
-        localVideoRef.current.play().catch(() => {});
-      }
+  // Container scroll function
+  const scrollToBottom = (behavior: "auto" | "smooth" = "smooth") => {
+    if (chatContainerRef.current) {
+      const { scrollHeight, clientHeight } = chatContainerRef.current;
+      chatContainerRef.current.scrollTo({
+        top: scrollHeight - clientHeight,
+        behavior,
+      });
     }
-    if (remoteVideoRef.current && remoteStreamRef.current) {
-      if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
-        remoteVideoRef.current.srcObject = remoteStreamRef.current;
-        remoteVideoRef.current.play().catch(() => {});
-      }
-    }
-    if (remoteAudioRef.current && remoteStreamRef.current) {
-      if (remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
-        remoteAudioRef.current.srcObject = remoteStreamRef.current;
-        remoteAudioRef.current.play().catch(() => {});
-      }
-    }
-  }, []);
+  };
 
+  // Dynamic Viewport Height & Standalone PWA Support
   useEffect(() => {
-    if (activeCall?.status === "connected") {
-      attachMediaStreams();
-      const interval = setInterval(attachMediaStreams, 800);
-      return () => clearInterval(interval);
+    if (!isOpen) return;
+
+    const updateAppHeight = () => {
+      if (typeof window === "undefined") return;
+      let h = window.innerHeight;
+      if (window.visualViewport && window.visualViewport.height) {
+        h = Math.min(window.innerHeight, window.visualViewport.height);
+      }
+      document.documentElement.style.setProperty("--app-height", `${h}px`);
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const isStandalone = (window.navigator as any).standalone || window.matchMedia("(display-mode: standalone)").matches;
+      if (isIOS && isStandalone) {
+        document.documentElement.classList.add("ios-standalone");
+      }
+    };
+
+    updateAppHeight();
+    window.addEventListener("resize", updateAppHeight, { passive: true });
+    window.addEventListener("orientationchange", updateAppHeight, { passive: true });
+    window.addEventListener("focus", updateAppHeight, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", updateAppHeight, { passive: true });
     }
-  }, [activeCall?.status, activeCall?.callType, attachMediaStreams]);
 
-  // Ref anchors for stable callback references across renders
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  const onMessagesReadRef = useRef(onMessagesRead);
-  onMessagesReadRef.current = onMessagesRead;
-
-  // Visual Viewport tracking for mobile keyboard with background body locking
-  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  const [viewportTop, setViewportTop] = useState<number>(0);
-
-  useEffect(() => {
-    if (!isOpen || typeof window === "undefined") return;
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const updateViewport = () => {
+    return () => {
+      window.removeEventListener("resize", updateAppHeight);
+      window.removeEventListener("orientationchange", updateAppHeight);
+      window.removeEventListener("focus", updateAppHeight);
       if (window.visualViewport) {
-        setViewportHeight(window.visualViewport.height);
-        setViewportTop(0);
-      } else {
-        setViewportHeight(window.innerHeight);
-        setViewportTop(0);
-      }
-    };
-
-    updateViewport();
-    window.visualViewport?.addEventListener("resize", updateViewport);
-    window.visualViewport?.addEventListener("scroll", updateViewport);
-
-    return () => {
-      document.body.style.overflow = originalOverflow || "";
-      window.visualViewport?.removeEventListener("resize", updateViewport);
-      window.visualViewport?.removeEventListener("scroll", updateViewport);
-    };
-  }, [isOpen]);
-
-  // Handle mobile browser back button to close chat modal gracefully without leaving page
-  useEffect(() => {
-    if (!isOpen || typeof window === "undefined") return;
-
-    let isPushed = false;
-    if (!window.history.state?.secretChatModal) {
-      const stateObj = { ...(window.history.state || {}), secretChatModal: true };
-      window.history.pushState(stateObj, "");
-      isPushed = true;
-    }
-
-    const handlePopState = () => {
-      if (showProfileModalRef.current) {
-        setShowProfileModal(false);
-      } else if (mobileViewRef.current === "chat") {
-        setMobileView("list");
-      } else {
-        onCloseRef.current();
-      }
-    };
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-      if (isPushed && window.history.state?.secretChatModal) {
-        try {
-          window.history.back();
-        } catch (_) {}
+        window.visualViewport.removeEventListener("resize", updateAppHeight);
       }
     };
   }, [isOpen]);
 
-  // Universal Gesture Swipe for Laptop (Mouse / Trackpad) and Mobile (Touch)
-  const [swipingId, setSwipingId] = useState<string | null>(null);
-  const [swipeOffset, setSwipeOffset] = useState<number>(0);
-  const pointerStartXRef = useRef<number>(0);
-  const pointerStartYRef = useRef<number>(0);
-  const isDraggingRef = useRef<boolean>(false);
-  const activePointerIdRef = useRef<number | null>(null);
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, msgId: string) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    pointerStartXRef.current = e.clientX;
-    pointerStartYRef.current = e.clientY;
-    isDraggingRef.current = false;
-    activePointerIdRef.current = e.pointerId;
-    setSwipingId(msgId);
-    setSwipeOffset(0);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!swipingId || activePointerIdRef.current !== e.pointerId) return;
-    const deltaX = e.clientX - pointerStartXRef.current;
-    const deltaY = e.clientY - pointerStartYRef.current;
-
-    if (!isDraggingRef.current) {
-      if (Math.abs(deltaX) > 5 && Math.abs(deltaX) > Math.abs(deltaY)) {
-        isDraggingRef.current = true;
-        try {
-          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-        } catch (_) {}
-      } else if (Math.abs(deltaY) > 6) {
-        return;
-      }
-    }
-
-    if (isDraggingRef.current) {
-      e.preventDefault();
-      const damped = deltaX > 0 ? Math.min(80, deltaX * 0.8) : Math.max(-80, deltaX * 0.8);
-      setSwipeOffset(damped);
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>, msg: MessageItem) => {
-    if (swipingId === msg._id && isDraggingRef.current) {
-      const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
-
-      if (isMe) {
-        if (swipeOffset < -35) {
-          setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
-          focusInput();
-        } else if (swipeOffset > 35) {
-          setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
-        }
-      } else {
-        if (swipeOffset > 35) {
-          setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
-          focusInput();
-        } else if (swipeOffset < -35) {
-          setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
-        }
-      }
-    }
-
+  // 1. Fetch Conversations
+  const fetchConversations = async (force = false) => {
+    if (!isOpen || status !== "authenticated") return;
+    if (!force && isFetchingConversationsRef.current) return;
+    isFetchingConversationsRef.current = true;
     try {
-      if (activePointerIdRef.current !== null) {
-        (e.currentTarget as HTMLElement).releasePointerCapture(activePointerIdRef.current);
-      }
-    } catch (_) {}
-
-    activePointerIdRef.current = null;
-    isDraggingRef.current = false;
-    setSwipingId(null);
-    setSwipeOffset(0);
-  };
-
-  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
-    try {
-      if (activePointerIdRef.current !== null) {
-        (e.currentTarget as HTMLElement).releasePointerCapture(activePointerIdRef.current);
-      }
-    } catch (_) {}
-    activePointerIdRef.current = null;
-    isDraggingRef.current = false;
-    setSwipingId(null);
-    setSwipeOffset(0);
-  };
-
-  // Quick Emoji Picker state
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [activeEmojiTab, setActiveEmojiTab] = useState<string>("smileys");
-
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const chatFeedRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const scrollToBottom = (smooth = true) => {
-    if (chatFeedRef.current) {
-      if (smooth) {
-        chatFeedRef.current.scrollTo({
-          top: chatFeedRef.current.scrollHeight,
-          behavior: "smooth",
-        });
-      } else {
-        chatFeedRef.current.scrollTop = chatFeedRef.current.scrollHeight;
-      }
-    }
-  };
-
-  // Reply Jump & Highlight state
-  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
-
-  const handleJumpToMessage = (targetMsgId?: string, targetText?: string) => {
-    let targetEl: HTMLElement | null = null;
-    let foundId: string | null = null;
-
-    if (targetMsgId) {
-      targetEl = document.getElementById(`chat-msg-${targetMsgId}`);
-      if (targetEl) foundId = targetMsgId;
-    }
-
-    if (!targetEl && targetText) {
-      const match = messages.find(
-        (m) => m.text === targetText || (m.mediaName && targetText.includes(m.mediaName))
-      );
-      if (match) {
-        targetEl = document.getElementById(`chat-msg-${match._id}`);
-        foundId = match._id;
-      }
-    }
-
-    if (targetEl) {
-      targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (foundId) {
-        setHighlightedMsgId(foundId);
-        setTimeout(() => {
-          setHighlightedMsgId((prev) => (prev === foundId ? null : prev));
-        }, 2200);
-      }
-    }
-  };
-
-  const ringtoneIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Stop Ringtone Loop
-  const stopRingtone = useCallback(() => {
-    if (ringtoneIntervalRef.current) {
-      clearInterval(ringtoneIntervalRef.current);
-      ringtoneIntervalRef.current = null;
-    }
-  }, []);
-
-  // Web Audio Ringtone Synthesizer Burst
-  const playSingleRingtoneBurst = useCallback((type: "outgoing" | "incoming") => {
-    try {
-      if (!audioContextRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        audioContextRef.current = new AudioCtx();
-      }
-      const ctx = audioContextRef.current;
-      if (ctx.state === "suspended") {
-        ctx.resume();
-      }
-
-      const now = ctx.currentTime;
-
-      if (type === "outgoing") {
-        // Outgoing classic soft dual-frequency ringback tone (440Hz + 480Hz)
-        const osc1 = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc1.type = "sine";
-        osc2.type = "sine";
-        osc1.frequency.setValueAtTime(440, now);
-        osc2.frequency.setValueAtTime(480, now);
-
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.setValueAtTime(0.08, now + 1.2);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
-
-        osc1.connect(gain);
-        osc2.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc1.start(now);
-        osc2.start(now);
-        osc1.stop(now + 1.4);
-        osc2.stop(now + 1.4);
-      } else {
-        // Incoming melodic chime ringtone (Pleasant WhatsApp / iPhone style arpeggio)
-        const notes = [
-          { freq: 659.25, time: 0.00, dur: 0.12 }, // E5
-          { freq: 830.61, time: 0.13, dur: 0.12 }, // G#5
-          { freq: 987.77, time: 0.26, dur: 0.12 }, // B5
-          { freq: 1318.51, time: 0.39, dur: 0.22 }, // E6
-          { freq: 987.77, time: 0.65, dur: 0.12 }, // B5
-          { freq: 1318.51, time: 0.78, dur: 0.35 }, // E6
-        ];
-
-        notes.forEach(({ freq, time, dur }) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, now + time);
-
-          gain.gain.setValueAtTime(0.18, now + time);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + time + dur);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          osc.start(now + time);
-          osc.stop(now + time + dur);
-        });
-
-        // Secondary echoing chime in the second half of the burst
-        const echoNotes = [
-          { freq: 659.25, time: 1.15, dur: 0.12 },
-          { freq: 830.61, time: 1.28, dur: 0.12 },
-          { freq: 987.77, time: 1.41, dur: 0.12 },
-          { freq: 1318.51, time: 1.54, dur: 0.38 },
-        ];
-
-        echoNotes.forEach(({ freq, time, dur }) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, now + time);
-
-          gain.gain.setValueAtTime(0.16, now + time);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + time + dur);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          osc.start(now + time);
-          osc.stop(now + time + dur);
-        });
-      }
-    } catch (_) {}
-  }, []);
-
-  // Continuous Ringtone Scheduler
-  const startRingtone = useCallback((type: "outgoing" | "incoming") => {
-    stopRingtone();
-    playSingleRingtoneBurst(type);
-    const intervalTime = type === "incoming" ? 2600 : 3500;
-    ringtoneIntervalRef.current = setInterval(() => {
-      playSingleRingtoneBurst(type);
-    }, intervalTime);
-  }, [stopRingtone, playSingleRingtoneBurst]);
-
-  // Reactive Ringtone Controller: Rings continuously when incoming or calling, stops when connected/ended
-  useEffect(() => {
-    if (activeCall?.status === "incoming") {
-      startRingtone("incoming");
-    } else if (activeCall?.status === "calling") {
-      startRingtone("outgoing");
-    } else {
-      stopRingtone();
-    }
-    return () => {
-      stopRingtone();
-    };
-  }, [activeCall?.status, startRingtone, stopRingtone]);
-
-  // Stop WebRTC and reset call states
-  const cleanupCall = useCallback(() => {
-    stopRingtone();
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    isTypingRef.current = false;
-    syncPresence(false);
-    if (callTimerRef.current) {
-      clearInterval(callTimerRef.current);
-      callTimerRef.current = null;
-    }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((t) => t.stop());
-      localStreamRef.current = null;
-    }
-    if (remoteStreamRef.current) {
-      remoteStreamRef.current.getTracks().forEach((t) => t.stop());
-      remoteStreamRef.current = null;
-    }
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-    processedCandidatesRef.current.clear();
-    setActiveCall(null);
-  }, [stopRingtone]);
-
-  // Fetch 1-on-1 messages strictly isolated by connection room
-  const fetchMessagesForPartner = useCallback(async (friend: AcceptedFriend | null, markRead = true) => {
-    if (!friend || (!friend.partnerId && !friend.roomId && !friend.connectionId)) {
-      setMessages([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const queryParams = new URLSearchParams();
-      if (friend.connectionId) queryParams.set("connectionId", friend.connectionId);
-      if (friend.roomId) queryParams.set("roomId", friend.roomId);
-      if (friend.partnerId) queryParams.set("recipientId", friend.partnerId);
-      queryParams.set("markRead", markRead ? "true" : "false");
-
-      const res = await fetch(`/api/chat/messages?${queryParams.toString()}`);
+      const res = await fetch("/api/chat/conversations");
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setMessages(data);
-          if (markRead && onMessagesReadRef.current) {
-            onMessagesReadRef.current();
-          }
+        const data: ConversationItem[] = await res.json();
+        setConversations(data);
+
+        // Calculate total unread
+        const totalUnread = data.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+
+        if (prevTotalUnreadRef.current !== null && totalUnread > prevTotalUnreadRef.current) {
+          soundEngine.playReceived();
+        }
+        prevTotalUnreadRef.current = totalUnread;
+        if (totalUnread === 0 && onMessagesRead) {
+          onMessagesRead();
         }
       }
     } catch (err) {
-      console.error("Error fetching 1-on-1 messages:", err);
+      console.error("Error fetching conversations:", err);
     } finally {
-      setLoading(false);
+      isFetchingConversationsRef.current = false;
     }
-  }, []);
+  };
 
-  // Fetch approved connections and pending requests
-  const fetchConnections = useCallback(async () => {
+  // 2. Fetch Contacts & Pending Requests
+  const fetchContactsAndRequests = async () => {
+    if (!isOpen || status !== "authenticated") return;
     try {
-      const res = await fetch("/api/chat/connections");
+      const res = await fetch("/api/chat/contacts");
       if (res.ok) {
         const data = await res.json();
-        const accepted: AcceptedFriend[] = data.accepted || [];
-        const incoming: PendingIncomingRequest[] = data.pendingIncoming || [];
-        const outgoing: PendingOutgoingRequest[] = data.pendingOutgoing || [];
+        const incoming = data.pendingIncoming || data.incomingRequests || [];
+        setPendingIncomingRequests(incoming);
 
-        setAcceptedFriends(accepted);
-        setPendingIncoming(incoming);
-        setPendingOutgoing(outgoing);
-
-        setSelectedFriend((prev) => {
-          if (accepted.length === 0) return null;
-          if (prev && accepted.some((p) => p.connectionId === prev.connectionId)) {
-            const current = accepted.find((p) => p.connectionId === prev.connectionId);
-            if (current) {
-              if (
-                current.unreadCount === prev.unreadCount &&
-                current.partnerName === prev.partnerName &&
-                current.retentionHours === prev.retentionHours &&
-                current.lastMessage?.text === prev.lastMessage?.text
-              ) {
-                return prev;
-              }
-              return current;
-            }
-            return prev;
-          }
-          return accepted[0];
-        });
+        if (
+          prevIncomingRequestsCountRef.current !== null &&
+          incoming.length > prevIncomingRequestsCountRef.current
+        ) {
+          soundEngine.playReceived();
+        }
+        prevIncomingRequestsCountRef.current = incoming.length;
       }
     } catch (err) {
-      console.error("Error fetching connections:", err);
+      console.error("Error fetching contacts & requests:", err);
     }
-  }, []);
+  };
 
-  // Sync presence heartbeat & fetch active users
-  const syncPresence = useCallback(async (isTypingState?: boolean) => {
+  // 3. Fetch Messages for Active Conversation
+  const fetchMessages = async (convId: string, isInitial = false, forceScroll = false) => {
+    if (!isOpen || !convId) return;
+    if (isFetchingMessagesRef.current && !isInitial && !forceScroll) return;
+    isFetchingMessagesRef.current = true;
+
     try {
-      const typingVal = typeof isTypingState === "boolean" ? isTypingState : isTypingRef.current;
+      const res = await fetch(`/api/chat/messages?conversationId=${convId}`);
+      if (res.ok) {
+        const data: MessageProps[] = await res.json();
+        const hasNewMessages = data.length > prevMessagesCountRef.current;
+        const lastMsg = data.length > 0 ? data[data.length - 1] : null;
+
+        if (isInitial) {
+          data.forEach((m) => {
+            if (m._id) playedEffectIdsRef.current.add(m._id);
+          });
+        } else if (hasNewMessages) {
+          if (lastMsg && !lastMsg.isMe && lastMsg.effect && lastMsg.effect !== "invisible_ink") {
+            if (!playedEffectIdsRef.current.has(lastMsg._id)) {
+              playedEffectIdsRef.current.add(lastMsg._id);
+              soundEngine.playReceived();
+              setActiveEffect(lastMsg.effect);
+            }
+          }
+        }
+
+        prevMessagesCountRef.current = data.length;
+        setMessages(data);
+
+        // Sync active conversation's lastMessage in the sidebar list
+        if (data.length > 0) {
+          const latest = data[data.length - 1];
+          setConversations((prev) =>
+            prev.map((c) => {
+              if (c._id === convId) {
+                return {
+                  ...c,
+                  unreadCount: 0,
+                  lastMessage: {
+                    text: latest.text || (latest.mediaType ? `[${latest.mediaType.toUpperCase()}]` : ""),
+                    senderId: latest.senderId,
+                    senderName: latest.senderName,
+                    isMe: latest.isMe,
+                    isRead: Boolean(latest.isRead),
+                    readAt: latest.readBy?.[0]?.readAt,
+                    createdAt: latest.createdAt,
+                    mediaType: latest.mediaType || undefined,
+                    effect: latest.effect || undefined,
+                  },
+                };
+              }
+              return c;
+            })
+          );
+        }
+
+        if (isInitial || forceScroll) {
+          setTimeout(() => {
+            scrollToBottom(isInitial ? "auto" : "smooth");
+          }, 60);
+        } else if (hasNewMessages) {
+          setTimeout(() => {
+            scrollToBottom("smooth");
+          }, 60);
+        }
+
+        onMessagesRead?.();
+      }
+    } catch (err: any) {
+      console.warn("Message fetch notice:", err?.message || err);
+    } finally {
+      isFetchingMessagesRef.current = false;
+    }
+  };
+
+  // Initial Data Load when Modal Opens
+  useEffect(() => {
+    if (isOpen && status === "authenticated") {
+      fetchConversations(true);
+      fetchContactsAndRequests();
+    }
+  }, [isOpen, status]);
+
+  // Load messages when active conversation changes
+  useEffect(() => {
+    if (isOpen && activeConversationId) {
+      prevMessagesCountRef.current = 0;
+      isFetchingMessagesRef.current = false;
+      fetchMessages(activeConversationId, true, true);
+    }
+  }, [isOpen, activeConversationId]);
+
+  // Adaptive Message & Typing Poller (1000ms loop)
+  useEffect(() => {
+    if (!isOpen || status !== "authenticated" || !activeConversationId) return;
+
+    let isCancelled = false;
+    let timerId: any = null;
+
+    const pollActiveChat = async () => {
+      if (isCancelled) return;
+      await fetchMessages(activeConversationId);
+
+      try {
+        const presenceRes = await fetch(`/api/chat/presence?conversationId=${activeConversationId}`);
+        if (presenceRes.ok && !isCancelled) {
+          const presences = await presenceRes.json();
+          const typing = presences
+            .filter((p: any) => p.userId !== currentUserId && p.isTypingIn === activeConversationId)
+            .map((p: any) => p.userName);
+          setTypingUsers(typing);
+        }
+      } catch (_) {}
+
+      if (!isCancelled) {
+        timerId = setTimeout(pollActiveChat, 1000);
+      }
+    };
+
+    timerId = setTimeout(pollActiveChat, 1100);
+
+    return () => {
+      isCancelled = true;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [isOpen, status, activeConversationId, currentUserId]);
+
+  // Sidebar Conversations Poller (every 3s)
+  useEffect(() => {
+    if (!isOpen || status !== "authenticated") return;
+    const interval = setInterval(() => {
+      fetchConversations();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isOpen, status]);
+
+  // Presence Heartbeat Poller (every 20s)
+  useEffect(() => {
+    if (!isOpen || status !== "authenticated") return;
+    const sendHeartbeat = () => {
+      fetch("/api/chat/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activeConversationId }),
+      }).catch(() => {});
+    };
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 20000);
+    return () => clearInterval(interval);
+  }, [isOpen, status, activeConversationId]);
+
+  // Contacts & Requests Poller (every 30s)
+  useEffect(() => {
+    if (!isOpen || status !== "authenticated") return;
+    const interval = setInterval(() => {
+      fetchContactsAndRequests();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isOpen, status]);
+
+  // Rapid WebRTC Call signaling poller
+  useEffect(() => {
+    if (!isOpen || status !== "authenticated") return;
+
+    let isPolling = false;
+    const pollCall = async () => {
+      if (isPolling) return;
+      isPolling = true;
+      try {
+        const callRes = await fetch("/api/chat/call");
+        if (callRes.ok) {
+          const callData = await callRes.json();
+          setActiveCall((prev: any) => {
+            if (!callData) {
+              if (prev) soundEngine.stopAllTones();
+              return null;
+            }
+            if (callData.status === "declined" || callData.status === "ended") {
+              soundEngine.stopAllTones();
+              return null;
+            }
+            return callData;
+          });
+        }
+      } catch (_) {} finally {
+        isPolling = false;
+      }
+    };
+
+    pollCall();
+    const intervalTime = activeCall ? 600 : 2500;
+    const interval = setInterval(pollCall, intervalTime);
+    return () => clearInterval(interval);
+  }, [isOpen, status, !!activeCall]);
+
+  if (!isOpen) return null;
+
+  // Active conversation object
+  const activeConversation: any = conversations.find((c) => c._id === activeConversationId);
+  const totalUnreadCount = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+
+  // Handlers
+  const handleSelectConversation = (id: string) => {
+    setActiveConversationId(id);
+    setMobileView("chat");
+    isFetchingMessagesRef.current = false;
+    fetchMessages(id, true, true);
+  };
+
+  const handleSendMessage = async (msgData: any) => {
+    if (!activeConversationId) return;
+
+    if (msgData.effect && msgData.effect !== "invisible_ink") {
+      setActiveEffect(msgData.effect);
+    }
+
+    soundEngine.playSent();
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: MessageProps = {
+      _id: tempId,
+      conversationId: activeConversationId,
+      senderId: currentUserId,
+      senderName: currentUserName,
+      senderAvatar: currentUserAvatar,
+      isMe: true,
+      text: msgData.text || "",
+      mediaData: msgData.mediaData || null,
+      mediaType: msgData.mediaType || null,
+      mediaName: msgData.mediaName || null,
+      effect: msgData.effect || null,
+      createdAt: new Date().toISOString(),
+      reactions: [],
+      isPinned: false,
+      replyTo: replyTo
+        ? {
+            id: replyTo._id,
+            senderName: replyTo.senderName,
+            text: replyTo.text,
+            mediaType: replyTo.mediaType || undefined,
+          }
+        : undefined,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setReplyTo(null);
+
+    const previewText = msgData.text || (msgData.mediaType ? `[${msgData.mediaType.toUpperCase()}]` : "");
+    setConversations((prev) =>
+      prev.map((c) =>
+        c._id === activeConversationId
+          ? {
+              ...c,
+              lastMessage: {
+                text: previewText,
+                senderId: currentUserId,
+                senderName: currentUserName,
+                isMe: true,
+                isRead: false,
+                createdAt: new Date().toISOString(),
+                mediaType: msgData.mediaType || null,
+                effect: msgData.effect || null,
+              },
+              updatedAt: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+
+    setTimeout(() => {
+      scrollToBottom("smooth");
+    }, 30);
+
+    try {
+      const res = await fetch("/api/chat/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: activeConversationId,
+          ...msgData,
+        }),
+      });
+
+      if (res.ok) {
+        const savedMsg = await res.json();
+        setMessages((prev) =>
+          prev.map((m) => (m._id === tempId ? { ...savedMsg, isMe: true } : m))
+        );
+        fetchConversations(true);
+        fetchMessages(activeConversationId, false, true);
+      }
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
+  };
+
+  const handleReact = async (messageId: string, emoji: string) => {
+    try {
+      const res = await fetch("/api/chat/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, emoji }),
+      });
+      if (res.ok && activeConversationId) {
+        fetchMessages(activeConversationId);
+      }
+    } catch (_) {}
+  };
+
+  const handleEditMessage = async (msg: MessageProps) => {
+    try {
+      const res = await fetch("/api/chat/messages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: msg._id, text: msg.text }),
+      });
+      if (res.ok && activeConversationId) {
+        fetchMessages(activeConversationId);
+      }
+    } catch (_) {}
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    setDeleteConfirmMessageId(messageId);
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!deleteConfirmMessageId) return;
+    const msgId = deleteConfirmMessageId;
+    setDeleteConfirmMessageId(null);
+    setMessages((prev) =>
+      prev.map((m) =>
+        m._id === msgId
+          ? { ...m, isDeleted: true, text: "This message was deleted", mediaData: null, reactions: [] }
+          : m
+      )
+    );
+    showToast("Message deleted");
+    try {
+      await fetch(`/api/chat/messages?messageId=${msgId}`, { method: "DELETE" });
+      if (activeConversationId) {
+        fetchMessages(activeConversationId);
+        fetchConversations();
+      }
+    } catch (_) {}
+  };
+
+  const handleTogglePin = async (messageId: string, isPinned: boolean) => {
+    try {
+      const res = await fetch("/api/chat/messages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, isPinned }),
+      });
+      if (res.ok && activeConversationId) {
+        fetchMessages(activeConversationId);
+      }
+    } catch (_) {}
+  };
+
+  const handleClearChat = async () => {
+    if (!activeConversationId) return;
+    if (!confirm("Are you sure you want to clear this conversation history for your view?")) return;
+
+    try {
+      const res = await fetch(`/api/chat/messages?conversationId=${activeConversationId}&clearAll=true`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetchMessages(activeConversationId);
+        fetchConversations();
+      }
+    } catch (_) {}
+  };
+
+  const handleJumpToMessage = (messageId: string) => {
+    if (!messageId) return;
+    const container = chatContainerRef.current;
+    const targetEl = document.getElementById(`chat-msg-${messageId}`) || document.getElementById(messageId);
+    if (container && targetEl) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      const targetTop = targetRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2);
+      container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+      setHighlightedMessageId(messageId);
+      setTimeout(() => {
+        setHighlightedMessageId((prev) => (prev === messageId ? null : prev));
+      }, 2000);
+    }
+  };
+
+  const handleSetDisappearingTimer = async (hours: number) => {
+    if (!activeConversationId) return;
+    try {
+      setConversations((prev) =>
+        prev.map((c) => (c._id === activeConversationId ? { ...c, disappearingHours: hours } : c))
+      );
+
+      const res = await fetch("/api/chat/conversations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: activeConversationId,
+          disappearingHours: hours,
+        }),
+      });
+
+      if (res.ok) {
+        fetchConversations();
+      }
+    } catch (err) {
+      console.error("Failed to update disappearing timer:", err);
+    }
+  };
+
+  const handleTyping = async (isTyping: boolean) => {
+    if (!activeConversationId) return;
+    try {
       await fetch("/api/chat/presence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isTyping: typingVal,
-          customName: currentSender,
+          activeConversationId,
+          isTypingIn: isTyping ? activeConversationId : null,
         }),
       });
+    } catch (_) {}
+  };
 
-      const res = await fetch("/api/chat/presence");
+  const handleCreateGroup = async (name: string, participantIds: string[]) => {
+    try {
+      const res = await fetch("/api/chat/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "group",
+          name,
+          participantIds,
+        }),
+      });
       if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.activeUsers)) {
-          setActiveUsers(data.activeUsers);
-        }
+        const newConv = await res.json();
+        await fetchConversations();
+        setActiveConversationId(newConv._id);
+        setMobileView("chat");
+      }
+    } catch (_) {}
+  };
+
+  const handleStartDirectChat = async (peerUserId: string) => {
+    try {
+      const res = await fetch("/api/chat/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "direct",
+          recipientId: peerUserId,
+        }),
+      });
+      if (res.ok) {
+        const conv = await res.json();
+        setConversations((prev) => {
+          const exists = prev.some((c) => c._id === conv._id);
+          if (exists) {
+            return prev.map((c) => (c._id === conv._id ? { ...c, ...conv } : c));
+          }
+          return [conv, ...prev];
+        });
+        setActiveConversationId(conv._id);
+        setMobileView("chat");
+        fetchMessages(conv._id, true);
+        await fetchConversations();
       }
     } catch (err) {
-      console.error("Error syncing presence:", err);
+      console.error("Error starting direct chat:", err);
     }
-  }, [currentSender]);
+  };
 
-  // Voice & Video Call Signaling Poller
-  const checkIncomingAndCallStatus = useCallback(async () => {
+  const handleAcceptRequest = async (connectionId: string) => {
     try {
-      const currentCall = activeCallRef.current;
-
-      if (currentCall) {
-        const res = await fetch(`/api/chat/call?callId=${currentCall.callId}`);
-        if (res.ok) {
-          const data = await res.json();
-          const callData = data.call;
-          if (callData) {
-            if (callData.status === "declined" || callData.status === "ended" || callData.status === "missed") {
-              cleanupCall();
-              if (selectedFriendRef.current) {
-                fetchMessagesForPartner(selectedFriendRef.current, true);
-              }
-            } else if (callData.status === "accepted" && currentCall.status === "calling" && callData.answer) {
-              const pc = peerConnectionRef.current;
-              if (pc && pc.signalingState !== "stable") {
-                try {
-                  const sdpAnswer = JSON.parse(callData.answer);
-                  await pc.setRemoteDescription(new RTCSessionDescription(sdpAnswer));
-                  setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : null));
-                  setTimeout(attachMediaStreams, 100);
-                } catch (e) {
-                  console.error("Error setting remote SDP answer:", e);
-                }
-              }
-            }
-
-            // Ingest new remote ICE candidates
-            const pc = peerConnectionRef.current;
-            if (pc && pc.remoteDescription) {
-              const isCaller = currentCall.callerId === currentUserId;
-              const remoteCandidates = isCaller ? callData.recipientCandidates : callData.callerCandidates;
-              if (remoteCandidates && Array.isArray(remoteCandidates)) {
-                for (const candStr of remoteCandidates) {
-                  if (!processedCandidatesRef.current.has(candStr)) {
-                    processedCandidatesRef.current.add(candStr);
-                    try {
-                      await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(candStr)));
-                    } catch (e) {
-                      console.error("Error adding remote ICE candidate:", e);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      } else {
-        const res = await fetch("/api/chat/call");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.incomingCall && data.incomingCall.status === "ringing") {
-            const inc = data.incomingCall;
-            setActiveCall({
-              callId: inc._id,
-              callerId: inc.callerId,
-              callerName: inc.callerName,
-              recipientId: inc.recipientId,
-              recipientName: inc.recipientName,
-              roomId: inc.roomId,
-              callType: inc.callType === "video" ? "video" : "audio",
-              status: "incoming",
-              isMuted: false,
-              isVideoOff: false,
-              durationSec: 0,
-            });
-          }
-        }
+      const res = await fetch("/api/chat/contacts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId, status: "accepted" }),
+      });
+      if (res.ok) {
+        soundEngine.playSent();
+        await fetchContactsAndRequests();
+        await fetchConversations();
       }
     } catch (err) {
-      console.error("Call status check error:", err);
+      console.error("Error accepting request:", err);
     }
-  }, [cleanupCall, fetchMessagesForPartner, attachMediaStreams, currentUserId]);
+  };
 
-  // Initiate Outgoing WebRTC Call (Voice or Video)
-  const handleStartCall = async (type: "audio" | "video") => {
-    if (!selectedFriend || activeCall) return;
+  const handleDeclineRequest = async (connectionId: string) => {
+    try {
+      const res = await fetch("/api/chat/contacts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId, status: "declined" }),
+      });
+      if (res.ok) {
+        await fetchContactsAndRequests();
+      }
+    } catch (err) {
+      console.error("Error declining request:", err);
+    }
+  };
 
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    isTypingRef.current = false;
-    syncPresence(false);
+  // WebRTC Call actions
+  const handleStartCall = async (callType: "audio" | "video") => {
+    if (!activeConversation) return;
+    const recipientId = activeConversation.participants?.find((id: string) => id !== currentUserId);
+    if (!recipientId) return;
 
     try {
-      const isVideo = type === "video";
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } : false,
-      });
-      localStreamRef.current = stream;
-      remoteStreamRef.current = new MediaStream();
-      processedCandidatesRef.current.clear();
-
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302", "stun:stun3.l.google.com:19302"] }
-        ]
-      });
-      peerConnectionRef.current = pc;
-
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      pc.ontrack = (event) => {
-        if (!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
-        if (event.streams && event.streams[0]) {
-          event.streams[0].getTracks().forEach((t) => {
-            if (!remoteStreamRef.current?.getTracks().some((x) => x.id === t.id)) {
-              remoteStreamRef.current?.addTrack(t);
-            }
-          });
-        } else if (event.track) {
-          if (!remoteStreamRef.current.getTracks().some((x) => x.id === event.track.id)) {
-            remoteStreamRef.current.addTrack(event.track);
-          }
-        }
-        attachMediaStreams();
-      };
-
-      let pendingCandidates: any[] = [];
-      let callSessionId: string | null = null;
-
-      pc.onicecandidate = async (event) => {
-        if (event.candidate) {
-          if (callSessionId) {
-            try {
-              await fetch("/api/chat/call", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  callId: callSessionId,
-                  action: "ice-candidate",
-                  candidate: JSON.stringify(event.candidate),
-                }),
-              });
-            } catch (_) {}
-          } else {
-            pendingCandidates.push(event.candidate);
-          }
-        }
-      };
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
       const res = await fetch("/api/chat/call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          recipientId: selectedFriend.partnerId,
-          recipientName: selectedFriend.partnerName,
-          recipientEmail: selectedFriend.partnerEmail,
-          callType: type,
-          offer: JSON.stringify(pc.localDescription || offer),
-          candidates: pendingCandidates,
+          action: "initiate",
+          conversationId: activeConversation._id,
+          recipientId,
+          callType,
         }),
       });
-
       if (res.ok) {
-        const data = await res.json();
-        callSessionId = data.callId;
-        setActiveCall({
-          callId: data.callId,
-          callerId: currentUserId,
-          callerName: currentSender,
-          recipientId: selectedFriend.partnerId,
-          recipientName: selectedFriend.partnerName,
-          roomId: data.call.roomId,
-          callType: type,
-          status: "calling",
-          isMuted: false,
-          isVideoOff: false,
-          durationSec: 0,
-        });
-
-        if (pendingCandidates.length > 0) {
-          for (const cand of pendingCandidates) {
-            try {
-              await fetch("/api/chat/call", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  callId: data.callId,
-                  action: "ice-candidate",
-                  candidate: JSON.stringify(cand),
-                }),
-              });
-            } catch (_) {}
-          }
-        }
+        const callData = await res.json();
+        setActiveCall(callData);
       }
-    } catch (err: any) {
-      alert(`${type === "video" ? "Camera and Microphone" : "Microphone"} access is required: ` + (err.message || err));
-      cleanupCall();
-    }
+    } catch (_) {}
   };
 
-  // Accept Incoming WebRTC Call
   const handleAcceptCall = async () => {
     if (!activeCall) return;
-
+    soundEngine.stopAllTones();
+    const callId = activeCall._id;
+    setActiveCall((prev: any) => ({ ...prev, status: "accepted" }));
     try {
-      const isVideo = activeCall.callType === "video";
-      const callRes = await fetch(`/api/chat/call?callId=${activeCall.callId}`);
-      const callData = (await callRes.json()).call;
-      if (!callData || !callData.offer) return;
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } : false,
-      });
-      localStreamRef.current = stream;
-      remoteStreamRef.current = new MediaStream();
-      processedCandidatesRef.current.clear();
-
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302", "stun:stun3.l.google.com:19302"] }
-        ]
-      });
-      peerConnectionRef.current = pc;
-
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-      pc.ontrack = (event) => {
-        if (!remoteStreamRef.current) remoteStreamRef.current = new MediaStream();
-        if (event.streams && event.streams[0]) {
-          event.streams[0].getTracks().forEach((t) => {
-            if (!remoteStreamRef.current?.getTracks().some((x) => x.id === t.id)) {
-              remoteStreamRef.current?.addTrack(t);
-            }
-          });
-        } else if (event.track) {
-          if (!remoteStreamRef.current.getTracks().some((x) => x.id === event.track.id)) {
-            remoteStreamRef.current.addTrack(event.track);
-          }
-        }
-        attachMediaStreams();
-      };
-
-      pc.onicecandidate = async (event) => {
-        if (event.candidate && activeCallRef.current?.callId) {
-          try {
-            await fetch("/api/chat/call", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                callId: activeCallRef.current.callId,
-                action: "ice-candidate",
-                candidate: JSON.stringify(event.candidate),
-              }),
-            });
-          } catch (_) {}
-        }
-      };
-
-      await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(callData.offer)));
-
-      if (callData.callerCandidates && Array.isArray(callData.callerCandidates)) {
-        for (const candStr of callData.callerCandidates) {
-          if (!processedCandidatesRef.current.has(candStr)) {
-            processedCandidatesRef.current.add(candStr);
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(candStr)));
-            } catch (_) {}
-          }
-        }
-      }
-
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
       await fetch("/api/chat/call", {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          callId: activeCall.callId,
-          action: "answer",
-          answer: JSON.stringify(pc.localDescription || answer),
+          action: "accept",
+          callId,
         }),
       });
-
-      setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : null));
-      setTimeout(attachMediaStreams, 100);
-
-      const matchingFriend = acceptedFriends.find(
-        (f) => f.partnerId === activeCall.callerId || f.partnerName.toLowerCase() === activeCall.callerName.toLowerCase()
-      );
-      if (matchingFriend) {
-        setSelectedFriend(matchingFriend);
-      }
-    } catch (err: any) {
-      console.error("Error accepting call:", err);
-      cleanupCall();
-    }
+    } catch (_) {}
   };
 
-  // Decline Incoming Call
   const handleDeclineCall = async () => {
     if (!activeCall) return;
-    const callId = activeCall.callId;
-    cleanupCall();
+    soundEngine.stopAllTones();
+    const callId = activeCall._id;
+    setActiveCall(null);
     try {
       await fetch("/api/chat/call", {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callId, action: "decline" }),
+        body: JSON.stringify({
+          action: "decline",
+          callId,
+        }),
       });
-      if (selectedFriendRef.current) {
-        fetchMessagesForPartner(selectedFriendRef.current, true);
-      }
     } catch (_) {}
   };
 
-  // End Active Call
   const handleEndCall = async () => {
     if (!activeCall) return;
-    const callId = activeCall.callId;
-    const duration = activeCall.durationSec;
-    cleanupCall();
+    soundEngine.stopAllTones();
+    const callId = activeCall._id;
+    setActiveCall(null);
     try {
       await fetch("/api/chat/call", {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callId, action: "end", durationSec: duration }),
+        body: JSON.stringify({
+          action: "end",
+          callId,
+        }),
       });
-      if (selectedFriendRef.current) {
-        fetchMessagesForPartner(selectedFriendRef.current, true);
-      }
     } catch (_) {}
   };
 
-  // Toggle Microphone Mute
-  const handleToggleMute = () => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setActiveCall((prev) => (prev ? { ...prev, isMuted: !audioTrack.enabled } : null));
-      }
-    }
-  };
-
-  // Toggle Camera in Video Call
-  const handleToggleVideo = () => {
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setActiveCall((prev) => (prev ? { ...prev, isVideoOff: !videoTrack.enabled } : null));
-      }
-    }
-  };
-
-  // Active call duration counter
-  useEffect(() => {
-    if (activeCall?.status === "connected") {
-      callTimerRef.current = setInterval(() => {
-        setActiveCall((prev) => (prev ? { ...prev, durationSec: prev.durationSec + 1 } : null));
-      }, 1000);
-    } else {
-      if (callTimerRef.current) clearInterval(callTimerRef.current);
-    }
-    return () => {
-      if (callTimerRef.current) clearInterval(callTimerRef.current);
-    };
-  }, [activeCall?.status]);
-
-  // Main polling interval
-  useEffect(() => {
-    if (!isOpen) return;
-
-    fetchConnections();
-    syncPresence(false);
-    checkIncomingAndCallStatus();
-
-    let messageInterval: NodeJS.Timeout;
-    let presenceInterval: NodeJS.Timeout;
-    let connectionInterval: NodeJS.Timeout;
-    let callInterval: NodeJS.Timeout;
-
-    const startIntervals = () => {
-      const isVisible = typeof document !== "undefined" && document.visibilityState === "visible";
-      const msgFreq = isVisible ? 600 : 4000;
-      const presFreq = isVisible ? 1200 : 5000;
-      const connFreq = isVisible ? 2500 : 8000;
-      const callFreq = isVisible ? 1000 : 3000;
-
-      clearInterval(messageInterval);
-      clearInterval(presenceInterval);
-      clearInterval(connectionInterval);
-      clearInterval(callInterval);
-
-      messageInterval = setInterval(() => {
-        if (selectedFriendRef.current) {
-          fetchMessagesForPartner(selectedFriendRef.current, true);
-        }
-      }, msgFreq);
-
-      presenceInterval = setInterval(() => {
-        syncPresence();
-      }, presFreq);
-
-      connectionInterval = setInterval(() => {
-        fetchConnections();
-      }, connFreq);
-
-      callInterval = setInterval(() => {
-        checkIncomingAndCallStatus();
-      }, callFreq);
-    };
-
-    startIntervals();
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        fetchConnections();
-        if (selectedFriendRef.current) {
-          fetchMessagesForPartner(selectedFriendRef.current, true);
-        }
-        syncPresence();
-        checkIncomingAndCallStatus();
-      }
-      startIntervals();
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (showProfileModalRef.current) {
-          setShowProfileModal(false);
-        } else {
-          onCloseRef.current();
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      clearInterval(messageInterval);
-      clearInterval(presenceInterval);
-      clearInterval(connectionInterval);
-      clearInterval(callInterval);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, fetchConnections, fetchMessagesForPartner, syncPresence, checkIncomingAndCallStatus]);
-
-  // When selected friend changes, reload messages and retention
-  useEffect(() => {
-    if (isOpen && selectedFriend) {
-      if (selectedFriend.retentionHours !== undefined) {
-        setRetentionHours(selectedFriend.retentionHours);
-      }
-      setLoading(true);
-      fetchMessagesForPartner(selectedFriend, true);
-    }
-  }, [selectedFriend?.connectionId, isOpen, fetchMessagesForPartner]);
-
-  // Scroll to bottom on message change
-  useEffect(() => {
-    if (isOpen && messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages.length, isOpen]);
-
-  // Focus input on reply
-  useEffect(() => {
-    if (replyingTo && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [replyingTo]);
-
-  // Typing event handler with debounce
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setInputText(val);
-
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-
-    if (!val.trim()) {
-      isTypingRef.current = false;
-      syncPresence(false);
-      return;
-    }
-
-    isTypingRef.current = true;
-    syncPresence(true);
-
-    typingTimeoutRef.current = setTimeout(() => {
-      isTypingRef.current = false;
-      syncPresence(false);
-    }, 2000);
-  };
-
-  const handleInsertEmoji = (emoji: string) => {
-    setInputText((prev) => prev + emoji);
-    setTimeout(() => inputRef.current?.focus(), 10);
-  };
-
-  const handleBackspaceEmoji = () => {
-    setInputText((prev) => {
-      const chars = Array.from(prev);
-      chars.pop();
-      return chars.join("");
-    });
-    setTimeout(() => inputRef.current?.focus(), 10);
-  };
-
-  const handleCopyMessage = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1500);
-  };
-
-  // Respond to incoming friend request (Accept / Decline)
-  const handleRespondRequest = async (connectionId: string, action: "accept" | "decline") => {
-    try {
-      const res = await fetch("/api/chat/connections", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId, action }),
-      });
-
-      if (res.ok) {
-        const connRes = await fetch("/api/chat/connections");
-        if (connRes.ok) {
-          const data = await connRes.json();
-          const accepted: AcceptedFriend[] = data.accepted || [];
-          setAcceptedFriends(accepted);
-          setPendingIncoming(data.pendingIncoming || []);
-          setPendingOutgoing(data.pendingOutgoing || []);
-
-          if (action === "accept") {
-            const newlyAccepted = accepted.find((f) => f.connectionId === connectionId) || accepted[accepted.length - 1];
-            if (newlyAccepted) {
-              setSelectedFriend(newlyAccepted);
-              setMobileView("chat");
-            }
-          }
-        }
-        if (onMessagesReadRef.current) onMessagesReadRef.current();
-      }
-    } catch (err) {
-      console.error("Error responding to connection request:", err);
-    }
-  };
-
-  // Remove / Cancel connection (Cancel pending request or Unfriend)
-  const handleRemoveConnection = async (connectionId: string, nameOrEmail: string, isPending = false) => {
-    const promptMsg = isPending
-      ? `Cancel your pending chat request to ${nameOrEmail}?`
-      : `Remove ${nameOrEmail} from your connected friends and delete 1-on-1 chat history?`;
-
-    if (!confirm(promptMsg)) return;
-
-    try {
-      const res = await fetch(`/api/chat/connections?connectionId=${connectionId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        await fetchConnections();
-        setShowProfileModal(false);
-        if (selectedFriend?.connectionId === connectionId) {
-          setSelectedFriend(null);
-          setMessages([]);
-          setMobileView("list");
-        }
-      }
-    } catch (err) {
-      console.error("Error removing connection:", err);
-    }
-  };
-
-  // Send new connection request by exact email
-  const handleSendConnectionRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!requestEmailInput.trim() || isSubmittingRequest) return;
-
-    setIsSubmittingRequest(true);
-    setRequestStatusMsg(null);
-
-    try {
-      const res = await fetch("/api/chat/connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: requestEmailInput.trim() }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setRequestStatusMsg({ type: "success", text: data.message || "Friend request sent!" });
-        setRequestEmailInput("");
-        await fetchConnections();
-        setTimeout(() => {
-          setShowAddFriendForm(false);
-          setRequestStatusMsg(null);
-        }, 2000);
-      } else {
-        setRequestStatusMsg({ type: "error", text: data.error || "Failed to send request." });
-      }
-    } catch (err) {
-      setRequestStatusMsg({ type: "error", text: "Network error sending request." });
-    } finally {
-      setIsSubmittingRequest(false);
-    }
-  };
-
-  const compressImage = (file: File): Promise<{ dataUrl: string; name: string }> => {
-    return new Promise((resolve) => {
-      const processImageElement = (img: HTMLImageElement, cleanupUrl?: string) => {
-        try {
-          const canvas = document.createElement("canvas");
-          const maxDimension = 1280;
-          let width = img.naturalWidth || img.width;
-          let height = img.naturalHeight || img.height;
-
-          if (width > maxDimension || height > maxDimension) {
-            if (width > height) {
-              height = Math.round((height * maxDimension) / width);
-              width = maxDimension;
-            } else {
-              width = Math.round((width * maxDimension) / height);
-              height = maxDimension;
-            }
-          }
-
-          canvas.width = width || 800;
-          canvas.height = height || 600;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            fallbackFileReader();
-            return;
-          }
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const compressed = canvas.toDataURL("image/jpeg", 0.78);
-          if (cleanupUrl) URL.revokeObjectURL(cleanupUrl);
-          resolve({ dataUrl: compressed, name: file.name });
-        } catch (_) {
-          fallbackFileReader();
-        }
-      };
-
-      const fallbackFileReader = () => {
-        const reader = new FileReader();
-        reader.onload = () => resolve({ dataUrl: reader.result as string, name: file.name });
-        reader.onerror = () => resolve({ dataUrl: "", name: file.name });
-        reader.readAsDataURL(file);
-      };
-
-      try {
-        const objectUrl = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => processImageElement(img, objectUrl);
-        img.onerror = () => {
-          URL.revokeObjectURL(objectUrl);
-          fallbackFileReader();
-        };
-        img.src = objectUrl;
-      } catch (_) {
-        fallbackFileReader();
-      }
-    });
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    e.target.value = "";
-    setMediaError(null);
-
-    const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|heic|heif|bmp|svg)$/i.test(file.name) || file.type === "";
-    const isVideo = file.type.startsWith("video/") || /\.(mp4|webm|mov|m4v|3gp)$/i.test(file.name);
-
-    if (!isImage && !isVideo) {
-      setMediaError("Only image and video files are supported.");
-      return;
-    }
-
-    if (isVideo && file.size > 15 * 1024 * 1024) {
-      setMediaError("Video exceeds 15MB limit. Please select a shorter video.");
-      return;
-    }
-
-    setIsCompressingMedia(true);
-    try {
-      if (isImage) {
-        const compressed = await compressImage(file);
-        if (compressed.dataUrl) {
-          setStagedMedia({
-            type: "image",
-            dataUrl: compressed.dataUrl,
-            name: compressed.name,
-          });
-        }
-      } else {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          setStagedMedia({
-            type: "video",
-            dataUrl: ev.target?.result as string,
-            name: file.name,
-          });
-          setIsCompressingMedia(false);
-        };
-        reader.onerror = () => {
-          setMediaError("Failed to read video file");
-          setIsCompressingMedia(false);
-        };
-        reader.readAsDataURL(file);
-        return;
-      }
-    } catch (err: any) {
-      setMediaError(err.message || "Failed to process media file");
-    } finally {
-      setIsCompressingMedia(false);
-      focusInput();
-    }
-  };
-
-  const focusInput = () => {
-    if (inputRef.current) {
-      inputRef.current.focus({ preventScroll: true });
-    }
-  };
-
-  // Send message
-  const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if ((!inputText.trim() && !stagedMedia) || !selectedFriend || sending) {
-      focusInput();
-      return;
-    }
-
-    const currentPartner = selectedFriend;
-    const textToSend = inputText.trim();
-    const replyToSend = replyingTo;
-    const mediaToSend = stagedMedia;
-
-    setInputText("");
-    setReplyingTo(null);
-    setStagedMedia(null);
-    setSending(true);
-
-    focusInput();
-
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    isTypingRef.current = false;
-    syncPresence(false);
-
-    try {
-      const res = await fetch("/api/chat/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sender: currentSender,
-          recipientId: currentPartner.partnerId,
-          connectionId: currentPartner.connectionId,
-          roomId: currentPartner.roomId,
-          text: textToSend,
-          mediaType: mediaToSend?.type || null,
-          mediaData: mediaToSend?.dataUrl || null,
-          mediaName: mediaToSend?.name || null,
-          replyTo: replyToSend,
-          retentionHours,
-        }),
-      });
-
-      if (res.ok) {
-        await fetchMessagesForPartner(currentPartner, true);
-        await fetchConnections();
-        scrollToBottom(false);
-      }
-    } catch (err) {
-      console.error("Error sending message:", err);
-    } finally {
-      setSending(false);
-      focusInput();
-    }
-  };
-
-  // Edit sent message
-  const handleSaveEdit = async (msgId: string) => {
-    if (!editText.trim() || !selectedFriend) return;
-
-    try {
-      const res = await fetch("/api/chat/messages", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: msgId,
-          text: editText.trim(),
-        }),
-      });
-
-      if (res.ok) {
-        setEditingId(null);
-        setEditText("");
-        if (typeof window !== "undefined") {
-          window.scrollTo(0, 0);
-          document.documentElement.scrollLeft = 0;
-          document.body.scrollLeft = 0;
-        }
-        await fetchMessagesForPartner(selectedFriend, true);
-        await fetchConnections();
-      }
-    } catch (err) {
-      console.error("Error updating message:", err);
-    }
-  };
-
-  // Delete a single message for everyone
-  const handleDeleteSingleMessage = async (msgId: string) => {
-    if (!confirm("Delete this message for everyone?")) return;
-    try {
-      const res = await fetch(`/api/chat/messages?id=${msgId}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        if (selectedFriend) {
-          await fetchMessagesForPartner(selectedFriend, true);
-          await fetchConnections();
-        }
-      }
-    } catch (err) {
-      console.error("Error deleting message:", err);
-    }
-  };
-
-  // Clear conversation for me
-  const handleClearAll = async () => {
-    if (!selectedFriend || !confirm(`Clear all messages in your conversation with ${selectedFriend.partnerName}?`)) return;
-
-    try {
-      const queryParams = new URLSearchParams({
-        clearAll: "true",
-        connectionId: selectedFriend.connectionId,
-        roomId: selectedFriend.roomId,
-        recipientId: selectedFriend.partnerId,
-      });
-
-      const res = await fetch(`/api/chat/messages?${queryParams.toString()}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        setMessages([]);
-        await fetchConnections();
-        setShowProfileModal(false);
-      }
-    } catch (err) {
-      console.error("Error clearing chat:", err);
-    }
-  };
-
-  // Update disappearing message retention (0 = Off / Keep forever, 12 = 12h, 24 = 24h, 168 = 7d)
-  const handleUpdateRetention = async (hours: number) => {
-    if (!selectedFriend) return;
-    setRetentionHours(hours);
-
-    try {
-      await fetch("/api/chat/connections", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          connectionId: selectedFriend.connectionId,
-          retentionHours: hours,
-        }),
-      });
-      await fetchConnections();
-    } catch (err) {
-      console.error("Error updating retention:", err);
-    }
-  };
-
-  // Robust Presence & Last Seen matcher for any partner
-  const getPartnerPresence = useCallback(
-    (partner: { partnerId?: string; partnerName: string; partnerEmail?: string } | null) => {
-      if (!partner) return null;
-      const pEmail = partner.partnerEmail?.toLowerCase().trim();
-      const pName = partner.partnerName.toLowerCase().trim();
-      const pId = partner.partnerId;
-
-      return (
-        activeUsers.find((u) => {
-          if (u.isMe) return false;
-          const uEmail = u.userEmail?.toLowerCase().trim();
-          const uName = u.userName.toLowerCase().trim();
-
-          // 1. Match by verified user email
-          if (pEmail && uEmail && pEmail === uEmail) return true;
-          // 2. Match by direct user ID
-          if (pId && u.userId === pId) return true;
-          // 3. Match if userId is the email
-          if (pEmail && u.userId.toLowerCase() === pEmail) return true;
-          // 4. Match by name
-          if (pName && uName && (pName === uName || uName.includes(pName) || pName.includes(uName))) return true;
-          return false;
-        }) || null
-      );
-    },
-    [activeUsers]
-  );
-
-  const friendPresence = getPartnerPresence(selectedFriend);
-  const isFriendOnline = friendPresence?.isOnline ?? false;
-  const myPresence = activeUsers.find((u) => u.isMe);
-
-  const formatLastSeen = (dateInput?: string | Date | null) => {
-    if (!dateInput) return "offline";
-    const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return "offline";
-
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMinutes = Math.floor(diffMs / 60000);
-    const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-    if (diffMinutes < 1) {
-      return "just now";
-    } else if (diffMinutes < 60) {
-      return `${diffMinutes}m ago`;
-    } else if (now.toDateString() === date.toDateString()) {
-      return `today at ${timeStr}`;
-    } else {
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      if (yesterday.toDateString() === date.toDateString()) {
-        return `yesterday at ${timeStr}`;
-      } else {
-        const monthDay = date.toLocaleDateString([], { month: "short", day: "numeric" });
-        return `${monthDay} at ${timeStr}`;
-      }
-    }
-  };
-
-  // Filter friends list
-  const filteredFriends = acceptedFriends.filter((friend) => {
-    const matchesSearch = friend.partnerName.toLowerCase().includes(searchQuery.toLowerCase()) || (friend.partnerEmail && friend.partnerEmail.toLowerCase().includes(searchQuery.toLowerCase()));
-    if (!matchesSearch) return false;
-    if (activeTab === "unread") {
-      return (friend.unreadCount || 0) > 0;
-    }
-    return true;
-  });
-
-  const totalUnreadAll = acceptedFriends.reduce((sum, f) => sum + (f.unreadCount || 0), 0);
-  const totalPendingRequests = pendingIncoming.length + pendingOutgoing.length;
-
-  if (!isOpen) return null;
+  // Fallback if user is somehow not logged in
+  if (status === "unauthenticated") {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-2xl p-4">
+        <div className="bg-[#0e0e1a] border border-white/10 rounded-3xl p-8 max-w-sm text-center space-y-4 shadow-2xl">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/30">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h3 className="text-lg font-bold text-white">Authentication Required</h3>
+          <p className="text-xs text-slate-400">Please sign in to your Personal Tracker account first to access Secret Chat.</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 md:p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden w-full max-w-full overflow-x-hidden"
-      style={
-        viewportHeight && typeof window !== "undefined" && window.innerWidth < 640
-          ? {
-              height: `${viewportHeight}px`,
-              top: 0,
-              bottom: "auto",
-              left: 0,
-              right: 0,
-              position: "fixed",
-            }
-          : undefined
-      }
+    <div
+      style={{ height: "var(--app-height, 100%)", maxHeight: "var(--app-height, 100%)" }}
+      className="fixed inset-0 z-[9999] w-full flex items-center justify-center bg-[#000000] text-white p-0 sm:p-2 md:p-3 overflow-hidden select-none font-sans"
     >
-      {/* Hidden audio element for remote WebRTC audio stream */}
-      <audio ref={remoteAudioRef} autoPlay />
+      {/* 🎆 FULL SCREEN PARTICLES / FIREWORKS / SUNRISE / NIGHT ENGINE */}
+      <FullScreenEffects
+        effect={activeEffect}
+        onComplete={() => setActiveEffect(null)}
+      />
 
-      <div 
-        className="w-full max-w-full sm:max-w-5xl md:max-w-6xl bg-[#030308]/98 backdrop-blur-2xl border-0 sm:border border-white/10 sm:rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_40px_rgba(20,184,166,0.12)] light:bg-white light:border-slate-200 light:shadow-2xl overflow-hidden overflow-x-hidden flex flex-row h-full sm:h-[680px] sm:max-h-[92vh] relative font-sans transition-colors"
-        onClick={(e) => e.stopPropagation()}
+      {/* MAIN OBSIDIAN CONTAINER CARD */}
+      <div
+        style={{ height: "var(--app-height, 100%)", maxHeight: "var(--app-height, 100%)" }}
+        className="w-full h-full sm:max-h-[96vh] sm:max-w-[1440px] bg-[#0A0A0C]/98 backdrop-blur-2xl border-0 sm:border border-white/10 sm:rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.95),0_0_40px_rgba(0,122,255,0.1)] flex flex-row overflow-hidden relative"
       >
-        {/* ========================================================= */}
-        {/* LEFT SIDEBAR: WhatsApp Web Contact List (Chats, Search, Tabs) */}
-        {/* ========================================================= */}
-        <div 
-          className={`w-full sm:w-[300px] md:w-[330px] lg:w-[360px] border-r border-white/10 flex flex-col flex-shrink-0 bg-[#070712] light:bg-[#f0f2f5] light:border-slate-200 transition-all ${
-            mobileView === "chat" ? "hidden sm:flex" : "flex"
-          }`}
+        {/* 1. LEFT SIDEBAR: CONVERSATION LIST */}
+        <div
+          className={`${
+            mobileView === "list" ? "flex" : "hidden"
+          } md:flex flex-col h-full w-full md:w-[340px] lg:w-[380px] flex-shrink-0 z-20 overflow-hidden`}
         >
-          {/* Sidebar Top Header */}
-          <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-white/10 bg-[#0a0a1a] light:bg-[#f0f2f5] light:border-slate-200 flex-shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="relative flex-shrink-0">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-md">
-                  {currentSender.slice(0, 2).toUpperCase()}
-                </div>
-                {myPresence?.isOnline && (
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm"></span>
-                )}
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white truncate light:text-slate-900">Chats</h3>
-                <p className="text-[10px] text-teal-400 font-mono font-medium truncate light:text-teal-600 flex items-center gap-1">
-                  <Lock size={10} /> AES-256 E2EE
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              {/* Add / Connect Friend Button */}
-              <button
-                type="button"
-                onClick={() => setShowAddFriendForm(!showAddFriendForm)}
-                className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs active:scale-95 touch-manipulation ${
-                  showAddFriendForm
-                    ? "bg-teal-600 text-white shadow-sm"
-                    : "bg-white/[0.07] border border-white/10 text-slate-200 hover:bg-white/15 light:bg-slate-200 light:border-slate-300 light:text-slate-700"
-                }`}
-                title="New Chat (Add Friend by Email)"
-              >
-                <UserPlus size={15} />
-              </button>
-
-              {/* Close Modal (Mobile / Desktop) */}
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-red-600 active:scale-95 touch-manipulation"
-                title="Close (Esc)"
-              >
-                <X size={15} />
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="p-2.5 border-b border-white/5 bg-[#05050e] light:bg-white light:border-slate-200 flex-shrink-0">
-            <div className="relative flex items-center">
-              <Search size={14} className="absolute left-3 text-slate-400 light:text-slate-500 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search or start a new chat"
-                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-8 py-2 text-base sm:text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-slate-100 light:border-slate-200 light:text-slate-900 light:placeholder-slate-400 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 text-slate-400 hover:text-white text-xs cursor-pointer light:hover:text-slate-700"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Filter Tabs: All / Unread / Requests */}
-            <div className="flex items-center gap-1.5 mt-2 overflow-x-auto no-scrollbar">
-              <button
-                type="button"
-                onClick={() => setActiveTab("all")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer touch-manipulation active:scale-95 ${
-                  activeTab === "all"
-                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 light:bg-teal-600 light:text-white"
-                    : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
-                }`}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("unread")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 touch-manipulation active:scale-95 ${
-                  activeTab === "unread"
-                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 light:bg-teal-600 light:text-white"
-                    : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
-                }`}
-              >
-                <span>Unread</span>
-                {totalUnreadAll > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-emerald-500 text-black text-[9px] font-bold flex items-center justify-center">
-                    {totalUnreadAll}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("requests")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 touch-manipulation active:scale-95 ${
-                  activeTab === "requests"
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 light:bg-amber-600 light:text-white"
-                    : "bg-white/[0.04] text-slate-400 hover:text-white light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200"
-                }`}
-              >
-                <span>Requests</span>
-                {totalPendingRequests > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-amber-500 text-black text-[9px] font-bold flex items-center justify-center animate-pulse">
-                    {totalPendingRequests}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Add Friend Form Dropdown */}
-          {showAddFriendForm && (
-            <div className="p-3 bg-[#0c0c1e] border-b border-white/10 flex-shrink-0 animate-in fade-in duration-150 light:bg-slate-100 light:border-slate-200">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider font-mono flex items-center gap-1">
-                  <UserPlus size={12} /> Add Friend by Email
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddFriendForm(false)}
-                  className="text-slate-400 hover:text-white text-xs cursor-pointer p-1"
-                >
-                  ✕
-                </button>
-              </div>
-              <form onSubmit={handleSendConnectionRequest} className="space-y-2">
-                <input
-                  type="email"
-                  value={requestEmailInput}
-                  onChange={(e) => setRequestEmailInput(e.target.value)}
-                  placeholder="friend@example.com..."
-                  className="w-full bg-white/[0.08] border border-white/20 rounded-xl px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900"
-                />
-                <button
-                  type="submit"
-                  disabled={!requestEmailInput.trim() || isSubmittingRequest}
-                  className="w-full py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-98 touch-manipulation"
-                >
-                  {isSubmittingRequest ? "Sending Request..." : "Send Request"}
-                </button>
-                {requestStatusMsg && (
-                  <div className={`text-[11px] p-2 rounded-lg ${requestStatusMsg.type === "success" ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300"}`}>
-                    {requestStatusMsg.text}
-                  </div>
-                )}
-              </form>
-            </div>
-          )}
-
-          {/* Contacts & Pending Requests List Feed */}
-          <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-white/5 light:divide-slate-200">
-            {/* Incoming Requests Section */}
-            {(activeTab === "requests" || (activeTab === "all" && pendingIncoming.length > 0)) && pendingIncoming.length > 0 && (
-              <div className="p-2.5 bg-amber-500/[0.08] border-b border-amber-500/20 space-y-2 light:bg-amber-500/10">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">
-                  <Bell size={12} className="animate-bounce" /> Friend Requests ({pendingIncoming.length})
-                </div>
-                {pendingIncoming.map((req) => (
-                  <div key={req.connectionId} className="bg-black/40 light:bg-white p-2.5 rounded-xl border border-amber-500/20 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-300 font-bold text-xs flex items-center justify-center flex-shrink-0">
-                        {req.requesterName.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-xs font-bold text-white truncate light:text-slate-900">{req.requesterName}</h4>
-                        <p className="text-[10px] text-slate-400 truncate light:text-slate-500">{req.requesterEmail}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleRespondRequest(req.connectionId, "accept")}
-                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1 active:scale-98 touch-manipulation"
-                      >
-                        <Check size={12} /> Accept
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRespondRequest(req.connectionId, "decline")}
-                        className="flex-1 py-1.5 bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center gap-1 light:bg-slate-200 light:text-slate-700 active:scale-98 touch-manipulation"
-                      >
-                        <X size={12} /> Decline
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Outgoing Pending Requests (in Requests Tab) */}
-            {activeTab === "requests" && pendingOutgoing.length > 0 && (
-              <div className="p-2.5 bg-indigo-500/[0.08] border-b border-indigo-500/20 space-y-2 light:bg-indigo-50">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-400 font-mono">
-                  <Clock size={12} /> Sent Requests ({pendingOutgoing.length})
-                </div>
-                {pendingOutgoing.map((req) => (
-                  <div key={req.connectionId} className="bg-black/40 light:bg-white p-2.5 rounded-xl border border-indigo-500/20 flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-bold text-white truncate light:text-slate-900">{req.recipientName || req.recipientEmail}</h4>
-                      <p className="text-[10px] text-slate-400 truncate light:text-slate-500">{req.recipientEmail}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveConnection(req.connectionId, req.recipientName || req.recipientEmail, true)}
-                      className="px-2 py-1 bg-red-500/15 hover:bg-red-500/30 text-red-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 flex-shrink-0 active:scale-95 touch-manipulation"
-                    >
-                      <X size={11} /> Cancel
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Accepted Friends WhatsApp Chat Cards */}
-            {activeTab !== "requests" && (
-              <>
-                {filteredFriends.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-center space-y-2">
-                    <Users size={28} className="text-slate-500 light:text-slate-400" />
-                    <p className="text-xs text-slate-400 light:text-slate-600">
-                      {searchQuery ? "No contacts matching search" : "No friends connected yet"}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddFriendForm(true)}
-                      className="text-xs text-teal-400 font-bold hover:underline cursor-pointer active:scale-95 touch-manipulation"
-                    >
-                      + Connect with a friend
-                    </button>
-                  </div>
-                ) : (
-                  filteredFriends.map((p) => {
-                    const isSelected = selectedFriend?.connectionId === p.connectionId;
-                    const pPresence = getPartnerPresence(p);
-                    const isPOnline = pPresence?.isOnline ?? false;
-                    const isPTyping = pPresence?.isTyping ?? false;
-                    const previewText = cleanPreviewText(p.lastMessage?.text);
-
-                    return (
-                      <div
-                        key={p.connectionId}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          setSelectedFriend(p);
-                          setMobileView("chat");
-                          fetchMessagesForPartner(p, true);
-                        }}
-                        className={`group flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all border-b border-white/[0.04] light:border-slate-200/60 relative select-none touch-manipulation active:bg-white/[0.08] ${
-                          isSelected
-                            ? "bg-teal-500/15 border-l-4 border-l-teal-400 light:bg-slate-200"
-                            : "hover:bg-white/[0.04] light:hover:bg-slate-100"
-                        }`}
-                      >
-                        {/* Avatar + Online Indicator */}
-                        <div className="relative flex-shrink-0">
-                          <div className="w-11 h-11 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 font-bold text-sm flex items-center justify-center shadow-inner light:bg-teal-100 light:text-teal-700 light:border-teal-300">
-                            {p.partnerName.slice(0, 2).toUpperCase()}
-                          </div>
-                          {isPOnline && (
-                            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm animate-pulse"></span>
-                          )}
-                        </div>
-
-                        {/* Contact Info & Last Message Snippet */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1 mb-0.5">
-                            <h4 className={`text-xs sm:text-sm font-bold truncate ${isSelected ? "text-teal-300 light:text-teal-900" : "text-slate-200 light:text-slate-900"}`}>
-                              {p.partnerName}
-                            </h4>
-                            <span className="text-[10px] text-slate-400 light:text-slate-500 font-mono flex-shrink-0">
-                              {p.lastMessage ? formatWhatsAppTime(p.lastMessage.createdAt) : ""}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-1.5">
-                            <p className="text-xs text-slate-400 truncate light:text-slate-600 flex items-center gap-1 min-w-0">
-                              {isPTyping ? (
-                                <span className="text-teal-400 font-bold animate-pulse light:text-teal-600">✍️ typing...</span>
-                              ) : previewText ? (
-                                <>
-                                  {p.lastMessage?.isMe && (
-                                    <span className={p.lastMessage?.isRead ? "text-teal-400" : "text-slate-500"}>
-                                      <CheckCheck size={13} className="inline flex-shrink-0" />
-                                    </span>
-                                  )}
-                                  <span className="truncate">{previewText}</span>
-                                </>
-                              ) : (
-                                <span className="italic text-slate-500">No messages yet</span>
-                              )}
-                            </p>
-
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {/* Unread Count Badge */}
-                              {(p.unreadCount || 0) > 0 && (
-                                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-black text-[10px] font-black flex items-center justify-center shadow-sm">
-                                  {p.unreadCount}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </>
-            )}
-          </div>
+          <ConversationList
+            conversations={conversations}
+            selectedId={activeConversationId}
+            pendingIncomingRequests={pendingIncomingRequests}
+            onAcceptRequest={handleAcceptRequest}
+            onDeclineRequest={handleDeclineRequest}
+            onSelectConversation={handleSelectConversation}
+            onOpenNewChat={() => setIsContactModalOpen(true)}
+            onOpenNewGroup={() => setIsGroupModalOpen(true)}
+            onOpenContacts={() => setIsContactModalOpen(true)}
+            onOpenProfile={() => setIsMyProfileModalOpen(true)}
+            onClose={onClose}
+            currentUser={{
+              name: currentUserName,
+              email: session?.user?.email || "",
+              avatar: currentUserAvatar,
+              statusMessage: currentUserStatus,
+            }}
+          />
         </div>
 
-        {/* ========================================================= */}
-        {/* RIGHT PANE: Active Conversation Window / Welcome Splash */}
-        {/* ========================================================= */}
-        <div 
-          className={`flex-1 flex flex-col h-full bg-[#030308] light:bg-[#efeae2] relative min-w-0 ${
-            mobileView === "list" ? "hidden sm:flex" : "flex"
-          }`}
+        {/* 2. RIGHT / MAIN AREA: ACTIVE CHAT PANE */}
+        <div
+          className={`${
+            mobileView === "chat" ? "flex" : "hidden"
+          } md:flex flex-col flex-1 h-full min-h-0 w-full max-w-full min-w-0 bg-[#000000] bg-radial-[at_top_right] from-blue-950/15 via-[#000000] to-[#000000] relative overflow-hidden`}
         >
-          {!selectedFriend ? (
-            /* WhatsApp Web Welcome Splash Screen on Desktop */
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-              <div className="w-20 h-20 rounded-3xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shadow-lg light:bg-teal-50 light:border-teal-200 light:text-teal-600">
-                <Shield size={40} />
-              </div>
-              <div className="max-w-md space-y-1.5">
-                <h3 className="text-lg font-bold text-white light:text-slate-900">Encrypted Secret Chat</h3>
-                <p className="text-xs text-slate-400 leading-relaxed light:text-slate-600">
-                  Select a contact from the sidebar or click <strong>+</strong> to start an end-to-end encrypted private conversation.
-                </p>
-                <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-teal-400 font-mono font-medium light:text-teal-700">
-                  <Lock size={12} /> Disappearing Messages & E2EE Calling Enabled
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Active 1-on-1 Chat Conversation */
+          {activeConversation ? (
             <>
-              {/* Top Chat Header: Clean & Spacious */}
-              <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 border-b border-white/10 bg-[#070712]/90 backdrop-blur-xl light:bg-[#f0f2f5] light:border-slate-200 flex-shrink-0 pt-[max(0.625rem,env(safe-area-inset-top))] transition-colors">
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                  {/* Mobile Back Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMobileView("list");
-                    }}
-                    className="sm:hidden p-1.5 -ml-1 text-slate-300 hover:text-white cursor-pointer light:text-slate-700 active:scale-95 touch-manipulation"
-                    title="Back to chats list"
-                  >
-                    <ArrowLeft size={20} />
-                  </button>
+              {/* TOP HEADER */}
+              <ChatHeader
+                conversation={activeConversation}
+                totalUnreadCount={totalUnreadCount}
+                onBackToConversations={() => {
+                  setMobileView("list");
+                  if (typeof window !== "undefined" && window.innerWidth >= 768) {
+                    setActiveConversationId(null);
+                  }
+                }}
+                onCloseChat={onClose}
+                onStartAudioCall={() => handleStartCall("audio")}
+                onStartVideoCall={() => handleStartCall("video")}
+                onOpenSearch={() => setIsSearchModalOpen(true)}
+                onOpenInfo={() => setIsProfileModalOpen(true)}
+                onClearChat={handleClearChat}
+                isTyping={typingUsers.length > 0}
+                typingUserName={typingUsers[0]}
+              />
 
-                  {/* Clickable Profile Section (Opens Contact Info Modal) */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowProfileModal(true);
-                    }}
-                    className="flex items-center gap-2.5 cursor-pointer group py-1 px-1.5 -mx-1.5 rounded-xl hover:bg-white/[0.06] light:hover:bg-slate-200/70 transition-all select-none touch-manipulation active:scale-[0.98] text-left border-0 bg-transparent"
-                    title="View Contact Info, Disappearing Messages & Settings"
-                  >
-                    {/* Avatar & Online Presence */}
-                    <div className="relative flex-shrink-0">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 font-bold text-xs sm:text-sm shadow-inner flex items-center justify-center light:bg-teal-100 light:border-teal-300 light:text-teal-700">
-                        {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
-                      </div>
-                      {isFriendOnline && (
-                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-[#070712] light:border-white shadow-sm"></span>
-                      )}
-                    </div>
-
-                    {/* Contact Name & Live Status with chevron cue */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1">
-                        <h3 className="text-xs sm:text-sm font-bold text-white truncate light:text-slate-900 group-hover:text-teal-300 light:group-hover:text-teal-700 transition-colors">
-                          {selectedFriend.partnerName}
-                        </h3>
-                        <ChevronDown size={13} className="text-slate-400 group-hover:text-teal-300 transition-colors flex-shrink-0" />
-                      </div>
-                      <p className="text-[9px] sm:text-[10px] tracking-wide truncate mt-0.5">
-                        {activeCall ? (
-                          <span className="text-teal-400 font-bold flex items-center gap-1 light:text-teal-600 animate-pulse">
-                            📞 {activeCall.status === "connected" ? "In Call" : activeCall.status === "calling" ? "Calling..." : "Incoming Call..."}
-                          </span>
-                        ) : friendPresence?.isTyping ? (
-                          <span className="text-teal-400 font-bold flex items-center gap-1 animate-pulse light:text-teal-600">
-                            ✍️ typing...
-                          </span>
-                        ) : isFriendOnline ? (
-                          <span className="text-emerald-400 font-medium flex items-center gap-1 light:text-emerald-600">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping flex-shrink-0"></span>
-                            Online
-                          </span>
-                        ) : friendPresence?.lastSeenAt ? (
-                          <span className="text-slate-400 truncate block light:text-slate-500">
-                            last seen {formatLastSeen(friendPresence.lastSeenAt)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 truncate block light:text-slate-500">
-                            {retentionHours > 0 ? `Disappearing • ${retentionHours}h` : "Encrypted Chat"}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Header Right Action Buttons: Voice Call, Video Call, Details, Panic Close */}
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-                  {/* Voice Call Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleStartCall("audio")}
-                    disabled={Boolean(activeCall)}
-                    className={`p-2 sm:px-3 sm:py-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 touch-manipulation ${
-                      activeCall && activeCall.callType === "audio"
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                        : "bg-white/[0.07] border-white/10 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-400 light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-emerald-700 shadow-sm"
-                    }`}
-                    title="Start Encrypted Voice Call"
-                  >
-                    <Phone size={15} />
-                    <span className="hidden md:inline text-xs font-bold">Audio</span>
-                  </button>
-
-                  {/* Video Call Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleStartCall("video")}
-                    disabled={Boolean(activeCall)}
-                    className={`p-2 sm:px-3 sm:py-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 touch-manipulation ${
-                      activeCall && activeCall.callType === "video"
-                        ? "bg-teal-500/20 text-teal-400 border-teal-500/40"
-                        : "bg-white/[0.07] border-white/10 hover:bg-teal-500/20 text-slate-200 hover:text-teal-400 light:bg-slate-200 light:border-slate-300 light:text-slate-700 light:hover:text-teal-700 shadow-sm"
-                    }`}
-                    title="Start Encrypted Video Call"
-                  >
-                    <Video size={16} />
-                    <span className="hidden md:inline text-xs font-bold">Video</span>
-                  </button>
-
-                  {/* Panic / Close Button */}
-                  <button
-                    onClick={onClose}
-                    className="p-2 rounded-xl bg-white/[0.07] border border-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-all cursor-pointer light:bg-slate-200 light:border-slate-300 light:text-slate-700 active:scale-95 touch-manipulation ml-1"
-                    title="Close (Esc)"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* In-Call Active Floating Overlay Bar (Audio / Video) */}
-              {activeCall && (
-                <div className="p-3 bg-gradient-to-r from-teal-950/95 via-emerald-950/95 to-teal-950/95 border-b border-teal-500/40 backdrop-blur-xl flex items-center justify-between gap-2 z-20 animate-in slide-in-from-top duration-200">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500 text-black flex items-center justify-center animate-bounce flex-shrink-0">
-                      {activeCall.callType === "video" ? <Video size={16} /> : <PhoneCall size={16} />}
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-white truncate flex items-center gap-1.5">
-                        <span>
-                          {activeCall.status === "calling"
-                            ? `Calling ${activeCall.recipientName}...`
-                            : activeCall.status === "incoming"
-                            ? `Incoming ${activeCall.callType === "video" ? "Video" : "Voice"} Call from ${activeCall.callerName}...`
-                            : `In ${activeCall.callType === "video" ? "Video" : "Voice"} Call with ${selectedFriend.partnerName}`}
-                        </span>
-                      </h4>
-                      <p className="text-[10px] text-emerald-300 font-mono">
-                        {activeCall.status === "connected" ? (
-                          <span>🟢 Active Call: {Math.floor(activeCall.durationSec / 60)}:{String(activeCall.durationSec % 60).padStart(2, "0")}</span>
-                        ) : (
-                          "Ringing..."
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {activeCall.status === "incoming" ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={handleAcceptCall}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
-                        >
-                          {activeCall.callType === "video" ? <Video size={13} /> : <Phone size={13} />} Accept
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleDeclineCall}
-                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
-                        >
-                          <PhoneOff size={13} /> Decline
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        {activeCall.status === "connected" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={handleToggleMute}
-                              className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation ${
-                                activeCall.isMuted
-                                  ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
-                                  : "bg-white/10 text-white hover:bg-white/20"
-                              }`}
-                              title={activeCall.isMuted ? "Unmute Mic" : "Mute Mic"}
-                            >
-                              {activeCall.isMuted ? <MicOff size={15} /> : <Mic size={15} />}
-                            </button>
-                            {activeCall.callType === "video" && (
-                              <button
-                                type="button"
-                                onClick={handleToggleVideo}
-                                className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation ${
-                                  activeCall.isVideoOff
-                                    ? "bg-amber-500/20 border border-amber-500/40 text-amber-300"
-                                    : "bg-white/10 text-white hover:bg-white/20"
-                                }`}
-                                title={activeCall.isVideoOff ? "Turn On Camera" : "Turn Off Camera"}
-                              >
-                                {activeCall.isVideoOff ? <VideoOff size={15} /> : <Video size={15} />}
-                              </button>
-                            )}
-                          </>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleEndCall}
-                          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-1 active:scale-95 touch-manipulation"
-                        >
-                          <PhoneOff size={13} /> End
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Video Call Full-Pane Viewport when Video Call Connected */}
-              {activeCall && activeCall.callType === "video" && activeCall.status === "connected" && (
-                <div className="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
-                  {/* Remote video stream */}
-                  <video 
-                    ref={(el) => {
-                      remoteVideoRef.current = el;
-                      if (el && remoteStreamRef.current && el.srcObject !== remoteStreamRef.current) {
-                        el.srcObject = remoteStreamRef.current;
-                        el.play().catch(() => {});
-                      }
-                    }}
-                    autoPlay 
-                    playsInline 
-                    className="w-full h-full object-cover" 
-                  />
-                  {/* Picture-in-Picture Local Camera */}
-                  <div className="absolute top-4 right-4 w-28 h-36 sm:w-36 sm:h-48 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-30">
-                    <video 
-                      ref={(el) => {
-                        localVideoRef.current = el;
-                        if (el && localStreamRef.current && el.srcObject !== localStreamRef.current) {
-                          el.srcObject = localStreamRef.current;
-                          el.play().catch(() => {});
-                        }
-                      }}
-                      autoPlay 
-                      playsInline 
-                      muted 
-                      className="w-full h-full object-cover" 
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Message Feed Container (Hidden during full-screen video call) */}
-              {!(activeCall && activeCall.callType === "video" && activeCall.status === "connected") && (
-                <div 
-                  ref={chatFeedRef}
-                  onClick={() => setActiveActionMenuId(null)}
-                  className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 space-y-3 bg-[#030308] bg-radial-[at_top_right] from-teal-950/15 via-[#030308] to-[#030308] light:bg-[#efeae2] light:bg-none overscroll-contain touch-pan-y transition-colors"
-                >
-                  {loading ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-2 light:text-slate-500">
-                      <RefreshCw size={20} className="animate-spin text-teal-400 light:text-teal-600" />
-                      <p className="text-xs font-mono">Decrypting communications with {selectedFriend.partnerName}...</p>
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center min-h-[140px] my-auto text-center space-y-2 p-4 sm:p-6 border border-dashed border-white/10 rounded-2xl bg-white/[0.04] backdrop-blur-md light:border-slate-300 light:bg-white/70">
-                      <div className="p-2.5 rounded-full bg-teal-500/20 text-teal-400 light:bg-teal-500/15 light:text-teal-600">
-                        <Sparkles size={20} />
+              {/* MESSAGE FEED */}
+              <div
+                ref={chatContainerRef}
+                className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-5 py-3 sm:py-4 overscroll-contain"
+                data-scrollable="true"
+                style={{
+                  WebkitOverflowScrolling: "touch",
+                  touchAction: "pan-y",
+                }}
+              >
+                <div className="w-full min-h-full flex flex-col gap-y-1 sm:gap-y-1.5 pb-4 sm:pb-6 pt-2">
+                  <div className="flex-1 min-h-0" />
+                  {messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center min-h-[160px] my-auto text-center space-y-2.5 p-6 border border-dashed border-white/10 rounded-3xl bg-white/[0.03] backdrop-blur-md">
+                      <div className="p-3 rounded-2xl bg-blue-500/20 text-[#007AFF] border border-blue-400/30 shadow-inner">
+                        <Sparkles size={24} />
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-200 font-mono light:text-slate-800">
-                          Conversation with {selectedFriend.partnerName}
+                        <h4 className="text-sm font-bold uppercase tracking-wider text-slate-200 font-mono">
+                          Secret Chat with {activeConversation.name}
                         </h4>
-                        <p className="text-[10px] text-slate-400 mt-0.5 max-w-sm light:text-slate-600">
-                          {retentionHours > 0
-                            ? `Messages are end-to-end encrypted and self-destruct in ${retentionHours} hours.`
+                        <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                          {activeConversation.disappearingHours && activeConversation.disappearingHours > 0
+                            ? `Messages are end-to-end encrypted and self-destruct in ${activeConversation.disappearingHours} hours.`
                             : "Messages are end-to-end encrypted with AES-256 GCM."}
                         </p>
                       </div>
                     </div>
                   ) : (
-                    messages.map((msg) => {
-                      const isMe = msg.senderId === currentUserId || msg.sender.toLowerCase() === currentSender.toLowerCase();
-                      const isEditing = editingId === msg._id;
-                      const isCopied = copiedId === msg._id;
-                      const isMenuOpen = activeActionMenuId === msg._id;
-
-                      return (
-                        <div
-                          id={`chat-msg-${msg._id}`}
-                          key={msg._id}
-                          className={`flex flex-col relative transition-all duration-300 rounded-2xl p-0.5 group ${
-                            isMe ? "items-end" : "items-start"
-                          } ${
-                            highlightedMsgId === msg._id
-                              ? "ring-2 ring-teal-300 bg-teal-500/25 shadow-[0_0_20px_rgba(20,184,166,0.6)] scale-[1.02]"
-                              : ""
-                          }`}
-                        >
-                          {/* Quoted Message Preview if Reply */}
-                          {msg.replyTo && (msg.replyTo.text || (msg.replyTo.sender && msg.replyTo.sender !== ":")) && (
-                            <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleJumpToMessage(msg.replyTo?.id, msg.replyTo?.text);
-                              }}
-                              className={`flex items-center gap-1.5 px-2.5 py-1 mb-1 text-[10px] rounded-lg border cursor-pointer max-w-[85%] sm:max-w-md ${
-                                isMe
-                                  ? "bg-teal-950/60 border-teal-500/30 text-teal-300 mr-1 light:bg-teal-100 light:border-teal-300 light:text-teal-800"
-                                  : "bg-white/[0.06] border-white/10 text-slate-300 ml-1 light:bg-slate-100 light:border-slate-300 light:text-slate-700"
-                              }`}
-                            >
-                              <CornerDownRight size={11} className="flex-shrink-0" />
-                              {msg.replyTo.sender && <span className="font-bold">{msg.replyTo.sender}:</span>}
-                              <span className="truncate">{msg.replyTo.text}</span>
-                            </div>
-                          )}
-
-                          {/* Swipeable Message Container */}
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveActionMenuId((prev) => (prev === msg._id ? null : msg._id));
-                            }}
-                            onPointerDown={(e) => handlePointerDown(e, msg._id)}
-                            onPointerMove={handlePointerMove}
-                            onPointerUp={(e) => handlePointerUp(e, msg)}
-                            onPointerCancel={handlePointerCancel}
-                            style={{
-                              transform: swipingId === msg._id ? `translateX(${swipeOffset}px)` : "none",
-                              transition: swipingId === msg._id ? "none" : "transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)",
-                            }}
-                            className={`relative max-w-[88%] sm:max-w-md rounded-2xl p-2.5 sm:p-3 text-xs shadow-md transition-shadow select-none touch-pan-y cursor-pointer ${
-                              isMe
-                                ? "bg-gradient-to-r from-teal-900/80 to-emerald-900/80 border border-teal-500/30 text-teal-50 rounded-tr-xs light:bg-gradient-to-r light:from-[#d9fdd3] light:to-[#d9fdd3] light:border-slate-300/40 light:text-slate-900"
-                                : "bg-[#101026] border border-white/10 text-slate-100 rounded-tl-xs light:bg-white light:border-slate-200 light:text-slate-900"
-                            }`}
-                          >
-                            {/* Sender Alias Header */}
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className={`text-[10px] font-bold ${isMe ? "text-teal-300 light:text-teal-700" : "text-emerald-400 light:text-emerald-700"}`}>
-                                {msg.sender}
-                              </span>
-                            </div>
-
-                            {/* Media Attachment (Photo / Video) */}
-                            {msg.mediaData && !msg.isDeleted && (
-                              <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-black/40 light:bg-slate-100 light:border-slate-200">
-                                {msg.mediaType === "image" ? (
-                                  <img
-                                    src={msg.mediaData}
-                                    alt={msg.mediaName || "Shared image"}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setLightboxMedia({ type: "image", url: msg.mediaData!, name: msg.mediaName || "image.jpg", msgId: msg._id, isMe });
-                                    }}
-                                    className="max-h-60 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
-                                  />
-                                ) : (
-                                  <video
-                                    src={msg.mediaData}
-                                    controls
-                                    className="max-h-60 w-full object-cover rounded-xl"
-                                  />
-                                )}
-                              </div>
-                            )}
-
-                            {/* Message Body Text or Inline Edit */}
-                            {msg.isDeleted ? (
-                              <p className="italic text-slate-400 light:text-slate-500 flex items-center gap-1 text-[11px] sm:text-[12px]">
-                                <Ban size={13} className="text-slate-500 flex-shrink-0" />
-                                <span>This message was deleted</span>
-                              </p>
-                            ) : isEditing ? (
-                              <div className="space-y-1.5 my-1" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="text"
-                                  value={editText}
-                                  onChange={(e) => setEditText(e.target.value)}
-                                  className="w-full bg-white/10 border border-teal-400/40 rounded px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-teal-400 light:bg-slate-100 light:border-teal-600 light:text-slate-900"
-                                  autoFocus
-                                />
-                                <div className="flex gap-1 justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingId(null);
-                                      if (typeof window !== "undefined") {
-                                        window.scrollTo(0, 0);
-                                        document.documentElement.scrollLeft = 0;
-                                        document.body.scrollLeft = 0;
-                                      }
-                                    }}
-                                    className="px-2 py-0.5 text-[10px] bg-white/10 hover:bg-white/20 rounded text-slate-300 light:bg-slate-200 light:text-slate-700"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSaveEdit(msg._id)}
-                                    className="px-2 py-0.5 text-[10px] bg-teal-600 hover:bg-teal-500 rounded text-white font-bold"
-                                  >
-                                    Save
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="whitespace-pre-wrap break-words leading-relaxed text-[12px] sm:text-[13px]">
-                                {msg.text}
-                              </p>
-                            )}
-
-                            {/* Timestamp & Status Footer */}
-                            <div className="flex items-center justify-end gap-1.5 mt-1 pt-0.5 text-[9px] text-slate-400 light:text-slate-500">
-                              {msg.isEdited && !msg.isDeleted && <span className="italic text-[8px] opacity-80">(edited)</span>}
-                              <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                              {isMe && !msg.isDeleted && (
-                                <span className={msg.isRead ? "text-teal-400 light:text-teal-600" : "text-slate-500"}>
-                                  <CheckCheck size={12} />
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Message Actions Toolbar (Hover on Desktop / Tap on Mobile) */}
-                          {!msg.isDeleted && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onTouchStart={(e) => e.stopPropagation()}
-                              className={`flex items-center gap-1 mt-1 p-1 rounded-2xl bg-[#0c0c1e]/95 border border-white/15 shadow-xl z-20 transition-all light:bg-white light:border-slate-300 light:shadow-2xl ${
-                                isMenuOpen 
-                                  ? "flex opacity-100 scale-100" 
-                                  : "hidden group-hover:flex opacity-0 group-hover:opacity-100"
-                              }`}
-                            >
-                              {/* Reply */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setReplyingTo({ id: msg._id, sender: msg.sender, text: msg.text || (msg.mediaType === "image" ? "📷 Photo" : "🎥 Video") });
-                                  setActiveActionMenuId(null);
-                                  focusInput();
-                                }}
-                                className="p-1.5 sm:p-1 rounded-xl hover:bg-white/15 text-slate-300 light:text-slate-700 hover:text-teal-400 light:hover:text-teal-600 light:hover:bg-slate-100 transition-colors cursor-pointer active:scale-95 touch-manipulation"
-                                title="Reply"
-                              >
-                                <Reply size={14} />
-                              </button>
-
-                              {/* Copy */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopyMessage(msg._id, msg.text);
-                                  setActiveActionMenuId(null);
-                                }}
-                                className="p-1.5 sm:p-1 rounded-xl hover:bg-white/15 text-slate-300 light:text-slate-700 hover:text-white light:hover:text-slate-900 light:hover:bg-slate-100 transition-colors cursor-pointer active:scale-95 touch-manipulation"
-                                title="Copy"
-                              >
-                                {isCopied ? <Check size={14} className="text-teal-400 light:text-teal-600" /> : <Copy size={14} />}
-                              </button>
-
-                              {/* Edit */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingId(msg._id);
-                                  setEditText(msg.text);
-                                  setActiveActionMenuId(null);
-                                }}
-                                className="p-1.5 sm:p-1 rounded-xl hover:bg-white/15 text-slate-300 light:text-slate-700 hover:text-amber-400 light:hover:text-amber-600 light:hover:bg-slate-100 transition-colors cursor-pointer active:scale-95 touch-manipulation"
-                                title="Edit Message"
-                              >
-                                <Pencil size={14} />
-                              </button>
-
-                              {/* Delete Single Message */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteSingleMessage(msg._id);
-                                  setActiveActionMenuId(null);
-                                }}
-                                className="p-1.5 sm:p-1 rounded-xl hover:bg-red-500/20 text-slate-300 light:text-slate-700 hover:text-red-400 light:hover:text-red-600 light:hover:bg-red-50 transition-colors cursor-pointer active:scale-95 touch-manipulation"
-                                title="Delete Message"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-
-                              {/* Info Diagnostics */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedInfoMsg(msg);
-                                  setActiveActionMenuId(null);
-                                }}
-                                className="p-1.5 sm:p-1 rounded-xl hover:bg-white/15 text-slate-300 light:text-slate-700 hover:text-teal-400 light:hover:text-teal-600 light:hover:bg-slate-100 transition-colors cursor-pointer active:scale-95 touch-manipulation"
-                                title="Message Info"
-                              >
-                                <Info size={14} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
+                    messages.map((msg) => (
+                      <div
+                        key={msg._id}
+                        className={`w-full flex-shrink-0 ${(msg.reactions?.length ?? 0) > 0 ? "mb-4 sm:mb-5" : "mb-1.5 sm:mb-2"}`}
+                      >
+                        <MessageBubble
+                          message={msg}
+                          currentUserId={currentUserId}
+                          partnerName={activeConversation.name}
+                          onReact={handleReact}
+                          onReply={(m) => setReplyTo({ id: m._id, senderName: m.senderName, text: m.text, mediaType: m.mediaType })}
+                          onEdit={handleEditMessage}
+                          onDelete={handleDeleteMessage}
+                          onTogglePin={handleTogglePin}
+                          onTriggerEffect={(eff) => setActiveEffect(eff)}
+                          onJumpToMessage={handleJumpToMessage}
+                          isHighlighted={highlightedMessageId === msg._id}
+                          showAvatar={activeConversation.type === "group"}
+                        />
+                      </div>
+                    ))
                   )}
+
+                  {/* LIVE TYPING BUBBLE */}
+                  {typingUsers.length > 0 && (
+                    <div className="flex items-center gap-2 px-4 py-1 flex-shrink-0 mb-2">
+                      <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-[#26252A] border border-white/10 text-white text-xs shadow-md">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:0.2s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce [animation-delay:0.4s]" />
+                        <span className="text-[11px] text-slate-400 font-medium ml-1.5">{typingUsers[0]} is typing...</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="h-4 sm:h-6 flex-shrink-0" />
+                  <div ref={chatBottomRef} />
                 </div>
-              )}
+              </div>
 
-              {/* Replying Preview Bar */}
-              {replyingTo && (
-                <div className="px-3 py-1.5 bg-teal-950/70 border-t border-teal-500/30 flex items-center justify-between gap-2 text-xs text-teal-200">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <Reply size={13} className="text-teal-400 flex-shrink-0" />
-                    <span className="font-bold">{replyingTo.sender}:</span>
-                    <span className="truncate">{replyingTo.text}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setReplyingTo(null)}
-                    className="text-slate-400 hover:text-white text-xs p-0.5 cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-
-              {/* Staged Media Preview */}
-              {stagedMedia && (
-                <div className="p-2 bg-black/60 border-t border-white/10 flex items-center justify-between gap-2 text-xs text-white">
-                  <div className="flex items-center gap-2">
-                    {stagedMedia.type === "image" ? <ImageIcon size={16} className="text-teal-400" /> : <Film size={16} className="text-teal-400" />}
-                    <span className="truncate max-w-xs">{stagedMedia.name}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setStagedMedia(null)}
-                    className="text-slate-400 hover:text-red-400 p-1 cursor-pointer"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              )}
-
-              {/* Emoji Picker Dropdown */}
-              {showEmojiPicker && (
-                <div className="p-3 bg-[#0a0a1a] border-t border-white/10 max-h-48 overflow-y-auto">
-                  <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/10">
-                    {EMOJI_CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setActiveEmojiTab(cat.id)}
-                        className={`px-2 py-0.5 rounded text-xs transition-all cursor-pointer ${
-                          activeEmojiTab === cat.id ? "bg-teal-500/30 text-teal-300 font-bold" : "text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        {cat.icon}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={handleBackspaceEmoji}
-                      className="ml-auto px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-300 text-xs cursor-pointer flex items-center gap-1"
-                    >
-                      <Delete size={12} />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 text-base sm:text-lg">
-                    {EMOJI_CATEGORIES.find((c) => c.id === activeEmojiTab)?.emojis.map((emoji, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleInsertEmoji(emoji)}
-                        className="hover:scale-125 transition-transform p-1 cursor-pointer"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Bottom Message Input Bar */}
-              <form onSubmit={handleSend} className="p-2 sm:p-3 border-t border-white/10 bg-[#070712] light:bg-[#f0f2f5] light:border-slate-200 flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                {/* Media Attachment Clip Button */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept="image/*,video/*"
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isCompressingMedia}
-                  className="p-2 rounded-xl text-slate-400 hover:text-teal-400 hover:bg-white/5 transition-all cursor-pointer light:hover:text-teal-700 active:scale-95 touch-manipulation"
-                  title="Attach Photo or Video"
-                >
-                  {isCompressingMedia ? <Loader2 size={18} className="animate-spin text-teal-400" /> : <Paperclip size={18} />}
-                </button>
-
-                {/* Emoji Picker Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className={`p-2 rounded-xl transition-all cursor-pointer active:scale-95 touch-manipulation ${
-                    showEmojiPicker ? "text-teal-400 bg-teal-500/20" : "text-slate-400 hover:text-teal-400 hover:bg-white/5"
-                  }`}
-                  title="Insert Emoji"
-                >
-                  <Smile size={18} />
-                </button>
-
-                {/* Main Text Input */}
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputText}
-                  onChange={handleInputChange}
-                  onBlur={() => {
-                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                    isTypingRef.current = false;
-                    syncPresence(false);
-                  }}
-                  placeholder={`Message ${selectedFriend.partnerName} securely...`}
-                  className="flex-1 bg-white/[0.07] border border-white/10 rounded-xl px-3 py-2 text-base sm:text-xs text-white placeholder-slate-500 outline-none focus:border-teal-500 light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
-                  autoFocus
-                />
-
-                {/* Send Button */}
-                <button
-                  type="submit"
-                  disabled={(!inputText.trim() && !stagedMedia) || sending}
-                  className="p-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:opacity-90 disabled:opacity-40 text-white transition-all cursor-pointer shadow-md flex-shrink-0 active:scale-95 touch-manipulation"
-                  title="Send Message"
-                >
-                  <Send size={16} />
-                </button>
-              </form>
+              {/* BOTTOM INPUT BAR */}
+              <MessageInputBar
+                onSendMessage={handleSendMessage}
+                replyTo={replyTo}
+                onClearReply={() => setReplyTo(null)}
+                onTyping={handleTyping}
+                currentDisappearingHours={activeConversation.disappearingHours || 0}
+                onSetDisappearingTimer={handleSetDisappearingTimer}
+                partnerName={activeConversation.name}
+              />
             </>
+          ) : (
+            /* EMPTY STATE ON DESKTOP */
+            <div className="hidden md:flex flex-col items-center justify-center flex-1 h-full text-center p-6 space-y-4">
+              <div className="w-20 h-20 rounded-3xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shadow-lg">
+                <Shield size={40} />
+              </div>
+              <div className="max-w-md space-y-1.5">
+                <h3 className="text-lg font-bold text-white">Secret Encrypted Chat</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Select a contact from the sidebar or click <strong>+</strong> to start an end-to-end encrypted private conversation.
+                </p>
+                <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-blue-400 font-mono font-medium">
+                  <Lock size={12} /> Disappearing Messages & E2EE Calling Enabled
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
-      {/* ========================================================= */}
-      {/* CONTACT PROFILE & SETTINGS MODAL (Global Dialog Level) */}
-      {/* ========================================================= */}
-      {showProfileModal && selectedFriend && (
-        <div 
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              e.stopPropagation();
-              setShowProfileModal(false);
-              setMobileView("chat");
-            }
-          }}
-          className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150 overflow-y-auto"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            className="bg-[#0b0b1a] border border-white/15 rounded-3xl p-4 sm:p-6 max-w-md w-full space-y-4 shadow-2xl relative max-h-[85vh] overflow-y-auto overscroll-contain light:bg-white light:border-slate-300 light:text-slate-900 my-auto"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-3 light:border-slate-200">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 light:text-slate-900">
-                <User size={16} className="text-teal-400" /> Contact Details
-              </h3>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowProfileModal(false);
-                  setMobileView("chat");
-                }}
-                className="p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200 active:scale-95 touch-manipulation"
-                title="Close Details & Return to Chat"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {/* TOAST NOTIFICATION */}
+      {toastMessage && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] pointer-events-none">
+          <div className="px-5 py-2.5 bg-[#1C1C1E]/95 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl text-white text-sm font-medium animate-in fade-in slide-in-from-bottom-2 duration-200">
+            {toastMessage}
+          </div>
+        </div>
+      )}
 
-            {/* Profile Card Summary */}
-            <div className="flex flex-col items-center text-center space-y-2 pt-1">
-              <div className="relative">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-xl sm:text-2xl flex items-center justify-center shadow-xl border-2 border-white/20">
-                  {selectedFriend.partnerName.slice(0, 2).toUpperCase()}
-                </div>
-                {isFriendOnline && (
-                  <span className="absolute bottom-0 right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-500 border-2 border-[#0b0b1a] light:border-white shadow-sm"></span>
-                )}
-              </div>
-              <div>
-                <h4 className="text-sm sm:text-base font-bold text-white light:text-slate-900">{selectedFriend.partnerName}</h4>
-                {selectedFriend.partnerEmail && (
-                  <p className="text-xs text-slate-400 flex items-center justify-center gap-1 light:text-slate-600">
-                    <Mail size={12} /> {selectedFriend.partnerEmail}
-                  </p>
-                )}
-                <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-[10px] text-teal-300 font-mono light:bg-teal-50 light:border-teal-300 light:text-teal-800">
-                  <ShieldCheck size={12} /> End-to-End Encrypted (AES-256)
-                </div>
-              </div>
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirmMessageId && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
+          <div className="w-full max-w-xs bg-[#1C1C1E]/98 border border-white/15 rounded-3xl p-6 shadow-[0_25px_60px_rgba(0,0,0,0.95)] text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center mx-auto">
+              <MessageSquare className="w-6 h-6" />
             </div>
-
-            {/* Disappearing Messages Setting */}
-            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3.5 space-y-2.5 light:bg-slate-100 light:border-slate-300">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock size={15} className="text-teal-400 light:text-teal-600" />
-                  <h5 className="text-xs font-bold text-white light:text-slate-900">Disappearing Messages</h5>
-                </div>
-                <span className="text-[10px] font-mono font-bold text-teal-400 light:text-teal-700">
-                  {retentionHours === 0 ? "Off" : `${retentionHours}h timer`}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed light:text-slate-600">
-                New messages in this chat will self-destruct for both participants after the selected duration.
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-white">Delete Message?</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                This will remove the message for everyone in the conversation.
               </p>
-              {/* Option Pills */}
-              <div className="grid grid-cols-4 gap-1.5 pt-1">
-                {[
-                  { label: "Off", hours: 0 },
-                  { label: "12 Hours", hours: 12 },
-                  { label: "24 Hours", hours: 24 },
-                  { label: "7 Days", hours: 168 },
-                ].map((opt) => (
-                  <button
-                    key={opt.hours}
-                    type="button"
-                    onClick={() => handleUpdateRetention(opt.hours)}
-                    className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer text-center active:scale-95 touch-manipulation ${
-                      retentionHours === opt.hours
-                        ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md border border-teal-400/40"
-                        : "bg-white/[0.06] border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 light:bg-white light:border-slate-300 light:text-slate-700 light:hover:bg-slate-50"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
             </div>
-
-            {/* Actions: Clear Chat & Remove Connection */}
-            <div className="space-y-2 pt-1">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={handleClearAll}
-                disabled={messages.length === 0}
-                className="w-full py-2.5 px-3 bg-white/[0.06] hover:bg-amber-500/15 border border-white/10 hover:border-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed active:scale-98 touch-manipulation light:bg-amber-50 light:border-amber-300 light:text-amber-800 light:hover:bg-amber-100"
+                onClick={() => setDeleteConfirmMessageId(null)}
+                className="flex-1 py-2.5 rounded-2xl text-xs font-semibold text-neutral-300 bg-white/8 hover:bg-white/12 border border-white/10 transition-all cursor-pointer active:scale-95"
               >
-                <Trash2 size={14} /> Clear Messages History
+                Cancel
               </button>
-
               <button
                 type="button"
-                onClick={() => handleRemoveConnection(selectedFriend.connectionId, selectedFriend.partnerName)}
-                className="w-full py-2.5 px-3 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 touch-manipulation light:bg-red-50 light:border-red-300 light:text-red-700 light:hover:bg-red-100"
+                onClick={confirmDeleteMessage}
+                className="flex-1 py-2.5 rounded-2xl text-xs font-bold bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-lg shadow-red-500/30 transition-all cursor-pointer active:scale-95"
               >
-                <UserMinus size={14} /> Remove {selectedFriend.partnerName} from Friends
+                Delete
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Media Lightbox Zoom Modal */}
-      {lightboxMedia && (
-        <div 
-          onClick={() => setLightboxMedia(null)}
-          className="fixed inset-0 z-[105] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-150"
-        >
-          <div className="absolute top-4 right-4 flex items-center gap-3">
-            <a
-              href={lightboxMedia.url}
-              download={lightboxMedia.name || "media-download"}
-              onClick={(e) => e.stopPropagation()}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"
-              title="Download"
-            >
-              <Download size={18} />
-            </a>
-            <button
-              onClick={() => setLightboxMedia(null)}
-              className="p-2 rounded-full bg-white/10 hover:bg-red-500/30 text-white transition-all cursor-pointer"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <img
-            src={lightboxMedia.url}
-            alt={lightboxMedia.name || "Preview"}
-            className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+      {/* MODALS */}
+      {activeConversation && (
+        <ContactProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          conversation={activeConversation}
+          messages={messages}
+          onStartAudioCall={() => handleStartCall("audio")}
+          onStartVideoCall={() => handleStartCall("video")}
+          onOpenSearch={() => setIsSearchModalOpen(true)}
+          onClearChat={handleClearChat}
+          onSetDisappearingTimer={handleSetDisappearingTimer}
+        />
       )}
 
-      {/* Message Info Modal */}
-      {selectedInfoMsg && (
-        <div 
-          onClick={() => setSelectedInfoMsg(null)}
-          className="fixed inset-0 z-[105] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-[#0b0b1a] border border-white/15 rounded-2xl p-4 max-w-sm w-full space-y-3 shadow-2xl light:bg-white light:border-slate-300 light:text-slate-800"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-2 light:border-slate-200">
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-1.5 light:text-slate-900">
-                <Info size={14} className="text-teal-400 light:text-teal-600" /> Message Diagnostics
-              </h4>
-              <button onClick={() => setSelectedInfoMsg(null)} className="text-slate-400 hover:text-white text-xs light:text-slate-600">✕</button>
-            </div>
-            <div className="space-y-1.5 text-xs text-slate-300 light:text-slate-700">
-              <div className="flex justify-between"><span className="text-slate-500 light:text-slate-500">Sender:</span> <span className="font-bold light:text-slate-900">{selectedInfoMsg.sender}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500 light:text-slate-500">Sent at:</span> <span className="light:text-slate-900">{new Date(selectedInfoMsg.createdAt).toLocaleString()}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500 light:text-slate-500">Delivered:</span> <span className="light:text-slate-900">{selectedInfoMsg.deliveredAt ? new Date(selectedInfoMsg.deliveredAt).toLocaleTimeString() : "Delivered"}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500 light:text-slate-500">Read:</span> <span className="light:text-slate-900">{selectedInfoMsg.isRead ? "Read ✓✓" : "Delivered ✓"}</span></div>
-            </div>
-          </div>
-        </div>
+      <GroupModal
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        contacts={conversations.map((c) => ({
+          userId: c.participants?.find((p) => p !== currentUserId) || "",
+          name: c.name,
+          email: "",
+          avatar: c.icon,
+        })).filter((c) => c.userId)}
+        onOpenContacts={() => {
+          setIsGroupModalOpen(false);
+          setIsContactModalOpen(true);
+        }}
+        onCreateGroup={handleCreateGroup}
+      />
+
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => {
+          setIsContactModalOpen(false);
+          fetchContactsAndRequests();
+          fetchConversations();
+        }}
+        onStartDirectChat={handleStartDirectChat}
+      />
+
+      <SearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        messages={messages}
+        onSelectMessage={(msgId) => {
+          handleJumpToMessage(msgId);
+        }}
+      />
+
+      <ProfileSettingsModal
+        isOpen={isMyProfileModalOpen}
+        onClose={() => setIsMyProfileModalOpen(false)}
+        currentUser={{
+          name: currentUserName,
+          email: session?.user?.email || "",
+          avatar: currentUserAvatar,
+          statusMessage: currentUserStatus,
+        }}
+        onProfileUpdated={(updated) => {
+          setCustomProfile(updated);
+          fetchConversations();
+        }}
+      />
+
+      {/* WEBRTC CALL OVERLAY */}
+      {activeCall && (
+        <CallModal
+          call={activeCall}
+          currentUserId={currentUserId}
+          onEndCall={handleEndCall}
+          onAcceptCall={handleAcceptCall}
+          onDeclineCall={handleDeclineCall}
+        />
       )}
     </div>
   );

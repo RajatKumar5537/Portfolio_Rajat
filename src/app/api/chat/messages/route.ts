@@ -1,228 +1,134 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
-import mongoose, { isValidObjectId } from "mongoose";
 import User from "@/lib/models/User";
-import ChatMessage from "@/lib/models/ChatMessage";
-import ChatConnection from "@/lib/models/ChatConnection";
-import { encryptMessage, decryptMessage } from "@/lib/crypto";
+import Conversation from "@/lib/models/Conversation";
+import Message from "@/lib/models/Message";
+import { encryptMessage, decryptMessage, encryptField, decryptField } from "@/lib/crypto";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.email) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await dbConnect();
-    const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
-    const currentUserEmail = session.user.email.toLowerCase().trim();
-    const currentUserName = currentUser?.name || session.user.name || currentUserEmail.split("@")[0] || "";
-
-    const { searchParams } = new URL(req.url);
-    const rawRecipientId = searchParams.get("recipientId")?.trim() || "";
-    const rawRoomId = searchParams.get("roomId")?.trim() || "";
-    const rawConnectionId = searchParams.get("connectionId")?.trim() || "";
-    const shouldMarkRead = searchParams.get("markRead") !== "false";
-    const now = new Date();
-
-    let targetConnection: any = null;
-
-    if (rawConnectionId && isValidObjectId(rawConnectionId)) {
-      targetConnection = await ChatConnection.findById(rawConnectionId);
-    }
-
-    if (!targetConnection && rawRoomId) {
-      targetConnection = await ChatConnection.findOne({ roomId: rawRoomId });
-    }
-
-    if (!targetConnection && rawRecipientId) {
-      let targetRecipientId = rawRecipientId;
-      let targetRecipientEmail = "";
-
-      if (rawRecipientId.includes("@")) {
-        targetRecipientEmail = rawRecipientId.toLowerCase();
-        const targetUser = await User.findOne({ email: targetRecipientEmail });
-        if (targetUser) targetRecipientId = targetUser._id.toString();
-      } else if (isValidObjectId(rawRecipientId)) {
-        const targetUser = await User.findById(rawRecipientId);
-        if (targetUser) targetRecipientEmail = targetUser.email.toLowerCase();
+    let currentUserId = (session.user as any).id;
+    if (!currentUserId) {
+      const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() }).lean();
+      if (!currentUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
       }
-
-      targetConnection = await ChatConnection.findOne({
-        $or: [
-          { roomId: [currentUserId, targetRecipientId].sort().join(":") },
-          { roomId: [currentUserId, targetRecipientId].sort().join("_") },
-          { $and: [{ requesterId: currentUserId }, { recipientId: targetRecipientId }] },
-          { $and: [{ requesterId: targetRecipientId }, { recipientId: currentUserId }] },
-          ...(targetRecipientEmail ? [
-            { $and: [{ requesterEmail: currentUserEmail }, { recipientEmail: targetRecipientEmail }] },
-            { $and: [{ requesterEmail: targetRecipientEmail }, { recipientEmail: currentUserEmail }] },
-            { $and: [{ requesterId: currentUserId }, { recipientEmail: targetRecipientEmail }] },
-            { $and: [{ requesterId: targetRecipientId }, { recipientEmail: currentUserEmail }] },
-          ] : []),
-        ],
-      });
+      currentUserId = currentUser._id.toString();
     }
 
-    if (!targetConnection) {
-      return NextResponse.json([]);
+    const { searchParams } = new URL(req.url, "http://localhost:3000");
+    const conversationId = searchParams.get("conversationId");
+    const queryTerm = searchParams.get("q")?.toLowerCase().trim();
+
+    if (!conversationId) {
+      return NextResponse.json({ error: "conversationId is required" }, { status: 400 });
     }
 
-    // Verify current user is a party to this connection
-    const isRequester = targetConnection.requesterId === currentUserId || targetConnection.requesterEmail === currentUserEmail;
-    const isRecipient = targetConnection.recipientId === currentUserId || targetConnection.recipientEmail === currentUserEmail;
-    if (!isRequester && !isRecipient) {
-      return NextResponse.json({ error: "Unauthorized access to this chat room" }, { status: 403 });
+    // Verify user is in this conversation
+    const conversation = await Conversation.findById(conversationId).select("participants").lean();
+    if (!conversation || !conversation.participants?.includes(currentUserId)) {
+      return NextResponse.json({ error: "Conversation not found or unauthorized" }, { status: 403 });
     }
 
-    const myRetentionHours = isRequester ? (targetConnection.requesterRetentionHours || 24) : (targetConnection.recipientRetentionHours || 24);
-    const myClearedAt = isRequester ? targetConnection.requesterClearedAt : targetConnection.recipientClearedAt;
-
-    const retentionCutoff = new Date(Date.now() - (myRetentionHours || 24) * 60 * 60 * 1000);
-    const effectiveEarliestDate = myClearedAt && new Date(myClearedAt) > retentionCutoff ? new Date(myClearedAt) : retentionCutoff;
-
-    const query: any = {
-      roomId: targetConnection.roomId,
-      clearedFor: { $nin: [currentUserId, currentUserEmail] },
-      createdAt: { $gt: effectiveEarliestDate },
-      $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }, { expiresAt: { $exists: false } }],
-    };
-
-    const messages: any[] = await ChatMessage.find(query)
+    // Ultra-fast index query using { conversationId: 1, createdAt: 1 }
+    const messages = await Message.find({
+      conversationId,
+      clearedFor: { $ne: currentUserId },
+    })
       .sort({ createdAt: 1 })
       .lean();
 
-    if (messages.length > 0) {
-      if (shouldMarkRead) {
-        await ChatMessage.updateMany(
-          {
-            $and: [
-              query,
-              {
-                $or: [
-                  { recipientId: currentUserId },
-                  { recipientId: currentUserEmail },
-                  ...(currentUser ? [{ recipientId: currentUser._id.toString() }] : []),
-                ],
-              },
-            ],
+    // Mark messages as read when incoming unread messages exist
+    const hasUnread = messages.some(
+      (m: any) => m.senderId !== currentUserId && (!m.readBy || !m.readBy.some((r: any) => r.userId === currentUserId))
+    );
+
+    if (hasUnread) {
+      await Message.updateMany(
+        {
+          conversationId,
+          senderId: { $ne: currentUserId },
+          "readBy.userId": { $ne: currentUserId },
+        },
+        {
+          $addToSet: {
+            readBy: {
+              userId: currentUserId,
+              userName: session.user?.name || "Recipient",
+              readAt: new Date(),
+            },
           },
-          { 
-            $set: { 
-              isRead: true, 
-              isDelivered: true,
-              readAt: new Date()
-            } 
-          }
-        );
-      } else {
-        await ChatMessage.updateMany(
-          {
-            $and: [
-              query,
-              {
-                $or: [
-                  { recipientId: currentUserId },
-                  { recipientId: currentUserEmail },
-                  ...(currentUser ? [{ recipientId: currentUser._id.toString() }] : []),
-                ],
-              },
-              { isDelivered: false },
-            ],
-          },
-          { 
-            $set: { 
-              isDelivered: true,
-              deliveredAt: new Date()
-            } 
-          }
-        );
-      }
+        }
+      ).catch(() => {});
     }
 
-    const decryptedList = messages.map((msg: any) => {
-      const isDirectedToMe = msg.recipientId === currentUserId || msg.recipientId === currentUserEmail;
-      const isMsgRead = (shouldMarkRead && isDirectedToMe) ? true : (msg.isRead || false);
-      const isMsgDelivered = isDirectedToMe ? true : (msg.isDelivered || false);
-
+    // Decrypt messages with lightweight on-demand media streaming
+    const formatted = messages.map((msg: any) => {
+      let plainText = "";
       if (msg.isDeleted) {
-        return {
-          _id: msg._id ? msg._id.toString() : "",
-          senderId: msg.senderId,
-          recipientId: msg.recipientId,
-          sender: msg.sender,
-          text: "This message was deleted",
-          replyTo: null,
-          isRead: isMsgRead,
-          isDelivered: isMsgDelivered,
-          deliveredAt: msg.deliveredAt || (isMsgDelivered ? (msg.updatedAt || msg.createdAt) : null),
-          readAt: msg.readAt || (isMsgRead ? (msg.updatedAt || msg.createdAt) : null),
-          isEdited: false,
-          isDeleted: true,
-          retentionHours: msg.retentionHours || 24,
-          createdAt: msg.createdAt,
-        };
+        plainText = "This message was deleted";
+      } else {
+        plainText = decryptMessage({
+          content: msg.content,
+          iv: msg.iv,
+          authTag: msg.authTag,
+        });
       }
 
-      const plainText = decryptMessage({
-        content: msg.content,
-        iv: msg.iv,
-        authTag: msg.authTag,
-      });
-
-      let messageText = plainText;
-      let mediaType: "image" | "video" | null = null;
-      let mediaData: string | null = null;
-      let mediaName: string | null = null;
-
-      try {
-        if (plainText.startsWith("{") && plainText.endsWith("}")) {
-          const parsed = JSON.parse(plainText);
-          if (parsed && typeof parsed === "object") {
-            messageText = parsed.text || "";
-            mediaType = parsed.mediaType || null;
-            mediaData = parsed.mediaData || null;
-            mediaName = parsed.mediaName || null;
-          }
-        }
-      } catch (_) {
-        messageText = plainText;
-      }
-
-      const isMe = msg.senderId === currentUserId || 
-                   msg.senderId === currentUserEmail || 
-                   (currentUser && msg.senderId === currentUser._id.toString()) || 
-                   msg.sender?.toLowerCase() === currentUserName.toLowerCase() || 
-                   msg.sender?.toLowerCase() === currentUserEmail.split("@")[0].toLowerCase();
+      // If message has mediaData, point to on-demand cached media streaming endpoint
+      // to keep polling payload ultra-lightweight (<10KB instead of 20MB)
+      const mediaUrl = msg.mediaData ? `/api/chat/messages/media?id=${msg._id}` : null;
 
       return {
-        _id: msg._id ? msg._id.toString() : "",
+        _id: msg._id.toString(),
+        conversationId: msg.conversationId,
         senderId: msg.senderId,
-        recipientId: msg.recipientId,
-        sender: msg.sender,
-        isMe: Boolean(isMe),
-        text: messageText,
-        mediaType,
-        mediaData,
-        mediaName,
-        replyTo: msg.replyTo || null,
-        isRead: isMsgRead,
-        isDelivered: isMsgDelivered,
-        deliveredAt: msg.deliveredAt || (isMsgDelivered ? (msg.updatedAt || msg.createdAt) : null),
-        readAt: msg.readAt || (isMsgRead ? (msg.updatedAt || msg.createdAt) : null),
-        isEdited: msg.isEdited || false,
-        isDeleted: false,
-        retentionHours: msg.retentionHours || 24,
+        senderName: msg.senderName,
+        senderAvatar: msg.senderAvatar,
+        isMe: msg.senderId === currentUserId,
+        text: plainText,
+        effect: msg.effect || null,
+        mediaType: msg.mediaType || null,
+        mediaData: mediaUrl,
+        mediaName: msg.mediaName || null,
+        mediaSize: msg.mediaSize || null,
+        audioDuration: msg.audioDuration || 0,
+        reactions: msg.reactions || [],
+        replyTo: msg.replyTo
+          ? {
+              ...msg.replyTo,
+              text: msg.replyTo.text ? decryptField(msg.replyTo.text) : null,
+            }
+          : null,
+        readBy: msg.readBy || [],
+        isRead: (msg.readBy || []).length > 0,
+        isEdited: Boolean(msg.isEdited),
+        isDeleted: Boolean(msg.isDeleted),
+        isPinned: Boolean(msg.isPinned),
         createdAt: msg.createdAt,
       };
     });
 
-    return NextResponse.json(decryptedList);
+    // Filter by query term if search active
+    if (queryTerm) {
+      return NextResponse.json(
+        formatted.filter((m) => m.text.toLowerCase().includes(queryTerm))
+      );
+    }
+
+    return NextResponse.json(formatted);
   } catch (error: any) {
-    console.error("GET Chat Messages Error:", error);
+    console.error("GET Messages Error:", error);
     return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });
   }
 }
@@ -230,116 +136,166 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.email) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { sender, recipientId, connectionId, roomId, text, mediaType, mediaData, mediaName, replyTo, retentionHours } = await req.json();
-
-    if ((!recipientId && !connectionId && !roomId) || (!text?.trim() && !mediaData)) {
-      return NextResponse.json({ error: "Recipient and message text or media are required" }, { status: 400 });
     }
 
     await dbConnect();
     const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
-    const currentUserEmail = session.user.email.toLowerCase().trim();
-    const displayName = sender || currentUser?.name || session.user.name || "Anonymous";
+    if (!currentUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    const currentUserId = currentUser._id.toString();
 
-    let connection: any = null;
-    if (connectionId && isValidObjectId(connectionId)) {
-      connection = await ChatConnection.findById(connectionId);
+    const {
+      conversationId,
+      text,
+      effect,
+      mediaType,
+      mediaData,
+      mediaName,
+      mediaSize,
+      audioDuration,
+      replyTo,
+    } = await req.json();
+
+    if (!conversationId || (!text?.trim() && !mediaData)) {
+      return NextResponse.json({ error: "Conversation ID and message content or media are required" }, { status: 400 });
     }
-    if (!connection && roomId) {
-      connection = await ChatConnection.findOne({ roomId });
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: currentUserId,
+    });
+
+    if (!conversation) {
+      return NextResponse.json({ error: "Conversation not found or unauthorized" }, { status: 403 });
     }
-    if (!connection && recipientId) {
-      let targetRecipientId = recipientId;
-      const recipientUser = await User.findOne({
-        $or: [{ _id: isValidObjectId(recipientId) ? recipientId : null }, { email: recipientId.toLowerCase().trim() }],
-      });
-      if (recipientUser) {
-        targetRecipientId = recipientUser._id.toString();
+
+    // Encrypt message content with AES-256-GCM
+    const rawText = (text || "").trim();
+    const encrypted = encryptMessage(rawText);
+
+    // Calculate disappearing TTL if enabled
+    let expiresAt: Date | null = null;
+    if (conversation.disappearingHours && conversation.disappearingHours > 0) {
+      expiresAt = new Date(Date.now() + conversation.disappearingHours * 60 * 60 * 1000);
+    }
+
+    // Automatic keyword effect triggers if none provided
+    let resolvedEffect = effect || null;
+    if (!resolvedEffect && rawText) {
+      const lower = rawText.toLowerCase().trim();
+      if (lower.includes("happy new year") || lower.includes("congratulations") || lower.includes("congrats") || lower.includes("fireworks")) {
+        resolvedEffect = "fireworks";
+      } else if (lower.includes("happy birthday") || lower.includes("hbd") || lower.includes("birthday")) {
+        resolvedEffect = "balloons";
+      } else if (lower.includes("celebrate") || lower.includes("party") || lower.includes("woohoo") || lower.includes("confetti")) {
+        resolvedEffect = "confetti";
+      } else if (lower.includes("i love you") || lower.includes("love you") || lower.includes("i love u") || lower.includes("love u") || lower === "❤️" || lower === "💕" || lower.includes("tingu")) {
+        resolvedEffect = "love";
+      } else if (
+        lower.includes("good morning") ||
+        lower.includes("goodmorning") ||
+        lower.includes("rise and shine") ||
+        lower.includes("shubh prabhat") ||
+        lower.includes("subh prabhat") ||
+        lower === "gm" ||
+        lower === "morning" ||
+        lower === "morning!" ||
+        lower.startsWith("gm ") ||
+        lower.endsWith(" gm")
+      ) {
+        resolvedEffect = "good_morning";
+      } else if (
+        lower.includes("good night") ||
+        lower.includes("goodnight") ||
+        lower.includes("sweet dreams") ||
+        lower.includes("nighty night") ||
+        lower.includes("shubh ratri") ||
+        lower.includes("subh ratri") ||
+        lower === "gn" ||
+        lower === "night" ||
+        lower === "night!" ||
+        lower.startsWith("gn ") ||
+        lower.endsWith(" gn")
+      ) {
+        resolvedEffect = "good_night";
       }
-
-      connection = await ChatConnection.findOne({
-        $or: [
-          { requesterId: currentUserId, recipientId: targetRecipientId },
-          { requesterId: targetRecipientId, recipientId: currentUserId },
-          { requesterEmail: currentUserEmail, recipientEmail: recipientUser?.email || recipientId },
-          { requesterEmail: recipientUser?.email || recipientId, recipientEmail: currentUserEmail },
-        ],
-        status: "accepted",
-      });
     }
 
-    if (!connection || connection.status !== "accepted") {
-      return NextResponse.json(
-        { error: "You can only message connected friends. Send a friend request first." },
-        { status: 403 }
-      );
-    }
-
-    const isRequester = connection.requesterId === currentUserId || connection.requesterEmail === currentUserEmail;
-    const targetRecipientId = isRequester ? connection.recipientId : connection.requesterId;
-    const targetRecipientEmail = isRequester ? connection.recipientEmail : connection.requesterEmail;
-    const resolvedRoomId = connection.roomId;
-    const participants = [currentUserId, targetRecipientId, currentUserEmail, targetRecipientEmail].filter(Boolean);
-
-    const payloadObj = {
-      text: text ? text.trim() : "",
-      mediaType: mediaType || null,
-      mediaData: mediaData || null,
-      mediaName: mediaName || null,
-    };
-    const encrypted = encryptMessage(JSON.stringify(payloadObj));
-
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    const newMsg = await ChatMessage.create({
+    const newMessage = await Message.create({
+      conversationId,
       senderId: currentUserId,
-      recipientId: targetRecipientId,
-      roomId: resolvedRoomId,
-      participants,
-      clearedFor: [],
-      sender: displayName,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar || "",
       content: encrypted.content,
       iv: encrypted.iv,
       authTag: encrypted.authTag,
-      replyTo: replyTo ? {
-        id: replyTo.id,
-        sender: replyTo.sender,
-        text: replyTo.text,
-      } : null,
-      retentionHours: retentionHours || 24,
-      expiresAt,
-      isDelivered: false,
-      isRead: false,
+      effect: resolvedEffect,
+      mediaType: mediaType || null,
+      mediaData: mediaData ? encryptField(mediaData) : null,
+      mediaName: mediaName || null,
+      mediaSize: mediaSize || null,
+      audioDuration: audioDuration || 0,
+      replyTo: replyTo
+        ? {
+            ...replyTo,
+            text: replyTo.text ? encryptField(replyTo.text) : null,
+          }
+        : null,
+      reactions: [],
+      readBy: [],
       isEdited: false,
       isDeleted: false,
+      isPinned: false,
+      expiresAt,
     });
 
-    return NextResponse.json({
-      _id: newMsg._id.toString(),
-      senderId: newMsg.senderId,
-      recipientId: newMsg.recipientId,
-      sender: newMsg.sender,
-      text: text ? text.trim() : "",
+    // Update conversation lastMessage (stored encrypted in DB)
+    let previewText = rawText;
+    if (!previewText && mediaType) {
+      previewText = `[${mediaType.toUpperCase()}] ${mediaName || ""}`;
+    }
+    conversation.lastMessage = {
+      text: encryptField(previewText),
+      senderId: currentUserId,
+      senderName: currentUser.name,
+      createdAt: new Date(),
       mediaType: mediaType || null,
-      mediaData: mediaData || null,
-      mediaName: mediaName || null,
-      replyTo: newMsg.replyTo || null,
-      isRead: false,
-      isDelivered: false,
-      deliveredAt: null,
-      readAt: null,
-      isEdited: false,
-      isDeleted: false,
-      retentionHours: newMsg.retentionHours,
-      createdAt: newMsg.createdAt,
-    });
+      effect: resolvedEffect,
+    };
+    conversation.clearedFor = [];
+    await conversation.save();
+
+    return NextResponse.json(
+      {
+        _id: newMessage._id.toString(),
+        conversationId,
+        senderId: currentUserId,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar || "",
+        isMe: true,
+        text: rawText,
+        effect: resolvedEffect,
+        mediaType: mediaType || null,
+        mediaData: mediaData || null,
+        mediaName: mediaName || null,
+        mediaSize: mediaSize || null,
+        audioDuration: audioDuration || 0,
+        reactions: [],
+        replyTo: replyTo || null,
+        readBy: [],
+        isRead: false,
+        isEdited: false,
+        isDeleted: false,
+        isPinned: false,
+        createdAt: newMessage.createdAt,
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
-    console.error("POST Chat Message Error:", error);
+    console.error("POST Message Error:", error);
     return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
   }
 }
@@ -347,89 +303,57 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.email) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await dbConnect();
     const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
-    const currentUserEmail = session.user.email.toLowerCase().trim();
+    if (!currentUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    const currentUserId = currentUser._id.toString();
 
-    const { id, text } = await req.json();
+    const { messageId, text, isPinned } = await req.json();
 
-    if (!id || !text || !text.trim()) {
-      return NextResponse.json({ error: "Message ID and text are required" }, { status: 400 });
+    if (!messageId) {
+      return NextResponse.json({ error: "messageId is required" }, { status: 400 });
     }
 
-    const existing = await ChatMessage.findById(id);
-    if (!existing) {
+    const message = await Message.findById(messageId);
+    if (!message) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    const isAuthorized = existing.senderId === currentUserId || 
-                         existing.senderId === currentUserEmail ||
-                         (currentUser && existing.senderId === currentUser._id.toString()) ||
-                         existing.participants?.includes(currentUserId) ||
-                         existing.participants?.includes(currentUserEmail);
-
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized to edit this message" }, { status: 403 });
+    if (isPinned !== undefined) {
+      message.isPinned = Boolean(isPinned);
+      await message.save();
+      return NextResponse.json({ success: true, isPinned: message.isPinned });
     }
 
-    let existingMediaType: "image" | "video" | null = null;
-    let existingMediaData: string | null = null;
-    let existingMediaName: string | null = null;
+    if (message.senderId !== currentUserId) {
+      return NextResponse.json({ error: "You can only edit your own messages" }, { status: 403 });
+    }
 
-    try {
-      const plainText = decryptMessage({
-        content: existing.content,
-        iv: existing.iv,
-        authTag: existing.authTag,
-      });
-      if (plainText.startsWith("{") && plainText.endsWith("}")) {
-        const parsed = JSON.parse(plainText);
-        if (parsed && typeof parsed === "object") {
-          existingMediaType = parsed.mediaType || null;
-          existingMediaData = parsed.mediaData || null;
-          existingMediaName = parsed.mediaName || null;
-        }
-      }
-    } catch (_) {}
+    const rawText = (text || "").trim();
+    if (!rawText) {
+      return NextResponse.json({ error: "Text cannot be empty" }, { status: 400 });
+    }
 
-    const payloadObj = {
-      text: text ? text.trim() : "",
-      mediaType: existingMediaType,
-      mediaData: existingMediaData,
-      mediaName: existingMediaName,
-    };
-    const encrypted = encryptMessage(JSON.stringify(payloadObj));
-
-    existing.content = encrypted.content;
-    existing.iv = encrypted.iv;
-    existing.authTag = encrypted.authTag;
-    existing.isEdited = true;
-    await existing.save();
+    const encrypted = encryptMessage(rawText);
+    message.content = encrypted.content;
+    message.iv = encrypted.iv;
+    message.authTag = encrypted.authTag;
+    message.isEdited = true;
+    await message.save();
 
     return NextResponse.json({
-      _id: existing._id.toString(),
-      senderId: existing.senderId,
-      recipientId: existing.recipientId,
-      sender: existing.sender,
-      isMe: true,
-      text: text.trim(),
-      mediaType: existingMediaType,
-      mediaData: existingMediaData,
-      mediaName: existingMediaName,
-      replyTo: existing.replyTo || null,
-      isRead: existing.isRead,
+      _id: message._id.toString(),
+      text: rawText,
       isEdited: true,
-      isDeleted: existing.isDeleted || false,
-      retentionHours: existing.retentionHours,
-      createdAt: existing.createdAt,
     });
   } catch (error: any) {
-    console.error("PUT Chat Message Error:", error);
+    console.error("PUT Message Error:", error);
     return NextResponse.json({ error: "Failed to update message" }, { status: 500 });
   }
 }
@@ -437,87 +361,56 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user || !session.user.email) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await dbConnect();
     const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() });
-    const currentUserId = currentUser ? currentUser._id.toString() : ((session.user as any).id || session.user.email);
-    const currentUserEmail = session.user.email.toLowerCase().trim();
+    if (!currentUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    const currentUserId = currentUser._id.toString();
 
     const { searchParams } = new URL(req.url);
+    const messageId = searchParams.get("messageId");
+    const conversationId = searchParams.get("conversationId");
     const clearAll = searchParams.get("clearAll") === "true";
-    const rawRecipientId = searchParams.get("recipientId")?.trim() || "";
-    const rawRoomId = searchParams.get("roomId")?.trim() || "";
-    const rawConnectionId = searchParams.get("connectionId")?.trim() || "";
-    const id = searchParams.get("id");
 
-    if (clearAll) {
-      let targetConnection: any = null;
-      if (rawConnectionId && isValidObjectId(rawConnectionId)) {
-        targetConnection = await ChatConnection.findById(rawConnectionId);
-      }
-      if (!targetConnection && rawRoomId) {
-        targetConnection = await ChatConnection.findOne({ roomId: rawRoomId });
-      }
-      if (!targetConnection && rawRecipientId) {
-        targetConnection = await ChatConnection.findOne({
-          $or: [
-            { roomId: [currentUserId, rawRecipientId].sort().join(":") },
-            { $and: [{ requesterId: currentUserId }, { recipientId: rawRecipientId }] },
-            { $and: [{ requesterId: rawRecipientId }, { recipientId: currentUserId }] },
-          ],
-        });
-      }
-
-      if (targetConnection) {
-        await ChatMessage.updateMany(
-          { roomId: targetConnection.roomId },
-          { $addToSet: { clearedFor: { $each: [currentUserId, currentUserEmail] } } }
-        );
-
-        const now = new Date();
-        if (targetConnection.requesterId === currentUserId || targetConnection.requesterEmail === currentUserEmail) {
-          targetConnection.requesterClearedAt = now;
-        } else {
-          targetConnection.recipientClearedAt = now;
-        }
-        await targetConnection.save();
-      }
-
-      return NextResponse.json({ success: true, message: "Conversation cleared for your view only." });
+    if (clearAll && conversationId) {
+      await Conversation.findByIdAndUpdate(conversationId, {
+        $addToSet: { clearedFor: currentUserId },
+      });
+      await Message.updateMany(
+        { conversationId },
+        { $addToSet: { clearedFor: currentUserId } }
+      );
+      return NextResponse.json({ success: true, message: "Chat cleared for your account" });
     }
 
-    if (!id) {
-      return NextResponse.json({ error: "Message ID or clearAll=true is required" }, { status: 400 });
+    if (!messageId) {
+      return NextResponse.json({ error: "messageId is required" }, { status: 400 });
     }
 
-    const existing = await ChatMessage.findById(id);
-    if (!existing) {
+    const message = await Message.findById(messageId);
+    if (!message) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
-    const isAuthorized = existing.senderId === currentUserId || 
-                         existing.senderId === currentUserEmail ||
-                         (currentUser && existing.senderId === currentUser._id.toString()) ||
-                         existing.participants?.includes(currentUserId) ||
-                         existing.participants?.includes(currentUserEmail);
-
-    if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized to delete this message" }, { status: 403 });
+    if (message.senderId !== currentUserId) {
+      return NextResponse.json({ error: "You can only delete your own messages" }, { status: 403 });
     }
 
-    existing.content = "";
-    existing.iv = "";
-    existing.authTag = "";
-    existing.replyTo = null;
-    existing.isDeleted = true;
-    await existing.save();
+    message.content = "";
+    message.iv = "";
+    message.authTag = "";
+    message.mediaData = null;
+    message.isDeleted = true;
+    await message.save();
 
     return NextResponse.json({ success: true, message: "Message deleted for everyone" });
   } catch (error: any) {
-    console.error("DELETE Chat Message Error:", error);
+    console.error("DELETE Message Error:", error);
     return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });
   }
 }
