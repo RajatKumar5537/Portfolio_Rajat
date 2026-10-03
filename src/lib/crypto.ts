@@ -4,17 +4,26 @@ const ALGORITHM_CBC = "aes-256-cbc";
 const ALGORITHM_GCM = "aes-256-gcm";
 const PREFIX = "enc:";
 
-// Derives a secure 32-byte key from NEXTAUTH_SECRET if ENCRYPTION_KEY is not defined in env.
+// Derives a secure 32-byte key from ENCRYPTION_KEY or NEXTAUTH_SECRET.
 const getSecretKey = (): Buffer => {
   if (process.env.ENCRYPTION_KEY) {
     try {
-      return Buffer.from(process.env.ENCRYPTION_KEY, "hex");
+      const buf = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
+      if (buf.length === 32) return buf;
     } catch {
       // fallback if key is invalid hex
     }
   }
+  const secret = process.env.ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "Fatal Security Error: Missing ENCRYPTION_KEY or NEXTAUTH_SECRET in production environment! Refusing to encrypt with public fallback key."
+      );
+    }
+  }
   return crypto.scryptSync(
-    process.env.NEXTAUTH_SECRET || "default-fallback-personal-tracker-key-2808",
+    secret || "default-fallback-personal-tracker-key-2808",
     "personal-tracker-salt",
     32
   );
