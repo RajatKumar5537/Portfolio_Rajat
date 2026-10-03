@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import Message from "@/lib/models/Message";
 import Conversation from "@/lib/models/Conversation";
+import User from "@/lib/models/User";
 import { decryptField } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
@@ -23,26 +24,30 @@ export async function GET(req: Request) {
     }
 
     await dbConnect();
+
+    // Resolve current user ID
+    let currentUserId = (session.user as any)?.id;
+    if (!currentUserId) {
+      const currentUser = await User.findOne({ email: session.user.email.toLowerCase().trim() }).lean();
+      if (!currentUser) {
+        return new NextResponse("Unauthorized", { status: 401 });
+      }
+      currentUserId = currentUser._id.toString();
+    }
+
     const msg = await Message.findById(id).select("mediaData mediaType mediaName conversationId").lean();
     if (!msg || !msg.mediaData) {
       return new NextResponse("Media not found", { status: 404 });
     }
 
-    // Authorization: Verify user is a member of this conversation
-    if (msg.conversationId) {
-      const conv = await Conversation.findById(msg.conversationId).select("participants participantEmails").lean();
-      if (conv) {
-        const userId = (session.user as any)?.id || session.user.email;
-        const userEmail = session.user.email;
-        const isParticipant =
-          conv.participants?.includes(userId) ||
-          conv.participants?.includes(userEmail) ||
-          conv.participantEmails?.includes(userEmail);
+    // Deny request unless the conversation exists and participants contains session user id
+    if (!msg.conversationId) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
 
-        if (!isParticipant) {
-          return new NextResponse("Forbidden", { status: 403 });
-        }
-      }
+    const conv = await Conversation.findById(msg.conversationId).select("participants").lean();
+    if (!conv || !conv.participants?.includes(currentUserId)) {
+      return new NextResponse("Forbidden", { status: 403 });
     }
 
     const decrypted = decryptField(msg.mediaData);
