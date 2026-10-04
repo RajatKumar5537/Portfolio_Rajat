@@ -159,7 +159,7 @@ export default function ExpensesPage() {
           const idx = parsed.indexOf("Term Insurance");
           parsed.splice(idx >= 0 ? idx : Math.max(0, parsed.length - 2), 0, "Health Insurance");
         }
-        setExpenseCategories(parsed);
+        setExpenseCategories(prev => Array.from(new Set([...(prev.length > 0 ? prev : parsed), ...parsed])));
       } catch {}
     } else if (isRajatUser) {
       setExpenseCategories(["Home", "Delhi Room", "Swarna", "Ajit", "SIP", "Health Insurance", "Term Insurance", "Travel", "Others"]);
@@ -278,16 +278,22 @@ export default function ExpensesPage() {
           }
 
           if (dbData.categoryBudgets && typeof dbData.categoryBudgets === "object") {
-            setCategoryBudgets(dbData.categoryBudgets);
-            localStorage.setItem(budgetKey, JSON.stringify(dbData.categoryBudgets));
-            const strForm: { [key: string]: string } = {};
-            Object.keys(dbData.categoryBudgets).forEach(k => strForm[k] = String(dbData.categoryBudgets[k]));
-            setBudgetForm(strForm);
+            setCategoryBudgets(prev => {
+              const merged = { ...prev, ...dbData.categoryBudgets };
+              localStorage.setItem(budgetKey, JSON.stringify(merged));
+              const strForm: { [key: string]: string } = {};
+              Object.keys(merged).forEach(k => strForm[k] = String(merged[k]));
+              setBudgetForm(strForm);
+              return merged;
+            });
           }
 
           if (Array.isArray(dbData.expenseCategories) && dbData.expenseCategories.length > 0) {
-            setExpenseCategories(dbData.expenseCategories);
-            localStorage.setItem(expKey, JSON.stringify(dbData.expenseCategories));
+            setExpenseCategories(prev => {
+              const merged = Array.from(new Set([...prev, ...dbData.expenseCategories]));
+              localStorage.setItem(expKey, JSON.stringify(merged));
+              return merged;
+            });
           }
 
           if (Array.isArray(dbData.incomeCategories) && dbData.incomeCategories.length > 0) {
@@ -761,10 +767,18 @@ export default function ExpensesPage() {
   const currentPeriodBalance = incomeTotal - expenseTotal;
   const newSavingBalance = previousBalance + currentPeriodBalance;
 
-  // Dynamically compute sum & percentage for all active categories with budget evaluations
+  // Match a transaction to one category card only. Description text must not pull the same amount into a second card.
+  const sameCategory = (value: string | undefined | null, category: string) =>
+    (value || "").trim().toLowerCase() === category.trim().toLowerCase();
+
+  // Dynamically compute sum & percentage for all active categories with budget evaluations.
+  // Received (income) and spent (expense) stay separate. A payment is counted once, in its own type.
   const categoryTotals = expenseCategories.map(cat => {
     const total = monthlyExpenses
-      .filter(e => e.type === "Expense" && ((e.category || "").toLowerCase().includes(cat.toLowerCase()) || (e.description || "").toLowerCase().includes(cat.toLowerCase())))
+      .filter(e => e.type === "Expense" && sameCategory(e.category, cat))
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const received = monthlyExpenses
+      .filter(e => e.type === "Income" && sameCategory(e.category, cat))
       .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
     const budget = Number(categoryBudgets[cat]) || 0;
     const percentage = expenseTotal > 0 ? (total / expenseTotal) * 100 : 0;
@@ -778,6 +792,8 @@ export default function ExpensesPage() {
     return {
       category: cat,
       total,
+      received,
+      net: received - total,
       budget,
       percentage,
       incomeShare,
@@ -789,10 +805,10 @@ export default function ExpensesPage() {
       overflowPercentage
     };
   }).filter(item => {
-    if (isRajat) {
-      return item.total > 0 || item.budget > 0 || ["Home", "Ajit", "Swarna", "Delhi Room", "SIP", "Health Insurance", "Term Insurance"].includes(item.category);
-    }
-    return item.total > 0 || item.budget > 0;
+    const hasHistory = expenses.some(
+      e => (e.type === "Expense" || e.type === "Income") && sameCategory(e.category, item.category)
+    );
+    return item.total > 0 || item.budget > 0 || hasHistory;
   });
 
   const overBudgetCategories = categoryTotals.filter(c => c.isOverBudget);
@@ -880,13 +896,8 @@ export default function ExpensesPage() {
     // 2. Type filter
     if (activeFilter.type && exp.type !== activeFilter.type) return false;
 
-    // 3. Category/Person filter (matches category OR description for the name)
-    if (activeFilter.category) {
-      const target = activeFilter.category.toLowerCase().trim();
-      const cat = (exp.category || "").toLowerCase();
-      const desc = (exp.description || "").toLowerCase();
-      if (!cat.includes(target) && !desc.includes(target)) return false;
-    }
+    // 3. Category filter matches the category field only, same rule as the cards
+    if (activeFilter.category && !sameCategory(exp.category, activeFilter.category)) return false;
 
     return true;
   });
@@ -914,13 +925,9 @@ export default function ExpensesPage() {
       );
     }
 
-    // Filter by person/category (matches category OR description)
     if (activeFilter.category) {
-      const target = activeFilter.category.toLowerCase().trim();
-      list = list.filter((e) =>
-        (e.category || "").toLowerCase().includes(target) ||
-        (e.description || "").toLowerCase().includes(target)
-      );
+      const selectedCategory = activeFilter.category;
+      list = list.filter((e) => sameCategory(e.category, selectedCategory));
     }
 
     // Determine type: if customType is provided, use it; otherwise use activeFilter.type if set, or "All"
@@ -981,6 +988,24 @@ export default function ExpensesPage() {
         .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
     const cumulativeBal = openingBal + netBal;
 
+    const exportCategories = Array.from(new Set(sorted.map((e) => e.category).filter(Boolean))) as string[];
+    const categoryBreakdown = exportCategories.map((cat) => {
+      const spent = sorted
+        .filter((e) => e.type === "Expense" && sameCategory(e.category, cat))
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const receivedAmt = sorted
+        .filter((e) => e.type === "Income" && sameCategory(e.category, cat))
+        .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      return {
+        category: cat,
+        total: spent,
+        received: receivedAmt,
+        net: receivedAmt - spent,
+        percentage: totalExp > 0 ? (spent / totalExp) * 100 : 0,
+        incomeShare: totalInc > 0 ? (spent / totalInc) * 100 : 0,
+      };
+    });
+
     return {
       targetName,
       typeFilter: typeToFilter,
@@ -992,7 +1017,7 @@ export default function ExpensesPage() {
       netBalance: netBal,
       openingBalance: openingBal,
       cumulativeBalance: cumulativeBal,
-      categoryBreakdown: categoryTotals,
+      categoryBreakdown,
     };
   };
 
@@ -1020,16 +1045,17 @@ export default function ExpensesPage() {
       ["Closing / Total Savings Pool (INR):", data.cumulativeBalance],
       ["Savings Rollover Formula:", `Previous (₹${data.openingBalance}) + Current Net (₹${data.netBalance}) = Closing Savings (₹${data.cumulativeBalance})`],
       [],
-      ["CATEGORY SPEND & SHARE BREAKDOWN"],
-      ["Category Name", "Expense Amount (INR)", "% of Total Expenses", "% of Total Income"]
+      ["CATEGORY RECEIVED & EXPENSE BREAKDOWN"],
+      ["Category Name", "Received (INR)", "Expense (INR)", "Net Received − Expense (INR)", "% of Total Expenses"]
     ];
 
     data.categoryBreakdown.forEach((cat) => {
       wsData.push([
         cat.category,
+        cat.received || 0,
         cat.total,
+        cat.net ?? (cat.received || 0) - cat.total,
         `${cat.percentage.toFixed(1)}%`,
-        data.totalIncome > 0 ? `${cat.incomeShare.toFixed(1)}%` : "N/A"
       ]);
     });
 
@@ -1097,7 +1123,7 @@ export default function ExpensesPage() {
     });
 
     const categoryLines = data.categoryBreakdown.map(
-      (c) => `# Category: ${c.category}, Spend: ₹${c.total}, Share: ${c.percentage.toFixed(1)}% of Expenses`
+      (c) => `# Category: ${c.category}, Received: ₹${c.received || 0}, Expense: ₹${c.total}, Net: ₹${c.net ?? (c.received || 0) - c.total}`
     ).join("\n");
 
     const metaComments = [
@@ -1128,7 +1154,9 @@ export default function ExpensesPage() {
     setShowExportDropdown(false);
   };
 
-  const activeCategories = form.type === "Income" ? incomeCategories : expenseCategories;
+  const activeCategories = form.type === "Income"
+    ? Array.from(new Set([...incomeCategories, ...expenseCategories]))
+    : expenseCategories;
 
 
 
@@ -1300,11 +1328,11 @@ export default function ExpensesPage() {
           )}
 
           {/* Grid Overview Cards (Filtered by selected Month & Year, horizontally scrollable on mobile with native momentum) */}
-          <div className="flex overflow-x-auto lg:grid lg:grid-cols-7 gap-3.5 mb-6 pb-3 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none snap-x snap-mandatory touch-pan-x overscroll-x-contain">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3.5 mb-6">
             {/* Income Card */}
             <div
               onClick={() => handleCardFilter("Income", null, "Income")}
-              className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[155px] min-w-[155px] sm:w-auto snap-start mini-3d-card transition-all active:scale-[0.98] ${
+              className={`p-3.5 rounded-xl cursor-pointer min-w-0 mini-3d-card transition-all active:scale-[0.98] ${
                 activeFilter.type === "Income" && !activeFilter.category
                   ? "mini-3d-card-active-income"
                   : ""
@@ -1334,7 +1362,7 @@ export default function ExpensesPage() {
             {/* Expenses Card with Total % of Income */}
             <div
               onClick={() => handleCardFilter("Expense", null, "Expense")}
-              className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[155px] min-w-[155px] sm:w-auto snap-start mini-3d-card transition-all active:scale-[0.98] ${
+              className={`p-3.5 rounded-xl cursor-pointer min-w-0 mini-3d-card transition-all active:scale-[0.98] ${
                 activeFilter.type === "Expense" && !activeFilter.category
                   ? "mini-3d-card-active-expense"
                   : ""
@@ -1369,7 +1397,7 @@ export default function ExpensesPage() {
             {/* Net Savings / Rollover Card */}
             <div
               onClick={() => handleCardFilter(null, null, "All")}
-              className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[170px] min-w-[170px] sm:w-auto snap-start mini-3d-card relative group transition-all active:scale-[0.98] ${
+              className={`p-3.5 rounded-xl cursor-pointer min-w-0 mini-3d-card relative group transition-all active:scale-[0.98] ${
                 !activeFilter.type && !activeFilter.category
                   ? "mini-3d-card-active-savings"
                   : ""
@@ -1422,14 +1450,14 @@ export default function ExpensesPage() {
                 <div
                   key={item.category}
                   onClick={() => handleCardFilter(null, item.category, item.category)}
-                  className={`p-3.5 rounded-xl cursor-pointer flex-shrink-0 w-[170px] min-w-[170px] sm:w-auto snap-start mini-3d-card transition-all active:scale-[0.98] ${
+                  className={`p-3.5 rounded-xl cursor-pointer min-w-0 mini-3d-card transition-all active:scale-[0.98] ${
                     item.isOverBudget ? theme.cardBg : ""
                   } ${
                     activeFilter.category === item.category
                       ? "mini-3d-card-active-category ring-2 ring-indigo-500"
                       : ""
                   }`}
-                  title={`${item.category}: ₹${item.total.toLocaleString()} | ${item.incomeShare.toFixed(1)}% of Monthly Income | Budget: ₹${item.budget.toLocaleString()} ${item.isOverBudget ? `(+${item.overflowPercentage.toFixed(0)}% Over Budget Limit)` : ""}`}
+                  title={`${item.category}: Expense ₹${item.total.toLocaleString()}${item.received > 0 ? ` · Received ₹${item.received.toLocaleString()}` : ""} | Budget: ₹${item.budget.toLocaleString()} ${item.isOverBudget ? `(+${item.overflowPercentage.toFixed(0)}% Over Budget Limit)` : ""}`}
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-[9px] uppercase tracking-widest text-slate-700 dark:text-slate-400 font-bold truncate pr-1">{item.category}</span>
@@ -1448,6 +1476,11 @@ export default function ExpensesPage() {
                   <h3 className={`text-lg font-black font-mono mt-1 ${item.isOverBudget ? "text-red-700 dark:text-red-400" : "mini-3d-card-value text-slate-900 dark:text-slate-100"}`}>
                     ₹{item.total.toLocaleString()}
                   </h3>
+                  {item.received > 0 && (
+                    <p className="text-[8px] font-mono font-bold text-emerald-400 mt-0.5 truncate" title={`Received ₹${item.received.toLocaleString()} · Expense ₹${item.total.toLocaleString()}`}>
+                      Received +₹{item.received.toLocaleString()}
+                    </p>
+                  )}
 
                   {/* Structured 2-line detail for mobile & desktop */}
                   <div className="mt-1.5 pt-1 border-t border-slate-200 dark:border-white/5 space-y-0.5 text-[8px] font-mono">
@@ -2137,7 +2170,10 @@ export default function ExpensesPage() {
                                 <label className="text-[9px] uppercase tracking-wider text-slate-500 font-mono">Category</label>
                                 <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value})}
                                   className="w-full mt-0.5 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50">
-                                  {(editForm.type === "Income" ? incomeCategories : expenseCategories).map(c => <option key={c} value={c}>{c}</option>)}
+                                  {(editForm.type === "Income"
+                                    ? Array.from(new Set([...incomeCategories, ...expenseCategories, editForm.category]))
+                                    : Array.from(new Set([...expenseCategories, editForm.category]))
+                                  ).filter(Boolean).map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                               </div>
                               <div>
@@ -2420,25 +2456,27 @@ export default function ExpensesPage() {
                   {stmtData.categoryBreakdown && stmtData.categoryBreakdown.length > 0 && (
                     <div className="space-y-2">
                       <h4 className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400 light:text-slate-600">
-                        Category Spend & % Share Breakdown
+                        Category Received & Expense Breakdown
                       </h4>
                       <div className="table-print-wrapper overflow-x-auto rounded-xl border border-white/10 light:border-slate-200">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="bg-white/[0.03] light:bg-slate-100 border-b border-white/10 light:border-slate-200 text-[9px] uppercase tracking-wider text-slate-400 light:text-slate-600 font-mono">
                               <th className="py-2 px-3">Category</th>
-                              <th className="py-2 px-3 text-right">Spend Amount (₹)</th>
-                              <th className="py-2 px-3 text-right">% of Total Expenses</th>
-                              <th className="py-2 px-3 text-right">% of Total Income</th>
+                              <th className="py-2 px-3 text-right">Received (₹)</th>
+                              <th className="py-2 px-3 text-right">Expense (₹)</th>
+                              <th className="py-2 px-3 text-right">Net (₹)</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5 light:divide-slate-200 font-mono">
                             {stmtData.categoryBreakdown.map((cat) => (
                               <tr key={cat.category} className="hover:bg-white/[0.02] light:hover:bg-slate-50">
                                 <td className="py-2 px-3 text-slate-200 light:text-slate-900 font-semibold">{cat.category}</td>
+                                <td className="py-2 px-3 text-right text-emerald-400 light:text-emerald-600 font-bold">+₹{(cat.received || 0).toLocaleString()}</td>
                                 <td className="py-2 px-3 text-right text-slate-100 light:text-slate-900 font-bold">₹{cat.total.toLocaleString()}</td>
-                                <td className="py-2 px-3 text-right text-indigo-400 light:text-indigo-600 font-bold">{cat.percentage.toFixed(1)}%</td>
-                                <td className="py-2 px-3 text-right text-slate-400 light:text-slate-600">{stmtData.totalIncome > 0 ? `${cat.incomeShare.toFixed(1)}%` : "N/A"}</td>
+                                <td className={`py-2 px-3 text-right font-bold ${(cat.net ?? (cat.received || 0) - cat.total) >= 0 ? "text-emerald-400 light:text-emerald-600" : "text-red-400 light:text-red-600"}`}>
+                                  ₹{(cat.net ?? (cat.received || 0) - cat.total).toLocaleString()}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
