@@ -804,12 +804,7 @@ export default function ExpensesPage() {
       budgetPercentage,
       overflowPercentage
     };
-  }).filter(item => {
-    const hasHistory = expenses.some(
-      e => (e.type === "Expense" || e.type === "Income") && sameCategory(e.category, item.category)
-    );
-    return item.total > 0 || item.budget > 0 || hasHistory;
-  });
+  }).filter(item => item.total > 0 || item.received > 0);
 
   const overBudgetCategories = categoryTotals.filter(c => c.isOverBudget);
 
