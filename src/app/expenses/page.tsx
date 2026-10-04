@@ -622,12 +622,9 @@ export default function ExpensesPage() {
       setActiveFilter({ type, category, label });
     }
 
-    // Smooth scroll to logs on mobile devices
     setTimeout(() => {
-      if (window.innerWidth < 1024 && logsRef.current) {
-        logsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 100);
+      logsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   // Helper to print correct month/year selection label in elements
@@ -896,6 +893,13 @@ export default function ExpensesPage() {
 
     return true;
   });
+
+  const shownExpense = displayedExpenses
+    .filter((e) => e.type === "Expense")
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const shownIncome = displayedExpenses
+    .filter((e) => e.type === "Income")
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   // Pagination calculations
   const totalPages = Math.ceil(displayedExpenses.length / ITEMS_PER_PAGE);
@@ -1942,7 +1946,7 @@ export default function ExpensesPage() {
             </div>
 
             {/* List Column */}
-            <div ref={logsRef} className="lg:col-span-2">
+            <div ref={logsRef} className="lg:col-span-2 scroll-mt-24">
               <div className="glass-card card-glow-indigo p-6 rounded-2xl border border-white/5 h-full flex flex-col min-h-[400px]">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-200 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <span className="flex items-center gap-2">
@@ -1954,6 +1958,12 @@ export default function ExpensesPage() {
                           Filtered: {activeFilter.label}
                         </span>
                       )}
+                      <span className="text-[8px] text-emerald-300 bg-emerald-950/40 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono font-bold whitespace-nowrap">
+                        Received +₹{shownIncome.toLocaleString()}
+                      </span>
+                      <span className="text-[8px] text-red-300 bg-red-950/40 border border-red-500/20 px-2 py-0.5 rounded-full font-mono font-bold whitespace-nowrap">
+                        Expense ₹{shownExpense.toLocaleString()}
+                      </span>
                       {searchQuery.trim() && (
                         <span className="text-[8px] text-purple-400 bg-purple-950/60 border border-purple-500/20 px-2 py-0.5 rounded-full font-mono font-bold uppercase whitespace-nowrap">
                           Search: &quot;{searchQuery.trim()}&quot;
@@ -2475,6 +2485,16 @@ export default function ExpensesPage() {
                               </tr>
                             ))}
                           </tbody>
+                          <tfoot>
+                            <tr className="bg-white/[0.03] light:bg-slate-100 border-t border-white/10 light:border-slate-200 font-mono font-black">
+                              <td className="py-2 px-3 text-slate-200 light:text-slate-900">Total</td>
+                              <td className="py-2 px-3 text-right text-emerald-400 light:text-emerald-600">+₹{stmtData.totalIncome.toLocaleString()}</td>
+                              <td className="py-2 px-3 text-right text-slate-100 light:text-slate-900">₹{stmtData.totalExpense.toLocaleString()}</td>
+                              <td className={`py-2 px-3 text-right ${stmtData.netBalance >= 0 ? "text-emerald-400 light:text-emerald-600" : "text-red-400 light:text-red-600"}`}>
+                                ₹{stmtData.netBalance.toLocaleString()}
+                              </td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     </div>
