@@ -7,9 +7,14 @@ import { AmountPeriodEditor, PfPeriodEditor } from "@/components/DeductionPeriod
 import {
   accumulateAmounts,
   accumulatePf,
+  currentYearMonth,
+  explainAmounts,
+  explainPf,
+  formatYearMonth,
   normalizeWealthSettings,
   resolveViewEnd,
   toMonthIndex,
+  type ScheduleSlice,
   type WealthSettings,
 } from "@/lib/deductionSchedule";
 import * as XLSX from "xlsx";
@@ -20,6 +25,162 @@ import {
   PieChart, Percent, Info, Layers, ArrowRight, Shield, Coins, Building,
   AlertTriangle, SlidersHorizontal, Landmark, PiggyBank, Settings2
 } from "lucide-react";
+
+function WealthSliceTable({
+  mode,
+  slices,
+  opening,
+  empty,
+}: {
+  mode: "pf" | "amount";
+  slices: ScheduleSlice[];
+  opening: number;
+  empty: string;
+}) {
+  if (!slices.length && opening <= 0) {
+    return <p className="text-xs font-mono text-slate-500">{empty}</p>;
+  }
+  const rangeTotal = slices.reduce((sum, slice) => sum + slice.total, 0) + opening;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] text-left text-[10px] font-mono">
+        <thead>
+          <tr className="text-[8px] uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-white/10">
+            <th className="py-2 pr-2 font-bold">From</th>
+            <th className="py-2 pr-2 font-bold">Till</th>
+            {mode === "pf" && <th className="py-2 pr-2 font-bold">You / mo</th>}
+            {mode === "pf" && <th className="py-2 pr-2 font-bold">Company / mo</th>}
+            <th className="py-2 pr-2 font-bold">{mode === "pf" ? "Sum / mo" : "₹ / mo"}</th>
+            <th className="py-2 pr-2 font-bold">Months</th>
+            <th className="py-2 font-bold text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {opening > 0 && (
+            <tr className="border-b border-slate-100 dark:border-white/5 text-slate-700 dark:text-slate-300">
+              <td className="py-2 pr-2" colSpan={mode === "pf" ? 6 : 4}>Opening PF balance</td>
+              <td className="py-2 text-right font-bold">₹{opening.toLocaleString()}</td>
+            </tr>
+          )}
+          {slices.map((slice) => (
+            <tr key={`${slice.from}-${slice.monthly}`} className="border-b border-slate-100 dark:border-white/5 text-slate-800 dark:text-slate-200">
+              <td className="py-2 pr-2">{formatYearMonth(slice.from)}</td>
+              <td className="py-2 pr-2">{formatYearMonth(slice.to)}</td>
+              {mode === "pf" && <td className="py-2 pr-2">₹{slice.employee.toLocaleString()}</td>}
+              {mode === "pf" && <td className="py-2 pr-2">₹{slice.employer.toLocaleString()}</td>}
+              <td className="py-2 pr-2 text-teal-700 dark:text-teal-300 font-bold">
+                {mode === "pf"
+                  ? `₹${slice.employee.toLocaleString()} + ₹${slice.employer.toLocaleString()} = ₹${slice.monthly.toLocaleString()}`
+                  : `₹${slice.monthly.toLocaleString()}`}
+              </td>
+              <td className="py-2 pr-2">{slice.months}</td>
+              <td className="py-2 text-right font-bold">₹{slice.total.toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="text-slate-900 dark:text-slate-100">
+            <td className="pt-2 font-black uppercase" colSpan={mode === "pf" ? 6 : 4}>Sum for this range</td>
+            <td className="pt-2 text-right font-black">₹{rangeTotal.toLocaleString()}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+function LedgerWindowTable({
+  card,
+  expenses,
+  from,
+  to,
+  parseTxDate,
+}: {
+  card: "sip" | "savings";
+  expenses: any[];
+  from: string;
+  to: string;
+  parseTxDate: (dateVal: any) => { dateStr: string };
+}) {
+  const buckets = new Map<string, { income: number; expense: number; sip: number; sipCount: number }>();
+  expenses.forEach((exp) => {
+    const ym = parseTxDate(exp.date).dateStr.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(ym) || ym < from || ym > to) return;
+    const bucket = buckets.get(ym) || { income: 0, expense: 0, sip: 0, sipCount: 0 };
+    const amount = Number(exp.amount) || 0;
+    const blob = `${exp.category || ""} ${exp.description || ""}`.toLowerCase();
+    if (exp.type === "Income") bucket.income += amount;
+    if (exp.type === "Expense") {
+      bucket.expense += amount;
+      if (blob.includes("sip") || blob.includes("mutual")) {
+        bucket.sip += amount;
+        bucket.sipCount += 1;
+      }
+    }
+    buckets.set(ym, bucket);
+  });
+  const rows = [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .filter(([, bucket]) => (card === "sip" ? bucket.sip > 0 : bucket.income > 0 || bucket.expense > 0));
+  if (!rows.length) {
+    return <p className="text-xs font-mono text-slate-500">Nothing logged between these months.</p>;
+  }
+  const sipTotal = rows.reduce((sum, [, bucket]) => sum + bucket.sip, 0);
+  const incomeTotal = rows.reduce((sum, [, bucket]) => sum + bucket.income, 0);
+  const expenseTotal = rows.reduce((sum, [, bucket]) => sum + bucket.expense, 0);
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[480px] text-left text-[10px] font-mono">
+        <thead>
+          <tr className="text-[8px] uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-white/10">
+            <th className="py-2 pr-2 font-bold">Month</th>
+            {card === "sip" ? (
+              <>
+                <th className="py-2 pr-2 font-bold">Entries</th>
+                <th className="py-2 font-bold text-right">SIP sum</th>
+              </>
+            ) : (
+              <>
+                <th className="py-2 pr-2 font-bold">Income</th>
+                <th className="py-2 pr-2 font-bold">Expense</th>
+                <th className="py-2 font-bold text-right">Net</th>
+              </>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([ym, bucket]) => (
+            <tr key={ym} className="border-b border-slate-100 dark:border-white/5 text-slate-800 dark:text-slate-200">
+              <td className="py-2 pr-2">{formatYearMonth(ym)}</td>
+              {card === "sip" ? (
+                <>
+                  <td className="py-2 pr-2">{bucket.sipCount}</td>
+                  <td className="py-2 text-right font-bold">₹{bucket.sip.toLocaleString()}</td>
+                </>
+              ) : (
+                <>
+                  <td className="py-2 pr-2">₹{bucket.income.toLocaleString()}</td>
+                  <td className="py-2 pr-2">₹{bucket.expense.toLocaleString()}</td>
+                  <td className={`py-2 text-right font-bold ${bucket.income - bucket.expense >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                    ₹{(bucket.income - bucket.expense).toLocaleString()}
+                  </td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="text-slate-900 dark:text-slate-100">
+            <td className="pt-2 font-black uppercase" colSpan={card === "sip" ? 2 : 3}>Sum for this range</td>
+            <td className="pt-2 text-right font-black">
+              ₹{(card === "sip" ? sipTotal : incomeTotal - expenseTotal).toLocaleString()}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
 
 export default function ExpensesPage() {
   const { data: session } = useSession();
@@ -53,6 +214,10 @@ export default function ExpensesPage() {
   const [pfSettings, setPfSettings] = useState<WealthSettings>(() => normalizeWealthSettings({}, false));
   const [showPfModal, setShowPfModal] = useState(false);
   const [pfForm, setPfForm] = useState<WealthSettings>(() => normalizeWealthSettings({}, false));
+  const [openWealthCard, setOpenWealthCard] = useState<"savings" | "sip" | "pf" | "health" | "term" | null>(null);
+  const [wealthFrom, setWealthFrom] = useState(currentYearMonth());
+  const [wealthTo, setWealthTo] = useState(currentYearMonth());
+  const wealthDetailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -791,6 +956,40 @@ export default function ExpensesPage() {
 
   // Total Net Worth = Liquid Net Savings + Lifetime SIP + Accumulated PF Corpus
   const totalNetWorth = newSavingBalance + lifetimeSIP + totalAccumulatedPF;
+  const viewTill = `${wealthViewEnd.year}-${String(wealthViewEnd.monthIndex + 1).padStart(2, "0")}`;
+  const wealthRangeInvalid =
+    toMonthIndex(wealthFrom) != null &&
+    toMonthIndex(wealthTo) != null &&
+    (toMonthIndex(wealthTo) as number) < (toMonthIndex(wealthFrom) as number);
+  const pfSlices = pfSettings.enabled ? explainPf(pfSettings.pfPeriods, wealthFrom, wealthTo) : [];
+  const healthSlices = pfSettings.enabled ? explainAmounts(pfSettings.healthPeriods, wealthFrom, wealthTo) : [];
+  const termSlices = explainAmounts(pfSettings.termPeriods, wealthFrom, wealthTo);
+
+  const openWealthDetail = (card: "savings" | "sip" | "pf" | "health" | "term") => {
+    if (openWealthCard === card) {
+      setOpenWealthCard(null);
+      return;
+    }
+    const preset =
+      card === "pf" ? pfSettings.pfPeriods[0]?.from
+      : card === "health" ? pfSettings.healthPeriods[0]?.from
+      : card === "term" ? pfSettings.termPeriods[0]?.from
+      : "";
+    let from = preset || "";
+    if (!from) {
+      const earliest = expenses
+        .map((exp) => parseTxDate(exp.date).dateStr.slice(0, 7))
+        .filter((ym) => /^\d{4}-\d{2}$/.test(ym))
+        .sort()[0];
+      from = earliest || viewTill;
+    }
+    setWealthFrom(from);
+    setWealthTo(viewTill);
+    setOpenWealthCard(card);
+    window.setTimeout(() => {
+      wealthDetailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 40);
+  };
 
   // 3. Filter displayed logs based on active card filters & live search
   const displayedExpenses = monthlyExpenses.filter((exp) => {
@@ -1454,7 +1653,7 @@ export default function ExpensesPage() {
                     </span>
                   </h3>
                   <p className="text-[10px] text-slate-600 dark:text-slate-400">
-                    Track long-term wealth: SIP, PF, health, and term insurance. Each deduction can change by date.
+                    Click a card to check its amount from one month to another. PF shows your share plus the company share, then the sum.
                   </p>
                 </div>
               </div>
@@ -1473,7 +1672,13 @@ export default function ExpensesPage() {
             {/* 4 Wealth Pillars Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               {/* Cumulative Net Savings */}
-              <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-500/20 flex flex-col justify-between">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => openWealthDetail("savings")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWealthDetail("savings"); } }}
+                className={`p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/20 border flex flex-col justify-between cursor-pointer ${openWealthCard === "savings" ? "border-purple-400 ring-2 ring-purple-400/60" : "border-purple-200 dark:border-purple-500/20"}`}
+              >
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-purple-800 dark:text-purple-400 flex items-center gap-1">
@@ -1499,7 +1704,13 @@ export default function ExpensesPage() {
               </div>
 
               {/* SIP & Mutual Funds */}
-              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 flex flex-col justify-between">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => openWealthDetail("sip")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWealthDetail("sip"); } }}
+                className={`p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border flex flex-col justify-between cursor-pointer ${openWealthCard === "sip" ? "border-emerald-400 ring-2 ring-emerald-400/60" : "border-emerald-200 dark:border-emerald-500/20"}`}
+              >
                 <div>
                   <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-800 dark:text-emerald-400 flex items-center gap-1">
                     <TrendingUp size={11} />
@@ -1515,11 +1726,17 @@ export default function ExpensesPage() {
               </div>
 
               {/* Provident Fund (PF / EPF) - Dynamic & Opt-In */}
-              <div className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => openWealthDetail("pf")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWealthDetail("pf"); } }}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer ${
                 pfSettings.enabled
                   ? "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-500/20"
                   : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-80"
-              }`}>
+              } ${openWealthCard === "pf" ? "ring-2 ring-indigo-400/70" : ""}`}
+              >
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-800 dark:text-indigo-400 flex items-center gap-1">
@@ -1542,11 +1759,11 @@ export default function ExpensesPage() {
                 </div>
                 <p className="text-[8px] font-mono text-slate-600 dark:text-slate-400 mt-2">
                   {pfSettings.enabled ? (
-                    `₹${pfAccumulation.currentEmployee.toLocaleString()} (You) + ₹${pfAccumulation.currentEmployer.toLocaleString()} (Co.) this month · ${activePfMonths} mos tracked`
+                    `₹${pfAccumulation.currentEmployee.toLocaleString()} + ₹${pfAccumulation.currentEmployer.toLocaleString()} = ₹${monthlyTotalPF.toLocaleString()}/mo · ${activePfMonths} mos`
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setShowPfModal(true)}
+                      onClick={(e) => { e.stopPropagation(); setShowPfModal(true); }}
                       className="text-teal-700 dark:text-teal-400 hover:underline cursor-pointer font-bold"
                     >
                       + Turn on PF tracking
@@ -1556,11 +1773,17 @@ export default function ExpensesPage() {
               </div>
 
               {/* Health Insurance Deduction */}
-              <div className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => openWealthDetail("health")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWealthDetail("health"); } }}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer ${
                 pfSettings.enabled && healthAccumulation.total > 0
                   ? "bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-500/20"
                   : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-80"
-              }`}>
+              } ${openWealthCard === "health" ? "ring-2 ring-cyan-400/70" : ""}`}
+              >
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-cyan-800 dark:text-cyan-400 flex items-center gap-1">
@@ -1589,7 +1812,7 @@ export default function ExpensesPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setShowPfModal(true)}
+                      onClick={(e) => { e.stopPropagation(); setShowPfModal(true); }}
                       className="text-teal-700 dark:text-teal-400 hover:underline cursor-pointer font-bold"
                     >
                       + Turn on GMC deduction
@@ -1599,11 +1822,17 @@ export default function ExpensesPage() {
               </div>
 
               {/* Term Insurance */}
-              <div className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => openWealthDetail("term")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWealthDetail("term"); } }}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer ${
                 termAccumulation.total > 0
                   ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-500/20"
                   : "bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-80"
-              }`}>
+              } ${openWealthCard === "term" ? "ring-2 ring-amber-400/70" : ""}`}
+              >
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-amber-800 dark:text-amber-400 flex items-center gap-1">
@@ -1630,7 +1859,7 @@ export default function ExpensesPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setShowPfModal(true)}
+                      onClick={(e) => { e.stopPropagation(); setShowPfModal(true); }}
                       className="text-teal-700 dark:text-teal-400 hover:underline cursor-pointer font-bold"
                     >
                       + Set term premium dates
@@ -1639,6 +1868,64 @@ export default function ExpensesPage() {
                 </p>
               </div>
             </div>
+
+            {openWealthCard && (
+              <div ref={wealthDetailRef} className="scroll-mt-24 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3.5 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                      {openWealthCard === "pf" && "Provident Fund details"}
+                      {openWealthCard === "health" && "Health insurance details"}
+                      {openWealthCard === "term" && "Term insurance details"}
+                      {openWealthCard === "sip" && "SIP & mutual fund details"}
+                      {openWealthCard === "savings" && "Net savings details"}
+                    </h4>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Choose a from month and a till month. Each row is one rate, with its monthly sum and the total for those months.</p>
+                  </div>
+                  <button type="button" onClick={() => setOpenWealthCard(null)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-200 cursor-pointer" title="Close details">
+                    <X size={14} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 max-w-md">
+                  <label className="space-y-1">
+                    <span className="text-[8px] uppercase tracking-wider text-slate-500">From</span>
+                    <input type="month" value={wealthFrom} onChange={(e) => setWealthFrom(e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl py-2 px-2 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none" />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[8px] uppercase tracking-wider text-slate-500">Till</span>
+                    <input type="month" value={wealthTo} onChange={(e) => setWealthTo(e.target.value)} className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl py-2 px-2 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 outline-none" />
+                  </label>
+                </div>
+
+                {wealthRangeInvalid ? (
+                  <p className="text-xs text-red-400 font-mono">Till is before From. Pick an end month on or after the start month.</p>
+                ) : openWealthCard === "pf" ? (
+                  <WealthSliceTable
+                    mode="pf"
+                    slices={pfSlices}
+                    opening={
+                      (Number(pfSettings.initialCorpus) || 0) > 0 && wealthFrom <= (pfSettings.pfPeriods[0]?.from || wealthFrom)
+                        ? Number(pfSettings.initialCorpus) || 0
+                        : 0
+                    }
+                    empty="No PF deduction in this range. Turn tracking on and set the dates in Configure."
+                  />
+                ) : openWealthCard === "health" ? (
+                  <WealthSliceTable mode="amount" slices={healthSlices} opening={0} empty="No health deduction in this range." />
+                ) : openWealthCard === "term" ? (
+                  <WealthSliceTable mode="amount" slices={termSlices} opening={0} empty="No term premium in this range. Add the premium dates in Configure." />
+                ) : (
+                  <LedgerWindowTable
+                    card={openWealthCard}
+                    expenses={expenses}
+                    from={wealthFrom}
+                    to={wealthTo}
+                    parseTxDate={parseTxDate}
+                  />
+                )}
+              </div>
+            )}
           </div>
           {/* ── Visual Category & Share Allocation Bar & Rolling Savings Info Banner ── */}
           <div className="glass-card p-5 rounded-2xl border border-white/5 mb-8 space-y-4">

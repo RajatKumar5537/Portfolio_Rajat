@@ -240,3 +240,93 @@ export function currentYearMonth(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+export function formatYearMonth(ym: string): string {
+  const index = toMonthIndex(ym);
+  if (index == null) return ym ? ym : "Ongoing";
+  const year = Math.floor(index / 12);
+  const month = index % 12;
+  return `${MONTH_NAMES[month]} ${year}`;
+}
+
+export function indexToYearMonth(index: number): string {
+  const year = Math.floor(index / 12);
+  const month = (index % 12) + 1;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+export type ScheduleSlice = {
+  from: string;
+  to: string;
+  months: number;
+  monthly: number;
+  employee: number;
+  employer: number;
+  total: number;
+};
+
+function explainRows<T extends { from: string; to: string }>(
+  rows: T[],
+  fromYm: string,
+  toYm: string,
+  pick: (row: T | null) => { employee: number; employer: number; monthly: number }
+): ScheduleSlice[] {
+  if (!rows.length) return [];
+  const scheduleStart = Math.min(
+    ...rows.map((row) => toMonthIndex(row.from) ?? Number.POSITIVE_INFINITY)
+  );
+  if (!Number.isFinite(scheduleStart)) return [];
+  const requestedStart = toMonthIndex(fromYm) ?? scheduleStart;
+  const requestedEnd = toMonthIndex(toYm);
+  if (requestedEnd == null || requestedEnd < Math.max(scheduleStart, requestedStart)) return [];
+
+  const slices: ScheduleSlice[] = [];
+  for (let index = Math.max(scheduleStart, requestedStart); index <= requestedEnd; index += 1) {
+    const picked = pick(rateAt(rows, index));
+    if (picked.monthly <= 0) continue;
+    const ym = indexToYearMonth(index);
+    const prev = slices[slices.length - 1];
+    const continues =
+      prev &&
+      prev.employee === picked.employee &&
+      prev.employer === picked.employer &&
+      prev.monthly === picked.monthly &&
+      toMonthIndex(prev.to) === index - 1;
+    if (continues && prev) {
+      prev.to = ym;
+      prev.months += 1;
+      prev.total += picked.monthly;
+    } else {
+      slices.push({
+        from: ym,
+        to: ym,
+        months: 1,
+        monthly: picked.monthly,
+        employee: picked.employee,
+        employer: picked.employer,
+        total: picked.monthly,
+      });
+    }
+  }
+  return slices;
+}
+
+export function explainPf(periods: PfPeriod[], fromYm: string, toYm: string): ScheduleSlice[] {
+  return explainRows(sanitizePf(periods), fromYm, toYm, (row) => {
+    const employee = row && "employee" in row ? row.employee || 0 : 0;
+    const employer = row && "employer" in row ? row.employer || 0 : 0;
+    return { employee, employer, monthly: employee + employer };
+  });
+}
+
+export function explainAmounts(periods: AmountPeriod[], fromYm: string, toYm: string): ScheduleSlice[] {
+  return explainRows(sanitizeAmount(periods), fromYm, toYm, (row) => {
+    const monthly = row && "amount" in row ? row.amount || 0 : 0;
+    return { employee: 0, employer: 0, monthly };
+  });
+}

@@ -83,7 +83,7 @@ export function PfPeriodEditor({
     >
       {rows.length === 0 && <p className="text-[10px] text-slate-500">No PF range yet.</p>}
       {rows.map((row, index) => (
-        <div key={`${row.from}-${index}`} className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_0.7fr_0.7fr_auto] gap-2 items-end">
+        <div key={`${row.from}-${index}`} className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_0.7fr_0.7fr_0.7fr_auto] gap-2 items-end">
           <label className="space-y-1">
             <span className="text-[8px] uppercase tracking-wider text-slate-500">From</span>
             <input type="month" value={row.from} onChange={(e) => update(index, { from: e.target.value })} className={fieldClass} required />
@@ -100,6 +100,15 @@ export function PfPeriodEditor({
             <span className="text-[8px] uppercase tracking-wider text-slate-500">Company / mo</span>
             <input type="number" min="0" value={row.employer || ""} onChange={(e) => update(index, { employer: Number(e.target.value) || 0 })} className={fieldClass} />
           </label>
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <span className="text-[8px] uppercase tracking-wider text-slate-500">Sum / mo</span>
+            <div className={`${fieldClass} text-teal-700 dark:text-teal-300`}>
+              ₹{((Number(row.employee) || 0) + (Number(row.employer) || 0)).toLocaleString()}
+              <span className="block text-[8px] font-semibold text-slate-500">
+                ₹{(Number(row.employee) || 0).toLocaleString()} + ₹{(Number(row.employer) || 0).toLocaleString()}
+              </span>
+            </div>
+          </div>
           <button type="button" onClick={() => onChange(rows.filter((_, i) => i !== index))} className="p-2 rounded-xl text-slate-400 hover:text-red-400 cursor-pointer" title="Remove range">
             <Trash2 size={14} />
           </button>
