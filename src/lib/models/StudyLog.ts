@@ -43,6 +43,8 @@ const StudyLogSchema = new Schema(
   }
 );
 
+StudyLogSchema.index({ userId: 1, date: -1 });
+
 const StudyLog = models.StudyLog || model("StudyLog", StudyLogSchema);
 
 export default StudyLog;

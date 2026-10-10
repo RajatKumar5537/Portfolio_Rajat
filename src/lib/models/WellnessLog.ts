@@ -37,6 +37,8 @@ const WellnessLogSchema = new Schema(
   }
 );
 
+WellnessLogSchema.index({ userId: 1, date: -1 });
+
 const WellnessLog = models.WellnessLog || model("WellnessLog", WellnessLogSchema);
 
 export default WellnessLog;

@@ -55,6 +55,8 @@ const ExpenseSchema = new Schema(
   }
 );
 
+ExpenseSchema.index({ userId: 1, date: -1 });
+
 // Mongoose cache caching to prevent model re-compilation
 const Expense = models.Expense || model("Expense", ExpenseSchema);
 

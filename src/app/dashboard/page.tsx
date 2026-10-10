@@ -22,8 +22,12 @@ export default function DashboardPage() {
     studyLogs: [] as any[],
     foodLogs: [] as any[],
     wellnessLogs: [] as any[],
+    streakLogs: [] as any[],
+    years: [] as number[],
+    previousBalance: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -92,11 +96,24 @@ export default function DashboardPage() {
     fetchDbSettings();
   }, [session]);
 
-  // Fetch all user records from the optimized consolidated API endpoint
+  // Load only the selected period. The full ledger stays on the expenses page.
   useEffect(() => {
+    const controller = new AbortController();
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const params = new URLSearchParams({
+      month: String(selectedMonth),
+      year: String(selectedYear),
+      tz: String(now.getTimezoneOffset()),
+      today,
+      nowYear: String(now.getFullYear()),
+    });
+    if (selectedDate) params.set("date", selectedDate);
+
     async function fetchDashboardData() {
+      setRefreshing(true);
       try {
-        const res = await fetch("/api/dashboard");
+        const res = await fetch(`/api/dashboard?${params}`, { signal: controller.signal });
         if (res.ok) {
           const result = await res.json();
           setData({
@@ -104,24 +121,29 @@ export default function DashboardPage() {
             studyLogs: Array.isArray(result.studyLogs) ? result.studyLogs : [],
             foodLogs: Array.isArray(result.foodLogs) ? result.foodLogs : [],
             wellnessLogs: Array.isArray(result.wellnessLogs) ? result.wellnessLogs : [],
+            streakLogs: Array.isArray(result.streakLogs) ? result.streakLogs : [],
+            years: Array.isArray(result.years) ? result.years.filter((year: unknown) => typeof year === "number") : [],
+            previousBalance: Number(result.previousBalance) || 0,
           });
         }
       } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return;
         console.error("Dashboard Fetch Error:", err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
 
     fetchDashboardData();
-  }, []);
+    return () => controller.abort();
+  }, [selectedMonth, selectedYear, selectedDate]);
 
   // Generate dynamic list of years based on recorded transaction history
   const availableYears = Array.from(
-    new Set([
-      new Date().getFullYear(),
-      ...data.expenses.map((e) => new Date(e.date).getFullYear())
-    ])
+    new Set([new Date().getFullYear(), ...data.years])
   ).sort((a, b) => b - a);
 
   const months = [
@@ -248,29 +270,7 @@ export default function DashboardPage() {
   const totalIncome = filteredTransactions.filter(e => e.type === "Income").reduce((acc, curr) => acc + curr.amount, 0);
   const netSavings = totalIncome - totalExpenses;
 
-  // Calculate prior month/period net savings to carry forward into the active period
-  let previousBalance = 0;
-  if (selectedDate) {
-    const prevTx = data.expenses.filter((exp) => parseTxDate(exp.date).dateStr < selectedDate);
-    const pInc = prevTx.filter(e => e.type === "Income").reduce((a, c) => a + (Number(c.amount) || 0), 0);
-    const pExp = prevTx.filter(e => e.type === "Expense").reduce((a, c) => a + (Number(c.amount) || 0), 0);
-    previousBalance = pInc - pExp;
-  } else if (selectedMonth !== -1) {
-    const prevMonthNum = selectedMonth === 0 ? 11 : selectedMonth - 1;
-    const prevMonthYear = selectedMonth === 0 ? (selectedYear === -1 ? new Date().getFullYear() - 1 : selectedYear - 1) : (selectedYear === -1 ? new Date().getFullYear() : selectedYear);
-    const prevTx = data.expenses.filter((exp) => {
-      const tx = parseTxDate(exp.date);
-      return tx.month === prevMonthNum && tx.year === prevMonthYear;
-    });
-    const pInc = prevTx.filter(e => e.type === "Income").reduce((a, c) => a + (Number(c.amount) || 0), 0);
-    const pExp = prevTx.filter(e => e.type === "Expense").reduce((a, c) => a + (Number(c.amount) || 0), 0);
-    previousBalance = pInc - pExp;
-  } else if (selectedYear !== -1) {
-    const prevTx = data.expenses.filter((exp) => parseTxDate(exp.date).year === selectedYear - 1);
-    const pInc = prevTx.filter(e => e.type === "Income").reduce((a, c) => a + (Number(c.amount) || 0), 0);
-    const pExp = prevTx.filter(e => e.type === "Expense").reduce((a, c) => a + (Number(c.amount) || 0), 0);
-    previousBalance = pInc - pExp;
-  }
+  const previousBalance = data.previousBalance;
   const currentPeriodNet = totalIncome - totalExpenses;
   const cumulativeSavings = previousBalance + currentPeriodNet;
 
@@ -383,10 +383,11 @@ export default function DashboardPage() {
 
   // Study Streak Calculation (remains dynamic for current overall active days)
   const calculateStreak = (): number => {
-    if (data.studyLogs.length === 0) return 0;
+    const streakSource = data.streakLogs.length ? data.streakLogs : data.studyLogs;
+    if (streakSource.length === 0) return 0;
     
     const completedDates = new Set(
-      data.studyLogs
+      streakSource
         .filter((t) => t.status === "completed" || (t.completed && t.status !== "todo" && t.status !== "in_progress"))
         .map((t) => new Date(t.date).toDateString())
     );
@@ -423,11 +424,14 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#030308] flex flex-col justify-between">
-        <div className="flex-grow flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 size={24} className="text-indigo-500 animate-spin" />
-            <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">Loading Stats Hub...</p>
+      <div className="relative min-h-screen bg-[#030308] flex flex-col justify-between">
+        <div className="relative z-10 flex flex-col flex-grow">
+          <Navigation />
+          <div className="flex-grow flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 size={24} className="text-indigo-500 animate-spin" />
+              <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">Loading Stats Hub...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -445,7 +449,10 @@ export default function DashboardPage() {
           {/* Header & Month Selector */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">Command Center</h2>
+              <h2 className="page-heading text-xl font-black uppercase tracking-widest text-slate-900 dark:text-slate-200">
+                Command Center
+                {refreshing && <Loader2 size={14} className="inline ml-2 text-indigo-400 animate-spin" />}
+              </h2>
               <p className="page-subheading text-xs text-slate-500 uppercase tracking-wider mt-0.5">Aggregate status reports across system scopes</p>
             </div>
 

@@ -77,6 +77,8 @@ const FoodLogSchema = new Schema(
   }
 );
 
+FoodLogSchema.index({ userId: 1, date: -1 });
+
 // Auto-calculate protein before saving the document
 FoodLogSchema.pre("validate", function (next) {
   if (this.portionGrams !== undefined && this.proteinPer100g !== undefined) {
