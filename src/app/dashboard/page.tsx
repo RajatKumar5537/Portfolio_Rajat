@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Navigation from "@/components/Navigation";
+import { accumulatePf, normalizeWealthSettings, resolveViewEnd, type WealthSettings } from "@/lib/deductionSchedule";
 import {
   BookOpen, CreditCard, Apple, ArrowUpRight, TrendingUp, Sparkles, Flame,
   PlusCircle, Loader2, Wallet, FileUp, ChevronLeft, ChevronRight, Plus,
@@ -29,14 +30,7 @@ export default function DashboardPage() {
 
   // Category Budgets & PF Settings (loaded from localStorage scoped per user)
   const [categoryBudgets, setCategoryBudgets] = useState<{ [key: string]: number }>({});
-  const [pfSettings, setPfSettings] = useState({
-    enabled: false,
-    employeeContribution: 0,
-    employerContribution: 0,
-    healthInsuranceDeduction: 0,
-    initialCorpus: 0,
-    startMonth: "2024-10",
-  });
+  const [pfSettings, setPfSettings] = useState<WealthSettings>(() => normalizeWealthSettings({}, false));
 
   useEffect(() => {
     if (!session?.user) return;
@@ -65,26 +59,10 @@ export default function DashboardPage() {
     const savedPf = localStorage.getItem(pfKey);
     if (savedPf) {
       try {
-        const parsed = JSON.parse(savedPf);
-        setPfSettings({
-          enabled: parsed.enabled ?? isRajatUser,
-          employeeContribution: Number(parsed.employeeContribution) || (isRajatUser ? 1800 : 0),
-          employerContribution: Number(parsed.employerContribution) || (isRajatUser ? 1800 : 0),
-          healthInsuranceDeduction: Number(parsed.healthInsuranceDeduction) || (isRajatUser ? 505 : 0),
-          initialCorpus: Number(parsed.initialCorpus) || 0,
-          startMonth: parsed.startMonth || "2024-10",
-        });
+        setPfSettings(normalizeWealthSettings(JSON.parse(savedPf), isRajatUser));
       } catch {}
-    } else {
-      const defaultPf = {
-        enabled: isRajatUser,
-        employeeContribution: isRajatUser ? 1800 : 0,
-        employerContribution: isRajatUser ? 1800 : 0,
-        healthInsuranceDeduction: isRajatUser ? 505 : 0,
-        initialCorpus: 0,
-        startMonth: "2024-10",
-      };
-      setPfSettings(defaultPf);
+    } else if (isRajatUser) {
+      setPfSettings(normalizeWealthSettings({ enabled: true, startMonth: "2024-10" }, true));
     }
 
     // Synchronize authoritative settings from MongoDB
@@ -94,15 +72,10 @@ export default function DashboardPage() {
         if (res.ok) {
           const dbData = await res.json();
           if (dbData.pfSettings) {
-            const isEnabled = Boolean(dbData.pfSettings.enabled ?? isRajatUser);
-            const normalizedPf = {
-              enabled: isEnabled,
-              employeeContribution: Number(dbData.pfSettings.employeeContribution) || (isRajatUser ? 1800 : 0),
-              employerContribution: Number(dbData.pfSettings.employerContribution) || (isRajatUser ? 1800 : 0),
-              healthInsuranceDeduction: Number(dbData.pfSettings.healthInsuranceDeduction) || (isRajatUser ? 505 : 0),
-              initialCorpus: Number(dbData.pfSettings.initialCorpus) || 0,
-              startMonth: dbData.pfSettings.startMonth || "2024-10",
-            };
+            const normalizedPf = normalizeWealthSettings(
+              { ...dbData.pfSettings, enabled: dbData.pfSettings.enabled ?? isRajatUser },
+              isRajatUser
+            );
             setPfSettings(normalizedPf);
             localStorage.setItem(pfKey, JSON.stringify(normalizedPf));
           }
@@ -337,47 +310,13 @@ export default function DashboardPage() {
     .filter(e => (e.category === "Term Insurance" || e.category === "Health Insurance" || e.category?.toLowerCase()?.includes("insurance") || e.category?.toLowerCase()?.includes("health") || e.category?.toLowerCase()?.includes("medical") || e.category?.toLowerCase()?.includes("gmc")) && e.type === "Expense")
     .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  const monthlyTotalPF = pfSettings.enabled
-    ? (Number(pfSettings.employeeContribution) || 0) + (Number(pfSettings.employerContribution) || 0)
-    : 0;
-
-  const calculateActivePfMonths = () => {
-    if (!pfSettings.enabled) return 0;
-    try {
-      const [pfStartYear, pfStartM] = (pfSettings.startMonth || "2024-10").split("-").map(Number);
-      const startTotalMonths = (pfStartYear || 2024) * 12 + (pfStartM ? pfStartM - 1 : 0);
-
-      let targetYear = new Date().getFullYear();
-      let targetMonth = new Date().getMonth();
-
-      if (selectedDate) {
-        const parts = selectedDate.split("-").map(Number);
-        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-          targetYear = parts[0];
-          targetMonth = parts[1] - 1;
-        }
-      } else {
-        if (selectedYear !== -1) {
-          targetYear = selectedYear;
-        }
-        if (selectedMonth !== -1) {
-          targetMonth = selectedMonth;
-        } else if (selectedYear !== -1 && selectedYear < new Date().getFullYear()) {
-          targetMonth = 11;
-        }
-      }
-
-      const targetTotalMonths = targetYear * 12 + targetMonth;
-      const monthsDiff = targetTotalMonths - startTotalMonths + 1;
-      return Math.max(0, monthsDiff);
-    } catch {
-      return 0;
-    }
-  };
-
-  const activePfMonths = calculateActivePfMonths();
+  const wealthViewEnd = resolveViewEnd({ selectedMonth, selectedYear, selectedDate });
+  const pfAccumulation = pfSettings.enabled
+    ? accumulatePf(pfSettings.pfPeriods, wealthViewEnd.year, wealthViewEnd.monthIndex)
+    : { total: 0, months: 0, current: 0, currentEmployee: 0, currentEmployer: 0 };
+  const activePfMonths = pfAccumulation.months;
   const totalAccumulatedPF = pfSettings.enabled
-    ? (Number(pfSettings.initialCorpus) || 0) + (monthlyTotalPF * activePfMonths)
+    ? pfAccumulation.total + (Number(pfSettings.initialCorpus) || 0)
     : 0;
 
   const topExpenseCategories = Array.from(
@@ -650,7 +589,7 @@ export default function DashboardPage() {
                 key: "pf",
                 label: "Provident Fund (PF)",
                 value: `₹${totalAccumulatedPF.toLocaleString()}`,
-                sub: `₹${pfSettings.employeeContribution} (You) + ₹${pfSettings.employerContribution} (Co.) × ${activePfMonths} mos`,
+                sub: `₹${pfAccumulation.currentEmployee.toLocaleString()} (You) + ₹${pfAccumulation.currentEmployer.toLocaleString()} (Co.) this month · ${activePfMonths} mos`,
                 badge: "Retirement",
                 color: "text-teal-700 dark:text-teal-400"
               }] : []),
